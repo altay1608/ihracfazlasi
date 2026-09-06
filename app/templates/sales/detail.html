@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+
+{% block title %}Sipariş #{{ sale.document_no }} | İhraç Fazlası Giyim{% endblock %}
+{% block page_title %}Satış Siparişi #{{ sale.document_no }}{% endblock %}
+
+{% block content %}
+<section class="panel">
+    <div class="topbar-actions">
+        <a
+            class="ghost-button"
+            href="{{ url_for('sales.index', date_from=return_date_from, date_to=return_date_to) if return_date_from and return_date_to else url_for('sales.index') }}"
+        >
+            Sipariş Satırlarına Dön
+        </a>
+    </div>
+</section>
+
+<section class="card-grid metrics-grid">
+    <article class="panel metric-card">
+        <p class="metric-label">Tarih</p>
+        <h2>{{ sale.sale_date|tr_date }}</h2>
+    </article>
+    <article class="panel metric-card">
+        <p class="metric-label">Ödeme</p>
+        <h2>{{ payment_methods.get(sale.payment_method, sale.payment_method) }}</h2>
+    </article>
+    <article class="panel metric-card">
+        <p class="metric-label">Sipariş Durumu</p>
+        <h2>{{ sale.status_label }}</h2>
+    </article>
+    <article class="panel metric-card">
+        <p class="metric-label">Toplam İndirim</p>
+        <h2>{{ sale.total_discount|currency }}</h2>
+    </article>
+    <article class="panel metric-card">
+        <p class="metric-label">Genel Toplam</p>
+        <h2>{{ sale.total_amount|currency }}</h2>
+    </article>
+</section>
+
+<section class="content-grid">
+    <article class="panel">
+        <div class="summary-box sale-breakdown">
+            <div class="summary-row"><span>İndirim Sonrası Ara Toplam</span><strong>{{ net_subtotal|currency }}</strong></div>
+            <div class="summary-row"><span>KDV</span><strong>{{ vat_amount|currency }}</strong></div>
+            <div class="summary-row"><span>Satır Net Toplamı</span><strong>{{ line_subtotal|currency }}</strong></div>
+        </div>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Satır</th>
+                        <th>Durum</th>
+                        <th>Ürün</th>
+                        <th>Sipariş</th>
+                        <th>İade</th>
+                        <th>Birim Fiyat (KDV Hariç)</th>
+                        <th>Satır İndirimi (KDV Hariç)</th>
+                        <th>Satır Toplamı (KDV Dahil)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in sale.items %}
+                    <tr>
+                        <td>{{ item.line_no }}.{{ item.release_no }}</td>
+                        <td>{{ item.status_label }}</td>
+                        <td>{{ item.product_name_snapshot }}{% if item.product_variant_snapshot %} / {{ item.product_variant_snapshot }}{% endif %}</td>
+                        <td>{{ item.quantity }}</td>
+                        <td>{{ item.returned_quantity }}</td>
+                        <td>{{ item.unit_price|currency }}</td>
+                        <td>{{ item.discount_amount|currency }}</td>
+                        <td>{{ item.gross_amount|currency }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </article>
+
+    {% if can('sales.customer.view') %}
+    <aside class="panel">
+        <div class="section-heading">
+            <div>
+                <p class="eyebrow">Müşteri Bilgileri</p>
+                <h2>Satışa Bağlı Kayıt</h2>
+            </div>
+        </div>
+        <div class="detail-list">
+            {% for label, value in customer_fields %}
+            <div class="detail-list-row">
+                <span>{{ label }}</span>
+                <strong>{{ value or "-" }}</strong>
+            </div>
+            {% endfor %}
+        </div>
+    </aside>
+    {% endif %}
+</section>
+{% endblock %}
+

@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}Kullanıcı Bilgileri | İhraç Fazlası Giyim{% endblock %}
+{% block page_title %}Kullanıcı Bilgileri{% endblock %}
+{% block topbar_actions %}{% endblock %}
+
+{% block content %}
+<section class="panel account-panel">
+    <div class="section-heading">
+        <div>
+            <p class="eyebrow">Oturum</p>
+            <h2>Şifre Güncelle</h2>
+        </div>
+    </div>
+    <form method="post" class="account-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <label>
+            Kullanıcı
+            <input type="text" value="{{ username }}" disabled>
+        </label>
+        <label>
+            Mevcut Şifre
+            <input type="password" name="current_password" autocomplete="current-password" required>
+        </label>
+        <label>
+            Yeni Şifre
+            <input type="password" name="new_password" autocomplete="new-password" minlength="10" required>
+        </label>
+        <label>
+            Yeni Şifre Tekrar
+            <input type="password" name="confirm_password" autocomplete="new-password" minlength="10" required>
+        </label>
+        <div class="form-actions">
+            <button type="submit" class="primary-button">Şifreyi Güncelle</button>
+        </div>
+    </form>
+</section>
+{% endblock %}
+

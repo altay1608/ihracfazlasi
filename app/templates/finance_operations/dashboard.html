@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Finans Merkezi | İhraç Fazlası Giyim{% endblock %}
+{% block page_title %}Finans ve Ön Muhasebe{% endblock %}
+{% block content %}
+<section class="finance-page finance-workspace">
+    {% include "finance/_nav.html" %}
+    <div class="finance-quick-grid">
+        <a href="{{ url_for('finance_ops.expenses') }}"><strong>Masraf Gir</strong><span>Fiş veya fatura ekleyin</span></a>
+        <a href="{{ url_for('finance_ops.supplier_invoices') }}"><strong>Tedarikçi Faturası</strong><span>Borç ve stok girişini kaydedin</span></a>
+        <a href="{{ url_for('finance_ops.personnel') }}"><strong>Personel İşlemi</strong><span>Avans veya mağaza harcaması</span></a>
+        <a href="{{ url_for('finance_ops.daily_closing') }}"><strong>Gün Sonu Kapat</strong><span>Kasa ve vardiya teslimi</span></a>
+        <a href="{{ url_for('finance.current_accounts') }}"><strong>Borç Öde</strong><span>Cari borç ve tahsilat işlemleri</span></a>
+        <a href="{{ url_for('finance.transfers') }}"><strong>Para Transferi</strong><span>Kasa, banka ve POS hesapları</span></a>
+    </div>
+    <div class="finance-balance-grid">
+        {% for row in balances %}<article class="finance-balance-card"><span>{{ row.account.name }}</span><strong>{{ row.balance|currency }}</strong><small>{{ row.account.display_code }}</small></article>{% endfor %}
+        <article class="finance-balance-card finance-balance-total"><span>Açık Tedarikçi Borcu</span><strong>{{ open_payables|currency }}</strong><small>Ödenecek cari bakiye</small></article>
+        <article class="finance-balance-card {% if pending_approvals %}finance-alert-card{% endif %}"><span>Bekleyen Onay</span><strong>{{ pending_approvals }}</strong><small><a href="{{ url_for('finance_ops.approvals') }}">Onay merkezine git</a></small></article>
+    </div>
+    <section class="finance-tool"><p class="eyebrow">VADE TAKİBİ</p><h2>Tedarikçi Borç Yaşlandırması</h2><div class="finance-summary-list"><span>Vadesi Geçen <strong class="money-out">{{ payable_aging.overdue|currency }}</strong></span><span>Önümüzdeki 7 Gün <strong>{{ payable_aging.next_7|currency }}</strong></span><span>8–30 Gün İçinde <strong>{{ payable_aging.next_30|currency }}</strong></span></div></section>
+    <div class="finance-two-column">
+        <section class="finance-tool"><p class="eyebrow">BUGÜN</p><h2>Kontrol Özeti</h2>
+            <div class="finance-summary-list"><span>Beklenen Kasa <strong>{{ expectations.cash|currency }}</strong></span><span>Kart Hareketi <strong>{{ expectations.card|currency }}</strong></span><span>Havale Hareketi <strong>{{ expectations.transfer|currency }}</strong></span></div>
+            {% if recent_closing %}<p class="helper-text">Son kapanış: {{ recent_closing.business_date|tr_date }} · Kasa farkı {{ recent_closing.cash_difference|currency }}</p>{% else %}<p class="helper-text">Henüz gün sonu kapanışı yapılmadı.</p>{% endif %}
+        </section>
+        <section class="finance-tool"><p class="eyebrow">SON KAYITLAR</p><h2>Masraflar</h2>
+            <div class="finance-summary-list">{% for item in recent_expenses %}<span>{{ item.description }} <strong>{{ item.gross_amount|currency }}</strong></span>{% else %}<span>Henüz masraf kaydı yok.</span>{% endfor %}</div>
+        </section>
+    </div>
+</section>
+{% endblock %}

@@ -1,0 +1,58 @@
+<form
+    method="post"
+    class="styled-form"
+    action="{{ request.path }}?tab={{ active_tab }}"
+    data-ajax-form
+    data-refresh-target="#admin-tabs-content"
+    data-refresh-url="{{ url_for('admin.index', partial='content', tab=active_tab) }}"
+>
+    {{ form.hidden_tag() }}
+    <div class="form-grid">
+        <div class="{% if form.description is defined %}full-span{% endif %}">
+            {{ form.name.label }}
+            {{ form.name() }}
+            {% for error in form.name.errors %}<p class="form-error">{{ error }}</p>{% endfor %}
+        </div>
+        {% if form.description is defined %}
+        <div class="full-span">
+            {{ form.description.label }}
+            {{ form.description(rows="4") }}
+            {% for error in form.description.errors %}<p class="form-error">{{ error }}</p>{% endfor %}
+        </div>
+        {% endif %}
+        {% if form.multiplier is defined %}
+        <div>
+            {{ form.multiplier.label }}
+            {{ form.multiplier(step="0.01", min="0.01") }}
+            {% for error in form.multiplier.errors %}<p class="form-error">{{ error }}</p>{% endfor %}
+        </div>
+        {% endif %}
+        {% if form.critical_stock_level is defined %}
+        <div>
+            {{ form.critical_stock_level.label }}
+            {{ form.critical_stock_level(min="0", placeholder="Boş bırakılırsa genel KSS kullanılır") }}
+            {% for error in form.critical_stock_level.errors %}<p class="form-error">{{ error }}</p>{% endfor %}
+        </div>
+        {% endif %}
+        {% if form.is_active is defined %}
+        <div class="checkbox-field">
+            <label class="checkbox-label">
+                {{ form.is_active() }}
+                <span>Temel veri seçeneğini aktif olarak göster</span>
+            </label>
+        </div>
+        {% endif %}
+        {% if form.is_default is defined %}
+        <div class="checkbox-field">
+            <label class="checkbox-label">
+                {{ form.is_default() }}
+                <span>Varsayılan perakende çarpanı olarak kullan</span>
+            </label>
+        </div>
+        {% endif %}
+    </div>
+    <div class="modal-inline-actions">
+        <button type="button" class="ghost-button" data-close-modal>Vazgeç</button>
+        {{ form.submit(class_="primary-button") }}
+    </div>
+</form>

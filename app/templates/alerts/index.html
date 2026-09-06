@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+
+{% block title %}Stok Uyarıları | İhraç Fazlası Giyim{% endblock %}
+{% block page_title %}Kritik Stok Seviyeleri{% endblock %}
+
+{% block content %}
+<section class="panel">
+    <div class="section-heading">
+        <div>
+            <p class="eyebrow">Genel Eşik</p>
+            <h2>Varsayılan KSS: {{ threshold }}</h2>
+            <p class="helper-text">Ürün özel KSS varsa önce o, yoksa kategori KSS, o da yoksa genel KSS kullanılır.</p>
+        </div>
+        <span class="status-badge warning">{{ low_products_count }} kritik ürün</span>
+    </div>
+</section>
+
+<section class="panel">
+    <div class="section-heading">
+        <div>
+            <p class="eyebrow">Kategori Bazlı KSS</p>
+            <h2>Kategoriler için varsayılan kritik stok seviyeleri</h2>
+        </div>
+    </div>
+    <div class="table-wrap">
+        <table data-enhanced-table data-table-key="alerts-categories">
+            <thead>
+                <tr>
+                    <th>Kategori</th>
+                    <th>Aktif KSS</th>
+                    <th data-no-filter="true" data-no-sort="true">Güncelle</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for category in categories %}
+                <tr>
+                    <td>{{ category.name }}</td>
+                    <td>{{ category.critical_stock_level if category.critical_stock_level is not none else "-" }}</td>
+                    <td>
+                        {% if can('alerts.action.manage') %}
+                        <form method="post" action="{{ url_for('alerts.update_category_threshold', category_id=category.id) }}" class="inline-threshold-form">
+                            <input
+                                type="number"
+                                name="critical_stock_level"
+                                min="0"
+                                value="{{ '' if category.critical_stock_level is none else category.critical_stock_level }}"
+                                placeholder="Boş = genel KSS"
+                            >
+                            <button type="submit" class="icon-action-button" title="Kaydet" data-tooltip="Kaydet" aria-label="Kaydet">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h12l2 2v14H5z"/><path d="M8 4v6h8V4"/><path d="M8 20v-6h8v6"/></svg>
+                            </button>
+                        </form>
+                        {% else %}-{% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="3" class="empty-state">Kategori kaydı bulunmuyor.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<section class="panel">
+    <div class="section-heading">
+        <div>
+            <p class="eyebrow">Ürün Bazlı KSS</p>
+            <h2>Ürün bazlı KSS yönetimi ve stok durumu</h2>
+        </div>
+    </div>
+    <div class="table-wrap">
+        <table data-enhanced-table data-table-key="alerts-list">
+            <thead>
+                <tr>
+                    <th>Ürün</th>
+                    <th>Kategori</th>
+                    <th>Varyant</th>
+                    <th>Stok</th>
+                    <th>Efektif KSS</th>
+                    <th>Önerilen Sipariş</th>
+                    <th>Kaynağı</th>
+                    <th>Ürün Özel KSS</th>
+                    <th data-no-filter="true" data-no-sort="true">Güncelle</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for product in products %}
+                <tr class="{% if product.stock_quantity <= product.effective_low_stock_threshold %}stock-status-low{% elif product.stock_quantity <= product.effective_critical_stock_threshold %}stock-status-critical{% else %}stock-status-healthy{% endif %}">
+                    <td>{{ product.name }}</td>
+                    <td>{{ product.category }}</td>
+                    <td>{{ product.variant or "-" }}</td>
+                    <td>{{ product.stock_quantity }}</td>
+                    <td>{{ product.effective_low_stock_threshold }}</td>
+                    <td><strong>{{ product.recommended_order_quantity }}</strong></td>
+                    <td>
+                        {% if product.threshold_source == "product" %}
+                        Ürün
+                        {% elif product.threshold_source == "category" %}
+                        Kategori
+                        {% else %}
+                        Genel
+                        {% endif %}
+                    </td>
+                    <td>{{ product.critical_stock_level if product.critical_stock_level is not none else "-" }}</td>
+                    <td>
+                        {% if can('alerts.action.manage') %}
+                        <form method="post" action="{{ url_for('alerts.update_product_threshold', product_id=product.id) }}" class="inline-threshold-form">
+                            <input
+                                type="number"
+                                name="critical_stock_level"
+                                min="0"
+                                value="{{ '' if product.critical_stock_level is none else product.critical_stock_level }}"
+                                placeholder="Boş = kategori/genel"
+                            >
+                            <button type="submit" class="icon-action-button" title="Kaydet" data-tooltip="Kaydet" aria-label="Kaydet">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h12l2 2v14H5z"/><path d="M8 4v6h8V4"/><path d="M8 20v-6h8v6"/></svg>
+                            </button>
+                        </form>
+                        {% else %}-{% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="9" class="empty-state">Ürün bulunmuyor.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}
+

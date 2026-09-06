@@ -1,0 +1,1 @@
+"""Staff-friendly finance operations."""

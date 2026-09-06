@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Satış Siparişi Fişi #{{ sale.document_no }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20260428-xp80-receipt-v3') }}">
+</head>
+<body class="print-page thermal-receipt-page">
+    <div class="print-actions no-print">
+        <button type="button" class="primary-button" onclick="window.print()">Yazdır</button>
+        <button type="button" class="ghost-button" onclick="window.close()">Kapat</button>
+    </div>
+
+    <section class="thermal-slip">
+        <div class="thermal-line">==========================================</div>
+        <div class="thermal-brand">[{{ receipt.store.name|upper }}]</div>
+        <div class="thermal-line">==========================================</div>
+
+        <div class="thermal-block">
+            {% if receipt.store.address_line_1 %}<div>Adres : {{ receipt.store.address_line_1 }}</div>{% endif %}
+            {% if receipt.store.address_line_2 %}<div>        {{ receipt.store.address_line_2 }}</div>{% endif %}
+            {% if receipt.store.address_line_3 %}<div>        {{ receipt.store.address_line_3 }}</div>{% endif %}
+            {% if receipt.store.instagram %}<div>IG    : {{ receipt.store.instagram }}</div>{% endif %}
+        </div>
+
+        <div class="thermal-line">------------------------------------------</div>
+        <div class="thermal-justified">
+            <span>Tarih : {{ sale.sale_date.strftime('%d.%m.%Y') }}</span>
+            <span>Saat: {{ receipt.print_time }}</span>
+        </div>
+        <div>Fiş No: #{{ receipt.tx_code }}</div>
+        <div>Kasiyer: {{ receipt.cashier_name }}</div>
+
+        <div class="thermal-line">------------------------------------------</div>
+        <div class="thermal-table-head">
+            <span>URUN ADI</span>
+            <span>ADET</span>
+            <span>KDV</span>
+            <span>TUTAR</span>
+        </div>
+        <div class="thermal-line">------------------------------------------</div>
+
+        {% for item in receipt.line_items %}
+        <div class="thermal-item-row">
+            <div class="thermal-item-name">{{ item.name }}</div>
+            <div class="thermal-item-qty">{{ item.quantity }}</div>
+            <div class="thermal-item-vat">%{{ item.vat_rate }}</div>
+            <div class="thermal-item-total">{{ item.gross_total|currency }}</div>
+        </div>
+        {% endfor %}
+
+        <div class="thermal-line">------------------------------------------</div>
+        <div class="thermal-total-row">
+            <span>ARA TOPLAM</span>
+            <strong>{{ receipt.net_subtotal|currency }}</strong>
+        </div>
+        <div class="thermal-total-row">
+            <span>KDV TOPLAM (%{{ vat_rate }})</span>
+            <strong>{{ receipt.vat_amount|currency }}</strong>
+        </div>
+        <div class="thermal-line">------------------------------------------</div>
+        <div class="thermal-total-row thermal-grand-total">
+            <span>GENEL TOPLAM</span>
+            <strong>{{ sale.total_amount|currency }}</strong>
+        </div>
+        <div class="thermal-line">------------------------------------------</div>
+        <div>ÖDEME TİPİ: {{ payment_methods.get(sale.payment_method, sale.payment_method)|upper }}</div>
+        <div class="thermal-line">------------------------------------------</div>
+
+        <div class="thermal-policy-title">--- DEĞİŞİM VE İADE ---</div>
+        <div class="thermal-policy">
+            <div>* Değişim süresi satın alım tarihinden</div>
+            <div>&nbsp;&nbsp;itibaren 14 (on dört) gündür.</div>
+            <div>* Fiş ibrazı zorunludur.</div>
+            <div>* Etiketi kopmuş, kullanılmış veya tadilat</div>
+            <div>&nbsp;&nbsp;görmüş ürünlerde değişim yapılmaz.</div>
+            <div>* Aksesuar ve iç giyim ürünlerinde hijyen</div>
+            <div>&nbsp;&nbsp;kuralları gereği değişim yoktur.</div>
+        </div>
+
+        <div class="thermal-line">------------------------------------------</div>
+        <div class="thermal-policy-title">İŞLEM SORGULAMA QR</div>
+        <div class="thermal-qr-wrap">
+            <img
+                class="thermal-qr-image"
+                src="{{ receipt.qr_url }}"
+                alt="İşlem sorgulama QR kodu"
+                loading="eager"
+                referrerpolicy="no-referrer"
+                onerror="this.style.display='none';"
+            >
+            <div>(İşlem ID: {{ receipt.lookup_id }})</div>
+        </div>
+
+        <div class="thermal-line">------------------------------------------</div>
+        <div class="thermal-thanks">
+            <div>Bizi tercih ettiğiniz için</div>
+            <div>teşekkür ederiz!</div>
+        </div>
+        <div class="thermal-line">==========================================</div>
+    </section>
+
+    {% if auto_print %}
+    <script>
+    window.addEventListener("load", () => {
+        window.setTimeout(() => window.print(), 250);
+    });
+    </script>
+    {% endif %}
+</body>
+</html>

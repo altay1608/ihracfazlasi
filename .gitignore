@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+.venv-*/
+
+# Local and customer data
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+*.dump
+/backups/
+/data/
+/instance/auth.json
+/app/app/
+
+# Secrets and local settings
+.env
+.env.*
+!.env.example
+
+# Editor and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

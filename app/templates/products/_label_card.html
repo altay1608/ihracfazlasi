@@ -1,0 +1,29 @@
+{% set variant_value = (product.variant or "Standart")|trim %}
+{% set product_name = (product.name or "")|trim %}
+{% set product_code = (product.product_code or barcode_value or "")|trim %}
+{% set barcode_caption = (barcode_value or product_code)|trim %}
+{% set label_price = item.label_price if item is defined and item.label_price is defined else product.sale_price %}
+{% set multiplier_code = item.multiplier_code if item is defined and item.multiplier_code is defined else "" %}
+<article class="label-card compact-fashion-label">
+    {% if multiplier_code %}
+    <div class="compact-fashion-label-tier">{{ multiplier_code }}</div>
+    {% endif %}
+    <div class="compact-fashion-label-topline">
+        <div class="compact-fashion-label-brand">
+            <span>İhraç Fazlası Giyim</span>
+            <span>Atelier</span>
+        </div>
+        <div class="compact-fashion-label-price">{{ label_price|currency }}</div>
+    </div>
+    <div class="compact-fashion-label-name" title="{{ product_name }}">{{ product_name }}</div>
+    <div class="compact-fashion-label-meta">
+        <div class="compact-fashion-label-chip compact-fashion-label-size">Beden {{ variant_value }}</div>
+        <div class="compact-fashion-label-chip compact-fashion-label-code">{{ barcode_caption }}</div>
+    </div>
+    <div class="compact-fashion-label-barcode-wrap">
+        {% if barcode_svg %}
+        <div class="barcode-visual compact-fashion-label-barcode">{{ barcode_svg|safe }}</div>
+        {% endif %}
+    </div>
+</article>
+

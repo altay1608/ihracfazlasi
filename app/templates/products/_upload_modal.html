@@ -1,0 +1,42 @@
+<form
+    method="post"
+    enctype="multipart/form-data"
+    class="styled-form"
+    action="{{ url_for('products.upload_template') }}"
+    data-ajax-form
+    data-refresh-target="#products-table-section"
+>
+    <div class="form-grid">
+        <div class="full-span">
+            <label for="templateFile">Excel Dosyası</label>
+            <input id="templateFile" type="file" name="file" accept=".xlsx" required>
+            <p class="muted">Yalnızca `.xlsx` formatı desteklenir.</p>
+        </div>
+    </div>
+
+    {% if result %}
+    <section class="panel upload-result-panel">
+        <div class="section-heading">
+            <div>
+                <p class="eyebrow">Yükleme Sonucu</p>
+                <h2>{{ result.success }} ürün eklendi</h2>
+            </div>
+            <span class="status-badge {% if result.skipped %}warning{% endif %}">{{ result.skipped }} satır atlandı</span>
+        </div>
+        {% if result.errors %}
+        <div class="result-list">
+            {% for item in result.errors %}
+            <p class="form-error">{{ item }}</p>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="muted">Hatalı satır bulunmadı.</p>
+        {% endif %}
+    </section>
+    {% endif %}
+
+    <div class="modal-inline-actions">
+        <button type="button" class="ghost-button" data-close-modal>Kapat</button>
+        <button type="submit" class="primary-button">Yükle</button>
+    </div>
+</form>

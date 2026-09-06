@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+
+{% block title %}Kâr Analizi | İhraç Fazlası Giyim{% endblock %}
+{% block page_title %}Kâr Analizi{% endblock %}
+
+{% block content %}
+{% macro rate(value) -%}
+{% set numeric = value|float %}
+{% if numeric == numeric|round(0) -%}
+%{{ "%.0f"|format(numeric) }}
+{%- else -%}
+%{{ "%.2f"|format(numeric) }}
+{%- endif %}
+{%- endmacro %}
+
+<section class="panel">
+    <form method="get" class="filter-bar">
+        <input type="date" name="start_date" value="{{ report.start_date.isoformat() }}">
+        <input type="date" name="end_date" value="{{ report.end_date.isoformat() }}">
+        <button type="submit" class="ghost-button">Filtrele</button>
+    </form>
+</section>
+
+<section class="card-grid metrics-grid profit-metrics-grid">
+    <article class="panel metric-card">
+        <p class="metric-label">İndirim Öncesi Ciro (KDV Dahil)</p>
+        <h2>{{ report.gross_before_discount|currency }}</h2>
+    </article>
+    <article class="panel metric-card">
+        <p class="metric-label">İndirim (KDV Dahil)</p>
+        <h2>{{ report.discount|currency }}</h2>
+    </article>
+    <article class="panel metric-card">
+        <p class="metric-label">İndirim Sonrası Ciro (KDV Dahil)</p>
+        <h2>{{ report.revenue_after_discount|currency }}</h2>
+    </article>
+    <article class="panel metric-card">
+        <p class="metric-label">Maliyet (KDV Dahil)</p>
+        <h2>{{ report.cost|currency }}</h2>
+    </article>
+    <article class="panel metric-card">
+        <p class="metric-label">Tahmini Kâr (KDV Dahil)</p>
+        <h2>{{ report.profit|currency }}</h2>
+    </article>
+    <article class="panel metric-card">
+        <p class="metric-label">Ort. İndirim Tutarı (KDV Dahil)</p>
+        <h2>{{ report.average_discount_amount|currency }}</h2>
+    </article>
+    <article class="panel metric-card">
+        <p class="metric-label">Ağırlıklı Ort. İndirim Oranı</p>
+        <h2>{{ rate(report.weighted_discount_rate) }}</h2>
+    </article>
+    <article class="panel metric-card">
+        <p class="metric-label">Standart Ort. İndirim Oranı</p>
+        <h2>{{ rate(report.average_discount_rate) }}</h2>
+    </article>
+</section>
+
+<section class="panel">
+    <div class="section-heading">
+        <div>
+            <p class="eyebrow">{{ report.start_date|tr_date }} - {{ report.end_date|tr_date }}</p>
+            <h2>Ürün Bazlı Kârlılık</h2>
+        </div>
+        {% if can('profit_reports.action.export') %}
+        <div class="table-export-actions">
+            <a
+                class="ghost-button"
+                href="{{ url_for('reports.profit_export', start_date=report.start_date.isoformat(), end_date=report.end_date.isoformat()) }}"
+            >Excel'e Aktar</a>
+        </div>
+        {% endif %}
+    </div>
+    <div class="table-wrap">
+        <table id="profitReportTable" class="profit-report-table" data-enhanced-table data-manual-export="true" data-table-key="report-profit-list-resizable-v1" data-export-name="kar-analizi">
+            <thead>
+                <tr>
+                    <th class="profit-product-column">Ürün</th>
+                    <th class="profit-qty-column">Adet</th>
+                    <th class="profit-money-wide-column">İndirim Sonrası Satış (KDV Dahil)</th>
+                    <th class="profit-money-column">İndirim (KDV Dahil)</th>
+                    <th class="profit-rate-column">İndirim Oranı</th>
+                    <th class="profit-money-column">Maliyet (KDV Dahil)</th>
+                    <th class="profit-rate-wide-column">Kâr / Maliyet Oranı</th>
+                    <th class="profit-rate-column">Satış Kâr Marjı</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in report.products %}
+                <tr>
+                    <td class="profit-product-column">{{ row.name }}{% if row.variant %} / {{ row.variant }}{% endif %}</td>
+                    <td class="profit-qty-column">{{ row.quantity }}</td>
+                    <td class="profit-money-wide-column">{{ row.net_revenue|currency }}</td>
+                    <td class="profit-money-column">{{ row.discount_amount|currency }}</td>
+                    <td class="profit-rate-column">{{ rate(row.discount_rate) }}</td>
+                    <td class="profit-money-column">{{ row.cost|currency }}</td>
+                    <td class="profit-rate-wide-column">{{ rate(row.cost_profit_rate) }}</td>
+                    <td class="profit-rate-column">{{ rate(row.sales_margin_rate) }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="8" class="empty-state">Seçilen tarih aralığında satış bulunamadı.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}
+

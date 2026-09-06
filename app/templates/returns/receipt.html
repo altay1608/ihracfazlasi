@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>İade / Değişim Fişi #{{ return_record.document_no }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20260414-return-thermal-v1') }}">
+</head>
+<body class="print-page thermal-receipt-page">
+    <div class="print-actions no-print">
+        <button type="button" class="primary-button" onclick="window.print()">Yazdır</button>
+        <button type="button" class="ghost-button" onclick="window.close()">Kapat</button>
+    </div>
+
+    <section class="thermal-slip">
+        <div class="thermal-line">==========================================</div>
+        <div class="thermal-brand">[İHRAÇ FAZLASI GİYİM]</div>
+        <div class="thermal-line">==========================================</div>
+
+        <div class="thermal-policy-title">--- İADE / DEĞİŞİM FİŞİ ---</div>
+        <div class="thermal-line">------------------------------------------</div>
+
+        <div class="thermal-block">
+            <div>Fiş No      : #{{ return_record.document_no }}</div>
+            <div>Satış No    : #{{ return_record.original_sale.document_no }}</div>
+            <div>İşlem Tarihi: {{ return_record.return_date|tr_date }}</div>
+            <div>Satış Tarihi: {{ return_record.original_sale.sale_date|tr_date }}</div>
+            <div>İşlem Tipi  : {{ return_types.get(return_record.type, return_record.type) }}</div>
+            <div>Neden       : {{ return_record.reason }}</div>
+            {% if return_record.note %}
+            <div>Not         : {{ return_record.note }}</div>
+            {% endif %}
+        </div>
+
+        <div class="thermal-line">------------------------------------------</div>
+        <div class="thermal-table-head">
+            <span>URUN</span>
+            <span>ADET</span>
+            <span>TIP</span>
+            <span>TUTAR</span>
+        </div>
+        <div class="thermal-muted">Tutarlar KDV (%{{ receipt.vat_rate }}) dahil gosterilir.</div>
+        <div class="thermal-line">------------------------------------------</div>
+
+        {% for item in receipt.line_items %}
+        <div class="thermal-item-row">
+            <div class="thermal-item-name">
+                {{ item.name }}
+                {% if item.variant %}
+                <div>{{ item.variant }}</div>
+                {% endif %}
+                {% if item.order_line_reference %}<div>Satır {{ item.order_line_reference }}</div>{% endif %}
+            </div>
+            <div class="thermal-item-qty">{{ item.quantity }}</div>
+            <div class="thermal-item-vat">{{ item.type }}</div>
+            <div class="thermal-item-total">{{ item.refund_amount|currency }}</div>
+        </div>
+        {% endfor %}
+
+        <div class="thermal-line">------------------------------------------</div>
+        <div class="thermal-total-row">
+            <span>DURUM</span>
+            <strong>{{ return_record.status|capitalize }}</strong>
+        </div>
+        <div class="thermal-line">------------------------------------------</div>
+        <div class="thermal-total-row thermal-grand-total">
+            <span>NET SONUÇ</span>
+            <strong>{{ receipt.total_refund|currency }}</strong>
+        </div>
+        <div class="thermal-line">------------------------------------------</div>
+
+        <div class="thermal-policy">
+            <div>Pozitif tutar müşteriye iade edilen,</div>
+            <div>negatif tutar ise değişimde seçilen</div>
+            <div>yeni ürün için ek tahsil edilen</div>
+            <div>tutarı gösterir.</div>
+        </div>
+
+        <div class="thermal-line">==========================================</div>
+    </section>
+
+    <script>
+    window.addEventListener("load", () => {
+        window.setTimeout(() => window.print(), 250);
+    });
+    </script>
+</body>
+</html>
+

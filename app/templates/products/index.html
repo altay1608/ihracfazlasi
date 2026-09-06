@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block title %}Ürünler | İhraç Fazlası Giyim{% endblock %}
+{% block page_title %}Ürün ve Stok Yönetimi{% endblock %}
+
+{% block content %}
+<section class="panel">
+    <form method="get" class="filter-bar">
+        <input type="text" name="search" value="{{ request.args.get('search', '') }}" placeholder="Ürün adı, ürün kodu, barkod veya varyant ara">
+        <select name="category">
+            <option value="">Tüm Kategoriler</option>
+            {% for item in categories %}
+            <option value="{{ item }}" {% if request.args.get('category') == item %}selected{% endif %}>{{ item }}</option>
+            {% endfor %}
+        </select>
+        <select name="stock">
+            <option value="">Tüm Stoklar</option>
+            {% if can('alerts.access') %}
+            <option value="low" {% if request.args.get('stock') == 'low' %}selected{% endif %}>Düşük Stok</option>
+            <option value="in" {% if request.args.get('stock') == 'in' %}selected{% endif %}>Yeterli Stok</option>
+            {% endif %}
+            <option value="out" {% if request.args.get('stock') == 'out' %}selected{% endif %}>Stokta Yok</option>
+        </select>
+        <button type="submit" class="ghost-button">Filtrele</button>
+    </form>
+</section>
+
+{% include "products/_table_section.html" %}
+{% endblock %}
+

@@ -1,0 +1,11 @@
+<!doctype html>
+<html lang="tr">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Kurtarma Kodları | İhraç Fazlası Giyim</title><link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}?v=2" sizes="any"><link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20260819-login-mfa-v1') }}"></head>
+<body class="auth-page auth-step-page">
+    <main class="auth-step-shell"><section class="auth-step-card auth-recovery-card">
+        <p class="eyebrow">KURULUM TAMAMLANDI</p><h1>Kurtarma kodlarını saklayın</h1><p class="auth-step-copy">Telefonunuza erişemediğinizde bu kodlardan biriyle giriş yapabilirsiniz. Her kod yalnızca bir kez çalışır ve bu liste bir daha gösterilmez.</p>
+        <div class="auth-recovery-codes" aria-label="Tek kullanımlık kurtarma kodları">{% for code in recovery_codes %}<code>{{ code }}</code>{% endfor %}</div>
+        <a class="primary-button auth-continue-button" href="{{ continue_url }}">Kodları Kaydettim, Devam Et</a>
+    </section></main>
+</body></html>
+

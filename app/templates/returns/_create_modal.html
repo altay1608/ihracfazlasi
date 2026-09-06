@@ -1,0 +1,116 @@
+<section class="panel">
+    <form
+        method="get"
+        action="{{ url_for('returns.create') }}"
+        class="compact-form"
+        data-ajax-form
+        data-refresh-target="#returns-list-section"
+    >
+        <input type="number" min="1" name="sale_id" value="{{ request.args.get('sale_id', '') or form.original_sale_id.data or '' }}" placeholder="Satış No">
+        <button type="submit" class="ghost-button">Satışı Getir</button>
+    </form>
+</section>
+
+<section class="panel form-panel">
+    <form
+        method="post"
+        class="styled-form"
+        action="{{ url_for('returns.create', sale_id=request.args.get('sale_id', '') or form.original_sale_id.data or '') }}"
+        data-ajax-form
+    >
+        {{ form.hidden_tag() }}
+        <div class="form-grid">
+            <div>
+                {{ form.type.label }}
+                {{ form.type() }}
+                {% for error in form.type.errors %}<p class="form-error">{{ error }}</p>{% endfor %}
+            </div>
+            <div>
+                {{ form.reason.label }}
+                {{ form.reason() }}
+                {% for error in form.reason.errors %}<p class="form-error">{{ error }}</p>{% endfor %}
+            </div>
+            <div class="full-span">
+                {{ form.note.label }}
+                {{ form.note(rows=3, placeholder="Gerekirse iade veya değişim için kısa açıklama notu girin") }}
+                {% for error in form.note.errors %}<p class="form-error">{{ error }}</p>{% endfor %}
+            </div>
+        </div>
+
+        {% if sale %}
+        <div class="section-heading">
+            <div>
+                <p class="eyebrow">Satış #{{ sale.document_no }}</p>
+                <h2>İşleme Dahil Edilecek Ürünler</h2>
+            </div>
+        </div>
+        <div class="compact-form">
+            <input
+                type="text"
+                class="barcode-pick-input"
+                placeholder="İade alınacak birim barkodunu eksiksiz okutun"
+                data-return-barcode-scan
+                autocomplete="off"
+            >
+        </div>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th data-no-filter="true" data-no-sort="true">Seç</th>
+                        <th>Ürün</th>
+                        <th>İade Alınan Birim Barkodu</th>
+                        <th>Yeni Ürün Birim Barkodu (değişim)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in sale.items %}
+                    {% for barcode in item.product_barcodes %}
+                    {% set selection_name = 'return_barcode_' ~ item.id ~ '_' ~ barcode.id %}
+                    <tr>
+                        <td>
+                            <input
+                                type="checkbox"
+                                name="{{ selection_name }}"
+                                value="{{ barcode.barcode }}"
+                                data-return-unit-checkbox
+                                {% if request.form.get(selection_name) == barcode.barcode %}checked{% endif %}
+                                aria-label="{{ barcode.barcode }} barkodunu işleme dahil et"
+                            >
+                        </td>
+                        <td>{{ item.product.name }}{% if item.product.variant %} / {{ item.product.variant }}{% endif %}</td>
+                        <td><code>{{ barcode.barcode }}</code></td>
+                        <td>
+                            <input
+                                type="text"
+                                name="replacement_barcode_{{ item.id }}_{{ barcode.id }}"
+                                value="{{ request.form.get('replacement_barcode_' ~ item.id ~ '_' ~ barcode.id, '') }}"
+                                placeholder="Örn. 100000000001-01"
+                                data-exchange-only
+                                {% if form.type.data != "degisim" %}disabled{% endif %}
+                            >
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% if not item.product_barcodes %}
+                    <tr>
+                        <td><input type="checkbox" disabled aria-label="Birim barkodu bulunmuyor"></td>
+                        <td>{{ item.product.name }}{% if item.product.variant %} / {{ item.product.variant }}{% endif %}</td>
+                        <td colspan="2" class="empty-state">Bu satış satırında işlem yapılabilir birim barkodu bulunmuyor.</td>
+                    </tr>
+                    {% endif %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <p class="helper-text">Her iade alınan barkodu soldan seçin. Değişimde aynı satıra müşteriye verilecek yeni ürünün tam birim barkodunu okutun.</p>
+        {% else %}
+        <p class="empty-state">Önce bir satış ID girerek satış satırlarını getirin.</p>
+        {% endif %}
+
+        <div class="modal-inline-actions">
+            <button type="button" class="ghost-button" data-close-modal>Vazgeç</button>
+            {{ form.submit(class_="primary-button") }}
+        </div>
+    </form>
+</section>

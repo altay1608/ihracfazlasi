@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block title %}Kasa Defteri | İhraç Fazlası Giyim{% endblock %}
+{% block page_title %}Finans Yönetimi{% endblock %}
+{% block topbar_actions %}{% endblock %}
+{% block content %}
+<section class="finance-page">
+    {% include "finance/_nav.html" %}
+
+    {% if not activation %}
+    <div class="finance-notice">
+        <div><strong>Bu mağazada finans defteri henüz başlatılmadı.</strong><span>Aktivasyon öncesi satışlar finans geçmişine alınmaz.</span></div>
+        <a class="primary-button" href="{{ url_for('finance.accounts') }}">Hesapları Başlat</a>
+    </div>
+    {% endif %}
+
+    <div class="finance-balance-grid">
+        {% for row in snapshot.accounts %}
+        <article class="finance-balance-card">
+            <span>{{ row.account.display_code }} - {{ row.account.name }}</span>
+            <strong>{{ row.balance|currency }}</strong>
+            {% if show_all_stores and stores.get(row.account.store_id) %}<small>{{ stores.get(row.account.store_id).name }}</small>{% endif %}
+        </article>
+        {% endfor %}
+        <article class="finance-balance-card finance-balance-total">
+            <span>Konsolide Bakiye</span>
+            <strong>{{ snapshot.consolidated_balance|currency }}</strong>
+            <small>Seçili kapsam</small>
+        </article>
+    </div>
+
+    <form method="get" class="finance-filter-row">
+        <label>Başlangıç<input type="date" name="date_from" value="{{ date_from.isoformat() }}"></label>
+        <label>Bitiş<input type="date" name="date_to" value="{{ date_to.isoformat() }}"></label>
+        <button class="ghost-button" type="submit">Filtrele</button>
+        {% if can_show_all %}
+        <label class="finance-check"><input type="checkbox" name="all_stores" value="1" {% if show_all_stores %}checked{% endif %} onchange="this.form.submit()"><span>Tüm yetkili mağazaları gör</span></label>
+        {% endif %}
+        <div class="finance-period-shortcuts" aria-label="Hazır tarih aralıkları">
+            <button type="button" data-finance-period="days" data-value="7">1 Hafta</button>
+            <button type="button" data-finance-period="days" data-value="15">15 Gün</button>
+            <button type="button" data-finance-period="months" data-value="1">1 Ay</button>
+            <button type="button" data-finance-period="months" data-value="6">6 Ay</button>
+            <button type="button" data-finance-period="months" data-value="12">12 Ay</button>
+            <button type="button" data-finance-period="ytd" title="Yılbaşından Bu Yana">YBY</button>
+        </div>
+    </form>
+
+    <div class="finance-table-section panel">
+        <div class="section-heading"><div><p class="eyebrow">Değiştirilemez Kayıt</p><h2>Kasa Hareketleri</h2></div></div>
+        <div class="table-wrap">
+            <table id="financeLedgerTable" class="finance-table" data-enhanced-table data-table-key="finance-ledger-v2" data-export-name="kasa-defteri">
+                <thead><tr><th>Tarih</th><th>Mağaza</th><th>Hesap</th><th>Kategori</th><th>Açıklama</th><th>Belge</th><th data-summary="currency">Giriş</th><th data-summary="currency">Çıkış</th></tr></thead>
+                <tbody>
+                {% for movement in movements %}
+                <tr>
+                    <td>{{ movement.occurred_at|tr_datetime }}</td>
+                    <td>{{ stores.get(movement.store_id).name if stores.get(movement.store_id) else movement.store_id }}</td>
+                    <td>{{ movement.account.name }}</td>
+                    <td>{{ movement.display_category_name }}</td>
+                    <td><div class="finance-cell-main" title="{{ movement.description or '-' }}">{{ movement.description or '-' }}</div></td>
+                    <td>{{ movement.document_no or '-' }}</td>
+                    <td class="money-in" data-summary-value="{{ movement.amount if movement.direction == 'in' else 0 }}">{{ movement.amount|currency if movement.direction == 'in' else '-' }}</td>
+                    <td class="money-out" data-summary-value="{{ movement.amount if movement.direction == 'out' else 0 }}">{{ movement.amount|currency if movement.direction == 'out' else '-' }}</td>
+                </tr>
+                {% else %}<tr><td colspan="8" class="empty-state">Seçili aralıkta finans hareketi yok.</td></tr>{% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+{% endblock %}
+{% block scripts %}
+{{ super() }}
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+    const form = document.querySelector(".finance-filter-row");
+    const fromInput = form?.querySelector('[name="date_from"]');
+    const toInput = form?.querySelector('[name="date_to"]');
+    if (!form || !fromInput || !toInput) return;
+    const isoDate = value => `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
+    form.querySelectorAll("[data-finance-period]").forEach(button => button.addEventListener("click", () => {
+        const end = new Date();
+        const start = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+        if (button.dataset.financePeriod === "days") {
+            start.setDate(start.getDate() - Number(button.dataset.value || 1) + 1);
+        } else if (button.dataset.financePeriod === "months") {
+            const targetDay = start.getDate();
+            start.setDate(1);
+            start.setMonth(start.getMonth() - Number(button.dataset.value || 1));
+            const lastDay = new Date(start.getFullYear(), start.getMonth() + 1, 0).getDate();
+            start.setDate(Math.min(targetDay, lastDay));
+        } else {
+            start.setMonth(0, 1);
+        }
+        fromInput.value = isoDate(start);
+        toInput.value = isoDate(end);
+        form.submit();
+    }));
+});
+</script>
+{% endblock %}
+

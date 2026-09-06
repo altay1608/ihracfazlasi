@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block title %}Günlük Rapor | İhraç Fazlası Giyim{% endblock %}
+{% block page_title %}Günlük Satış Raporu{% endblock %}
+
+{% block content %}
+<section class="panel">
+    <form method="get" class="filter-bar">
+        <input type="date" name="start_date" value="{{ start_date.isoformat() }}">
+        <input type="date" name="end_date" value="{{ end_date.isoformat() }}">
+        <button type="submit" class="ghost-button">Raporu Getir</button>
+    </form>
+</section>
+
+<section class="card-grid metrics-grid">
+    <article class="panel metric-card">
+        <p class="metric-label">Tarih Aralığı</p>
+        <h2>{{ summary.start_date|tr_date }} - {{ summary.end_date|tr_date }}</h2>
+    </article>
+    <article class="panel metric-card">
+        <p class="metric-label">Satış Adedi</p>
+        <h2>{{ summary.total_sales }}</h2>
+    </article>
+    <article class="panel metric-card">
+        <p class="metric-label">Toplam Ciro (KDV Dahil)</p>
+        <h2>{{ summary.revenue_gross|currency }}</h2>
+    </article>
+    <article class="panel metric-card">
+        <p class="metric-label">Satılan Ürün</p>
+        <h2>{{ summary.sold_units }}</h2>
+    </article>
+</section>
+
+<section class="panel">
+    <div class="section-heading">
+        <div>
+            <p class="eyebrow">Dağılım</p>
+            <h2>Ürün Bazlı Satışlar</h2>
+        </div>
+        <span class="status-badge">{{ summary.discount|currency }} indirim</span>
+    </div>
+    <div class="table-wrap">
+        <table data-enhanced-table data-table-key="report-daily-list-net-v1">
+            <thead>
+                <tr>
+                    <th>Ürün</th>
+                    <th>Adet</th>
+                    <th>Ciro (KDV Hariç)</th>
+                    <th>Ciro (KDV Dahil)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in distribution %}
+                <tr>
+                    <td>{{ row.name }}{% if row.variant %} / {{ row.variant }}{% endif %}</td>
+                    <td>{{ row.quantity }}</td>
+                    <td>{{ row.revenue|currency }}</td>
+                    <td>{{ row.revenue_gross|currency }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4" class="empty-state">Bu tarih aralığında satış verisi bulunamadı.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}
+

@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block title %}İade ve Değişim | İhraç Fazlası Giyim{% endblock %}
+{% block page_title %}İade / Değişim Kayıtları{% endblock %}
+
+{% block content %}
+{% if can('returns.action.create') %}
+<section class="panel section-heading">
+    <div>
+        <p class="eyebrow">Yeni İşlem</p>
+        <h2>Satış ID ile işlem başlat</h2>
+    </div>
+    <form method="get" action="{{ url_for('returns.create') }}" class="compact-form returns-launch-form">
+        <input type="number" min="1" name="sale_id" placeholder="Satış No" required>
+        <button type="submit" class="primary-button">Yeni İşlem Başlat</button>
+    </form>
+</section>
+{% endif %}
+
+{% include "returns/_list_section.html" %}
+{% endblock %}
+

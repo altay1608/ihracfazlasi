@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% from "_ui_icons.html" import save_icon %}
+{% block title %}Dönemsel Borçlar{% endblock %}
+{% block page_title %}Dönemsel Borçlar{% endblock %}
+{% block topbar_actions %}{% endblock %}
+{% block content %}
+<section class="finance-page">
+    {% include "finance/_nav.html" %}
+    <div class="finance-notice"><div><strong>Plan ile kasa birbirinden ayrıdır.</strong><span>Borç kaydı kasa bakiyesini değiştirmez; yalnız ödeme yapıldığında gider hareketi oluşur.</span></div></div>
+    <form method="post" action="{{ url_for('finance.create_obligation_route') }}" class="finance-tool finance-form-grid finance-form-wide">
+        <input type="hidden" name="csrf_token" value="{{ session.get('auth_csrf_token', '') }}">
+        <label>Başlık<input type="text" name="title" required></label>
+        <label>Kategori<select name="category_id" required data-obligation-category>{% for category in categories if category.direction in ['out','both'] and (not category.is_system or category.code == 'OBLIGATION') %}<option value="{{ category.id }}" data-default-overhead="{{ '1' if category.default_is_overhead else '0' }}">{{ category.name }}</option>{% endfor %}</select></label>
+        <label>Tutar<input type="number" name="amount" min="0.01" step="0.01" required></label>
+        <label>Vade<input type="date" name="due_date"></label>
+        <label>Tekrar<select name="recurrence" data-obligation-recurrence><option value="once">Tek Sefer</option><option value="monthly">Aylık Plan</option><option value="weekly">Haftalık Plan</option></select></label>
+        <label data-recurrence-only hidden>Bitiş Tarihi<input type="date" name="recurrence_end_date" data-recurrence-end></label>
+        <label>Cari<select name="current_account_id"><option value="">Cari yok</option>{% for current in current_accounts %}<option value="{{ current.id }}">{{ current.name }}</option>{% endfor %}</select></label>
+        <input type="hidden" name="is_overhead_mode" value="default" data-overhead-mode>
+        <label class="finance-check finance-overhead-check"><input type="checkbox" name="is_overhead" value="1" data-obligation-overhead><span>Genel Gider</span></label>
+        <p class="helper-text finance-overhead-message finance-full" data-overhead-message hidden>Borç kaydı kasayı etkilemez; bu borç için yapılan ödemeler fiili genel gidere dahil edilir.</p>
+        <label class="finance-full">Not<input type="text" name="note"></label>
+        <button class="primary-button" type="submit">Borcu Planla</button>
+    </form>
+    {% include "finance/_obligation_plans_section.html" %}
+    <div class="finance-table-section panel">
+        <div class="section-heading"><div><p class="eyebrow">Ödeme Planı</p><h2>Borçlar</h2></div></div>
+        <div class="table-wrap"><table id="obligationsTable" data-enhanced-table data-table-key="finance-obligations-v3" data-export-name="donemsel-borclar">
+            <thead><tr><th>Başlık</th><th>Vade</th><th>Tekrar</th><th>Dönem</th><th>Genel Gider</th><th data-summary="currency">Tutar</th><th data-summary="currency">Ödenen</th><th data-summary="currency">Kalan</th><th>Durum</th><th data-no-filter="true" data-no-sort="true">Ödeme</th></tr></thead>
+            <tbody>
+            {% for item in obligations %}
+            {% set paid_amount = item.amount - item.remaining_amount %}
+            <tr class="{% if item.remaining_amount == 0 %}finance-row-settled{% elif item.due_date and item.due_date < today %}finance-row-overdue{% elif item.due_date and item.due_date == today %}finance-row-due{% endif %}">
+                <td>{{ item.title }}</td><td>{{ item.due_date.strftime('%d.%m.%Y') if item.due_date else '-' }}</td><td>{{ recurrence_labels.get(item.recurrence, item.recurrence) }}</td><td>{{ (item.recurrence_sequence|string) ~ '. dönem' if item.recurrence_sequence else '-' }}</td><td>{{ 'Evet' if item.is_overhead else '-' }}</td>
+                <td data-summary-value="{{ item.amount }}">{{ item.amount|currency }}</td><td data-summary-value="{{ paid_amount }}">{{ paid_amount|currency }}</td><td data-summary-value="{{ item.remaining_amount }}">{{ item.remaining_amount|currency }}</td><td>{{ obligation_status_labels.get(item.status, item.status) }}</td>
+                <td>{% if item.remaining_amount > 0 %}<form method="post" action="{{ url_for('finance.pay_obligation_route', obligation_id=item.id) }}" class="finance-inline-action"><input type="hidden" name="csrf_token" value="{{ session.get('auth_csrf_token', '') }}"><select name="finance_account_id">{% for account in accounts %}<option value="{{ account.id }}">{{ account.name }}</option>{% endfor %}</select><input name="amount" type="number" min="0.01" max="{{ item.remaining_amount }}" step="0.01" required><input type="hidden" name="occurred_at" value="{{ now_value }}"><button class="icon-action-button" title="Ödemeyi kaydet" data-tooltip="Ödemeyi kaydet" aria-label="Ödemeyi kaydet">{{ save_icon() }}</button></form>{% else %}<span class="status-badge success">Ödendi</span>{% endif %}</td>
+            </tr>
+            {% else %}<tr><td colspan="10" class="empty-state">Planlanmış dönemsel borç yok.</td></tr>{% endfor %}
+            </tbody>
+        </table></div>
+    </div>
+</section>
+{% endblock %}
+{% block scripts %}
+{{ super() }}
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+    const category = document.querySelector("[data-obligation-category]");
+    const overhead = document.querySelector("[data-obligation-overhead]");
+    const overheadMode = document.querySelector("[data-overhead-mode]");
+    const message = document.querySelector("[data-overhead-message]");
+    const recurrence = document.querySelector("[data-obligation-recurrence]");
+    const recurrenceOnly = document.querySelector("[data-recurrence-only]");
+    const recurrenceEnd = document.querySelector("[data-recurrence-end]");
+    const dueDate = document.querySelector('input[name="due_date"]');
+    if (!category || !overhead) return;
+    const syncMessage = () => { if (message) message.hidden = !overhead.checked; };
+    const applyCategoryDefault = () => {
+        overhead.checked = category.selectedOptions[0]?.dataset.defaultOverhead === "1";
+        if (overheadMode) overheadMode.value = "default";
+        syncMessage();
+    };
+    category.addEventListener("change", applyCategoryDefault);
+    overhead.addEventListener("change", () => {
+        if (overheadMode) overheadMode.value = "override";
+        syncMessage();
+    });
+    const syncRecurrenceFields = () => {
+        if (!recurrence || !recurrenceOnly || !dueDate) return;
+        const isRecurring = recurrence.value !== "once";
+        recurrenceOnly.hidden = !isRecurring;
+        dueDate.required = isRecurring;
+        if (recurrenceEnd) {
+            recurrenceEnd.min = dueDate.value || "";
+            if (!isRecurring) recurrenceEnd.value = "";
+        }
+    };
+    recurrence?.addEventListener("change", syncRecurrenceFields);
+    dueDate?.addEventListener("change", syncRecurrenceFields);
+    applyCategoryDefault();
+    syncRecurrenceFields();
+});
+</script>
+{% endblock %}

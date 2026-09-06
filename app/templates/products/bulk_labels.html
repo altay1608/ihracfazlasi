@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Toplu Etiket Yazdır</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20260503-price-count-label-v4') }}">
+</head>
+<body class="print-page compact-label-print-page bulk-label-print-page">
+    <div class="print-actions no-print">
+        <button type="button" class="primary-button" onclick="window.print()">Yazdır</button>
+        <button type="button" class="ghost-button" onclick="window.close()">Kapat</button>
+    </div>
+
+    <section class="bulk-label-sheet">
+        {% for item in labels %}
+        <div class="bulk-label-item">
+            {% set product = item.product %}
+            {% set barcode_svg = item.barcode_svg %}
+            {% set barcode_value = item.barcode_value %}
+            {% include "products/_label_card.html" %}
+        </div>
+        {% endfor %}
+    </section>
+
+    <script>
+    window.addEventListener("load", () => {
+        window.setTimeout(() => window.print(), 250);
+    });
+    </script>
+</body>
+</html>

@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Aylık Genel Gider{% endblock %}{% block page_title %}Aylık Genel Gider Planı{% endblock %}{% block topbar_actions %}{% endblock %}
+{% block content %}
+<section class="finance-page">
+    {% include "finance/_nav.html" %}
+    <form method="get" class="finance-filter-row">
+        <label>Lütfen Ay Seçimi Yapınız
+            <select name="month" onchange="this.form.submit()">
+                {% for option in month_options %}<option value="{{ option.value }}" {% if option.value == selected_month.strftime('%Y-%m') %}selected{% endif %}>{{ option.label }}</option>{% endfor %}
+            </select>
+        </label>
+    </form>
+    <div class="finance-balance-grid">
+        <article class="finance-balance-card"><span>Planlanan Genel Gider</span><strong>{{ snapshot.overhead|currency }}</strong><small>Günlük planlanan pay {{ snapshot.planned_daily_overhead|currency }}</small></article>
+        <article class="finance-balance-card"><span>Fiili Genel Gider</span><strong>{{ snapshot.actual_overhead|currency }}</strong><small>Günlük gerçekleşen pay {{ snapshot.actual_daily_overhead|currency }}</small></article>
+        <article class="finance-balance-card"><span>POS/Finansman Gideri</span><strong>{{ snapshot.pos_commission_expense|currency }}</strong><small>Mutabakat komisyonları</small></article>
+        <article class="finance-balance-card"><span>Bütçe Sapması</span><strong>{{ snapshot.overhead_variance|currency }}</strong><small>Planlanan - fiili genel gider</small></article>
+        <article class="finance-balance-card finance-balance-total"><span>Fiili Faaliyet Kârı</span><strong>{{ snapshot.actual_operating_result|currency }}</strong><small>Net ciro - fiili giderler</small></article>
+        <article class="finance-balance-card"><span>Planlanan Faaliyet Kârı</span><strong>{{ snapshot.planned_operating_result|currency }}</strong><small>Net ciro - planlanan gider</small></article>
+    </div>
+    <div class="finance-two-column">
+        <form method="post" action="{{ url_for('finance.save_overhead') }}" class="finance-tool finance-form-grid">
+            <input type="hidden" name="csrf_token" value="{{ session.get('auth_csrf_token', '') }}">
+            <input type="hidden" name="month" value="{{ selected_month.strftime('%Y-%m') }}">
+            <div class="finance-full"><p class="eyebrow">Bütçe</p><h2>Kategori Tutarı Gir</h2></div>
+            <label>Kategori<select name="category_id">{% for category in categories if category.direction in ['out','both'] and (not category.is_system or category.code == 'MANUAL_OUT') %}<option value="{{ category.id }}">{{ category.name }}</option>{% endfor %}</select></label>
+            <label>Tutar<input type="number" name="amount" min="0" step="0.01" required></label>
+            <label class="finance-full">Not<input type="text" name="note"></label>
+            <button class="primary-button" type="submit">Bütçeyi Kaydet</button>
+        </form>
+        <section class="finance-tool">
+            <div class="section-heading"><div><p class="eyebrow">Ayrım</p><h2>Planlanan Giderler</h2></div></div>
+            <p class="helper-text">Bütçe kayıtları kasa hareketi değildir. Fiili genel giderler ve POS komisyonları gerçekleştiği ayda ayrıca izlenir.</p>
+            <div class="finance-category-list">{% for budget in budgets %}<span>{% for category in categories if category.id == budget.category_id %}{{ category.name }}{% endfor %}<strong>{{ budget.amount|currency }}</strong></span>{% else %}<span>Bu ay için bütçe yok.</span>{% endfor %}</div>
+        </section>
+    </div>
+</section>
+{% endblock %}

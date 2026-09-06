@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}Platform Yönetimi | İhraç Fazlası Giyim{% endblock %}
+{% block page_title %}Platform Yönetimi{% endblock %}
+
+{% block content %}
+<section class="panel">
+    <div class="section-heading">
+        <div>
+            <p class="eyebrow">Süper Admin</p>
+            <h2>Site ve paket yönetimi</h2>
+            <p class="section-copy">Bu alan operasyonel siteyi değiştirmez; yalnız hesap, mağaza ve yetki metadatasını yönetir.</p>
+        </div>
+        <div class="topbar-actions">
+            <span class="status-badge">{{ sites|length }} site</span>
+            <a class="primary-button" href="{{ url_for('platform.create_site') }}">Yeni Site</a>
+        </div>
+    </div>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Site</th>
+                    <th>Kod</th>
+                    <th>Paket</th>
+                    <th>Mağaza</th>
+                    <th>Kullanıcı</th>
+                    <th>Durum</th>
+                    <th>İşlemler</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for site in sites %}
+                <tr>
+                    <td><strong>{{ site.name }}</strong>{% if site.is_sandbox %}<small class="table-secondary">Geliştirme alanı</small>{% endif %}</td>
+                    <td><code>{{ site.code }}</code></td>
+                    <td><strong>{{ site.package.name }}</strong><small class="table-secondary">{{ site.package.max_stores }} mağaza · {{ site.package.max_users }} kullanıcı</small></td>
+                    <td>{{ site.stores|selectattr('is_active')|list|length }} / {{ site.package.max_stores }}</td>
+                    <td>{{ membership_counts.get(site.id, 0) }} / {{ site.package.max_users }}</td>
+                    <td><span class="status-badge {{ 'warning' if not site.is_active else '' }}">{{ 'Aktif' if site.is_active else 'Pasif' }}</span></td>
+                    <td>
+                        <a
+                            class="icon-action-button"
+                            href="{{ url_for('platform.site_detail', site_id=site.id) }}"
+                            title="Siteyi Yönet"
+                            data-tooltip="Siteyi Yönet"
+                            aria-label="{{ site.name }} sitesini yönet"
+                        >
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.6v-.2h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z"/></svg>
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}
+

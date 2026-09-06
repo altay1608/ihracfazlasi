@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Giriş | İhraç Fazlası Giyim</title>
+    <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}?v=2" sizes="any">
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/favicon-32x32.png') }}?v=2" sizes="32x32">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='img/apple-touch-icon.png') }}?v=2">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20260820-platform-v6') }}">
+</head>
+<body class="auth-page auth-login-page">
+    <main class="auth-login-shell">
+        <section class="auth-showcase" aria-label="İhraç Fazlası Giyim yönetim sistemi">
+            <div class="auth-showcase-content">
+                <div class="auth-showcase-heading">
+                    <p class="eyebrow">İHRAÇ FAZLASI GİYİM</p>
+                    <h1>Mağazanızın tüm akışı, tek merkezde.</h1>
+                    <p>Satıştan stoğa, sayımdan rapora kadar günlük operasyonu sakin ve güvenilir biçimde yönetin.</p>
+                </div>
+                <div class="auth-package-grid">
+                    <article class="auth-package-card">
+                        <div class="auth-package-header"><span>Satış ve Stok</span></div>
+                        <p>Mağaza operasyonunu tek ekrandan yönetin.</p>
+                        <ul class="auth-package-features">
+                            <li>Hızlı satış ve barkod işlemleri</li>
+                            <li>Ürün ve stok takibi</li>
+                            <li>İade ve değişim yönetimi</li>
+                        </ul>
+                    </article>
+                    <article class="auth-package-card is-featured">
+                        <div class="auth-package-header"><span>Kontrol</span></div>
+                        <p>Stok durumunu ve mağaza performansını izleyin.</p>
+                        <ul class="auth-package-features">
+                            <li>Stok sayım yönetimi</li>
+                            <li>Kritik stok uyarıları</li>
+                            <li>Günlük ve dönemsel raporlar</li>
+                        </ul>
+                    </article>
+                    <article class="auth-package-card">
+                        <div class="auth-package-header"><span>Güvenli Yönetim</span></div>
+                        <p>Yetkili kullanıcılarla güvenli çalışma alanı.</p>
+                        <ul class="auth-package-features">
+                            <li>Rol ve yetki kontrolü</li>
+                            <li>İki adımlı doğrulama</li>
+                            <li>Sistem işlem günlüğü</li>
+                        </ul>
+                    </article>
+                </div>
+                <p class="auth-showcase-note">İhraç Fazlası Giyim mağaza yönetim sistemi</p>
+            </div>
+        </section>
+        <section class="auth-login-pane">
+            <div class="auth-login-form-wrap">
+                <div class="auth-brand"><div class="brand-card"><div class="brand-mark">İhraç Fazlası</div><div class="brand-subtitle">GİYİM</div></div></div>
+                <p class="eyebrow">GÜVENLİ GİRİŞ</p>
+                <h2>Hoş geldiniz</h2>
+                <p class="auth-intro">Çalışma alanınıza devam etmek için hesabınızla giriş yapın.</p>
+                <form method="post" class="auth-form">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <input type="hidden" name="next" value="{{ next_url }}">
+                    <label>Kullanıcı Adı<input type="text" name="username" autocomplete="username" required autofocus></label>
+                    <label>Şifre<input type="password" name="password" autocomplete="current-password" required></label>
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                        {% if messages %}<div class="auth-messages" role="alert">{% for category, message in messages %}<p class="form-error">{{ message }}</p>{% endfor %}</div>{% endif %}
+                    {% endwith %}
+                    <button type="submit" class="primary-button">Giriş Yap</button>
+                </form>
+                <p class="auth-help">Giriş sorunu yaşıyorsanız işletme yöneticinizle iletişime geçin.</p>
+            </div>
+        </section>
+    </main>
+</body>
+</html>
+

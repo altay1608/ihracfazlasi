@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+
+{% block title %}Envanter İşlem Tarihçesi | İhraç Fazlası Giyim{% endblock %}
+{% block page_title %}Envanter İşlem Tarihçesi{% endblock %}
+
+{% block content %}
+<section class="panel">
+    <form method="get" class="filter-bar inventory-history-filter-bar">
+        <input type="date" name="start_date" value="{{ filters.start_date }}" aria-label="Başlangıç tarihi">
+        <input type="date" name="end_date" value="{{ filters.end_date }}" aria-label="Bitiş tarihi">
+        <input type="search" name="search" value="{{ filters.search }}" placeholder="Ürün, kod, barkod veya belge ara">
+        <input type="text" name="transaction_code" value="{{ filters.transaction_code }}" placeholder="İşlem kodu ara">
+        <button type="submit" class="ghost-button">Filtrele</button>
+    </form>
+</section>
+
+<section class="card-grid metrics-grid inventory-history-metrics">
+    <article class="panel metric-card"><p class="metric-label">İşlem Sayısı</p><h2>{{ summary.total_transactions }}</h2></article>
+    <article class="panel metric-card"><p class="metric-label">Stok Girişi</p><h2 class="movement-positive">+{{ summary.total_in }}</h2></article>
+    <article class="panel metric-card"><p class="metric-label">Stok Çıkışı</p><h2 class="movement-negative">-{{ summary.total_out }}</h2></article>
+    <article class="panel metric-card"><p class="metric-label">Net Hareket</p><h2>{{ '%+d'|format(summary.net_quantity) }}</h2></article>
+</section>
+
+<section class="panel">
+    <div class="section-heading">
+        <div>
+            <p class="eyebrow">İşlem İzleme</p>
+            <h2>Stok hareketleri</h2>
+        </div>
+        <span class="status-badge">{{ transactions|length }} kayıt</span>
+    </div>
+    <div class="table-wrap">
+        <table data-enhanced-table data-table-key="inventory-transaction-history-v1">
+            <thead>
+                <tr>
+                    <th>Tarih / Saat</th>
+                    <th>İşlem Kodu</th>
+                    <th>İşlem</th>
+                    <th>Ürün</th>
+                    <th>Birim Barkodları</th>
+                    <th>Değişim</th>
+                    <th>Önceki Stok</th>
+                    <th>Sonraki Stok</th>
+                    {% if can('inventory_history.column.cost') %}<th>Maliyet (KDV Hariç)</th>{% endif %}
+                    <th>Belge</th>
+                    <th>Kullanıcı</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in transactions %}
+                <tr>
+                    <td>{{ item.occurred_at.strftime('%d.%m.%Y %H:%M:%S') }}</td>
+                    <td><code>{{ item.transaction_code }}</code></td>
+                    <td>{{ item.transaction_name }}</td>
+                    <td>{{ item.product_name }} / {{ item.product_code }}</td>
+                    <td class="barcode-cell">{{ item.barcode_values or '-' }}</td>
+                    <td class="{{ 'movement-positive' if item.quantity_delta > 0 else 'movement-negative' }}">{{ '%+d'|format(item.quantity_delta) }}</td>
+                    <td>{{ item.quantity_before }}</td>
+                    <td>{{ item.quantity_after }}</td>
+                    {% if can('inventory_history.column.cost') %}<td>{{ item.total_cost|currency }}</td>{% endif %}
+                    <td>{{ item.source_reference or item.source_type }}</td>
+                    <td>{{ item.actor_username or 'Sistem' }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="11" class="empty-state">Seçilen filtrelerde stok hareketi bulunamadı.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}
+

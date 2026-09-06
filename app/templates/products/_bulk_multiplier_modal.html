@@ -1,0 +1,29 @@
+<form
+    method="post"
+    class="styled-form"
+    data-ajax-form
+    data-refresh-target="#products-table-section"
+    action="{{ url_for('products.bulk_multiplier') }}"
+>
+    {% for product_id in product_ids %}
+    <input type="hidden" name="product_ids" value="{{ product_id }}">
+    {% endfor %}
+
+    <div class="form-grid">
+        <div class="full-span">
+            <label for="bulkMultiplierOnly">Perakende Çarpanı</label>
+            <select id="bulkMultiplierOnly" name="retail_multiplier_id" required>
+                <option value="">Çarpan seçin</option>
+                {% for value, label in multiplier_choices %}
+                <option value="{{ value }}">{{ label }}</option>
+                {% endfor %}
+            </select>
+            <p class="input-hint">{{ product_ids|length }} ürün için sadece çarpan güncellenir; kategori ve beden değişmez.</p>
+        </div>
+    </div>
+
+    <div class="modal-inline-actions">
+        <button type="button" class="ghost-button" data-close-modal>Vazgeç</button>
+        <button type="submit" class="primary-button">Çarpanı Güncelle</button>
+    </div>
+</form>

@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="tr">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Telefonu Bağla | İhraç Fazlası Giyim</title><link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}?v=2" sizes="any"><link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20260819-login-mfa-v1') }}"></head>
+<body class="auth-page auth-step-page">
+    <main class="auth-step-shell"><section class="auth-step-card auth-setup-card">
+        <div class="auth-step-heading"><span class="auth-step-number">1</span><div><p class="eyebrow">HESAP GÜVENLİĞİ</p><h1>Telefonunuzu bağlayın</h1></div></div>
+        <p class="auth-step-copy">Telefonunuzdaki Google Authenticator, Microsoft Authenticator veya benzeri uygulamada <strong>QR kod tara</strong> seçeneğini açın.</p>
+        <div class="auth-setup-layout">
+            <div class="auth-qr-panel"><img src="{{ qr_code }}" alt="Doğrulama uygulaması kurulum QR kodu" width="220" height="220"><details><summary>Kodla eklemek istiyorum</summary><code>{{ manual_key }}</code></details></div>
+            <form method="post" class="auth-form auth-code-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <label>Telefonda görünen 6 haneli kod<input class="auth-code-input" type="text" name="verification_code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required autofocus placeholder="000000"></label>
+                {% with messages = get_flashed_messages(with_categories=true) %}{% if messages %}<div class="auth-messages" role="alert">{% for category, message in messages %}<p class="form-error">{{ message }}</p>{% endfor %}</div>{% endif %}{% endwith %}
+                <button type="submit" class="primary-button">Bağlantıyı Doğrula</button><p class="auth-inline-help">Bu işlem yalnızca ilk kurulumda yapılır.</p>
+            </form>
+        </div>
+    </section></main>
+</body></html>
+

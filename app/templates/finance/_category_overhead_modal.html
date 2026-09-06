@@ -1,0 +1,27 @@
+<form
+    method="post"
+    action="{{ url_for('finance.update_category_overhead_default', category_id=category.id) }}"
+    class="styled-form finance-category-edit-modal"
+    data-ajax-form
+    data-refresh-target="#finance-categories-section"
+    data-refresh-url="{{ url_for('finance.accounts', partial='categories') }}"
+>
+    <input type="hidden" name="csrf_token" value="{{ session.get('auth_csrf_token', '') }}">
+    <div class="modal-copy-stack">
+        <div>
+            <p class="eyebrow">{{ category.code }}</p>
+            <h3>{{ category.name }}</h3>
+        </div>
+        <label class="checkbox-field">
+            <span class="checkbox-label">
+                <input type="checkbox" name="default_is_overhead" value="1" {% if category.default_is_overhead %}checked{% endif %}>
+                <span>Varsayılan Genel Gider Olarak İşaretle</span>
+            </span>
+        </label>
+        <p class="helper-text">Bu tercih yalnız bundan sonra oluşturulan işlemlere varsayılan olur. Geçmiş finans hareketleri değişmez.</p>
+    </div>
+    <div class="modal-inline-actions">
+        <button type="button" class="ghost-button" data-close-modal>Vazgeç</button>
+        <button type="submit" class="primary-button">Kaydet</button>
+    </div>
+</form>

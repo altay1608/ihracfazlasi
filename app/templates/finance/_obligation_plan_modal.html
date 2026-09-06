@@ -1,0 +1,27 @@
+<form
+    method="post"
+    action="{{ url_for('finance.update_obligation_plan_route', plan_id=plan.id) }}"
+    class="styled-form finance-recurrence-plan-modal"
+    data-ajax-form
+    data-refresh-target="#finance-obligation-plans-section"
+    data-refresh-url="{{ url_for('finance.obligations', partial='plans') }}"
+>
+    <input type="hidden" name="csrf_token" value="{{ session.get('auth_csrf_token', '') }}">
+    <div class="modal-copy-stack">
+        <div>
+            <p class="eyebrow">{{ recurrence_labels.get(plan.recurrence, plan.recurrence) }}</p>
+            <h3>{{ plan.title }}</h3>
+        </div>
+        <label>Gelecek Dönem Tutarı
+            <input name="amount" type="number" min="0.01" step="0.01" value="{{ plan.amount }}" required>
+        </label>
+        <label>Bitiş Tarihi
+            <input name="end_date" type="date" min="{{ plan.first_due_date.isoformat() }}" value="{{ plan.end_date.isoformat() if plan.end_date else '' }}">
+        </label>
+        <p class="helper-text">Bitiş tarihi boş bırakılırsa plan süresiz devam eder. Değişiklik yalnız henüz oluşmamış dönemlere uygulanır.</p>
+    </div>
+    <div class="modal-inline-actions">
+        <button type="button" class="ghost-button" data-close-modal>Vazgeç</button>
+        <button type="submit" class="primary-button">Kaydet</button>
+    </div>
+</form>

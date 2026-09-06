@@ -1,0 +1,299 @@
+{% extends "base.html" %}
+
+{% block title %}{{ site.name }} Yönetimi | İhraç Fazlası Giyim{% endblock %}
+{% block page_title %}{{ site.name }}{% endblock %}
+{% block page_back_button %}<a class="ghost-button back-button" href="{{ url_for('platform.index') }}">Platform Yönetimine Dön</a>{% endblock %}
+
+{% block content %}
+<section class="panel platform-site-summary">
+    <div class="section-heading">
+        <div>
+            <p class="eyebrow">{{ site.code }} · {{ site.package.name }} Paket · {{ site.package.max_stores }} Mağaza · {{ site.package.max_users }} Kullanıcı</p>
+            <h2>Hesap ve yetki metadatası</h2>
+            <p class="section-copy">Aktif operasyon alanınız değişmedi. Bu ekran müşteri ürün, satış veya finans verisini açmaz.</p>
+        </div>
+    </div>
+    <div class="platform-package-overview">
+        <div class="platform-package-current">
+            <span class="eyebrow">Mevcut Paket</span>
+            <strong>{{ site.package.name }}</strong>
+            <small>Paket siteye atanır ve tüm mağazaların özellik kapsamını belirler.</small>
+        </div>
+        <div class="platform-limit-usage">
+            <div>
+                <span>Aktif mağaza</span><strong>{{ active_store_count }} / {{ site.package.max_stores }}</strong>
+                <progress value="{{ active_store_count }}" max="{{ site.package.max_stores }}">{{ active_store_count }} / {{ site.package.max_stores }}</progress>
+            </div>
+            <div>
+                <span>Aktif kullanıcı</span><strong>{{ active_user_count }} / {{ site.package.max_users }}</strong>
+                <progress value="{{ active_user_count }}" max="{{ site.package.max_users }}">{{ active_user_count }} / {{ site.package.max_users }}</progress>
+            </div>
+        </div>
+        <form method="post" action="{{ url_for('platform.update_site_package', site_id=site.id) }}" class="platform-package-form">
+            <input type="hidden" name="csrf_token" value="{{ session.get('auth_csrf_token', '') }}">
+            <label><span>Paket</span>
+                <select name="package_id" required>
+                    {% for package in packages %}
+                    <option value="{{ package.id }}" {% if package.id == site.package_id %}selected{% endif %} {% if not package.features %}disabled{% endif %}>{{ package.name }} · {{ package.max_stores }} mağaza · {{ package.max_users }} kullanıcı</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <button type="submit" class="primary-button">Paketi Güncelle</button>
+        </form>
+    </div>
+</section>
+
+<section class="panel">
+    <div class="section-heading">
+        <div>
+            <p class="eyebrow">Operasyon Alanları</p>
+            <h2>Mağazalar</h2>
+            <p class="section-copy">Yeni mağazalar aynı siteye bağlı açılır; “tüm mağazalar” yetkili kullanıcılar yeni mağazaya otomatik erişir.</p>
+        </div>
+        <a class="primary-button" href="{{ url_for('platform.create_store', site_id=site.id) }}">Yeni Mağaza</a>
+    </div>
+    <div class="table-wrap">
+        <table>
+            <thead><tr><th>Mağaza</th><th>Kod</th><th>Durum</th><th>İşlemler</th></tr></thead>
+            <tbody>
+                {% for store in stores %}
+                <tr>
+                    <td><strong>{{ store.name }}</strong></td>
+                    <td><code>{{ store.code }}</code></td>
+                    <td><span class="status-badge {{ 'warning' if not store.is_active else '' }}">{{ 'Aktif' if store.is_active else 'Pasif' }}</span></td>
+                    <td>
+                        <a
+                            class="icon-action-button"
+                            href="{{ url_for('platform.edit_store', site_id=site.id, store_id=store.id) }}"
+                            title="Mağazayı Düzenle"
+                            data-tooltip="Mağazayı Düzenle"
+                            aria-label="{{ store.name }} mağazasını düzenle"
+                        >
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/></svg>
+                        </a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="4" class="empty-state">Bu site için mağaza bulunmuyor.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<section class="panel">
+    <div class="section-heading">
+        <div>
+            <p class="eyebrow">Hesaplar</p>
+            <h2>Site kullanıcıları</h2>
+        </div>
+        <div class="form-actions">
+            <span class="status-badge">{{ memberships|length }} kullanıcı</span>
+            <a class="primary-button" href="{{ url_for('platform.create_user', site_id=site.id) }}">Yeni Kullanıcı</a>
+        </div>
+    </div>
+    <div class="table-wrap">
+        <table>
+            <thead><tr><th>Ad Soyad</th><th>Kullanıcı</th><th>Rol</th><th>Mağaza Erişimi</th><th>İlk Giriş</th><th>2FA</th><th>Durum</th><th>İşlemler</th></tr></thead>
+            <tbody>
+                {% for membership in memberships %}
+                <tr>
+                    <td><strong>{{ membership.user.full_name }}</strong><small class="table-secondary">{{ membership.user.email or 'E-posta tanımlı değil' }}</small></td>
+                    <td><code>{{ membership.user.username }}</code></td>
+                    <td>{{ membership.role.name }}</td>
+                    <td>{{ 'Tüm mağazalar' if membership.all_stores else membership.user.store_access|selectattr('store.site_id', 'equalto', site.id)|map(attribute='store.name')|join(', ') }}</td>
+                    <td>{{ 'Şifre değişimi bekleniyor' if membership.user.must_change_password else 'Tamamlandı' }}</td>
+                    <td><span class="status-badge {{ 'warning' if not membership.user.two_factor_enabled else '' }}">{{ 'Etkin' if membership.user.two_factor_enabled else 'Kurulum bekliyor' }}</span></td>
+                    {% set membership_active = membership.user.is_active and membership.is_active %}
+                    <td><span class="status-badge {{ 'warning' if not membership_active else '' }}">{{ 'Aktif' if membership_active else 'Pasif' }}</span></td>
+                    <td>
+                        <div class="inline-actions compact-actions">
+                            {% if not membership.user.is_platform_superadmin %}
+                            <form method="post" action="{{ url_for('platform.toggle_user', site_id=site.id, user_id=membership.user.id) }}" class="inline-action-form">
+                                <input type="hidden" name="csrf_token" value="{{ session.get('auth_csrf_token', '') }}">
+                                <button
+                                    type="submit"
+                                    class="icon-action-button {{ 'icon-action-danger' if membership_active else '' }}"
+                                    title="{{ 'Site Erişimini Pasife Al' if membership_active else 'Site Erişimini Etkinleştir' }}"
+                                    data-tooltip="{{ 'Site Erişimini Pasife Al' if membership_active else 'Site Erişimini Etkinleştir' }}"
+                                    aria-label="{{ membership.user.full_name }} site erişimini {{ 'pasife al' if membership_active else 'etkinleştir' }}"
+                                >
+                                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2v10"/><path d="M6.3 5.3a8 8 0 1 0 11.4 0"/></svg>
+                                </button>
+                            </form>
+                            {% endif %}
+                            <a
+                                class="icon-action-button"
+                                href="{{ url_for('platform.edit_user', site_id=site.id, user_id=membership.user.id) }}"
+                                title="Kullanıcıyı Düzenle"
+                                data-tooltip="Kullanıcıyı Düzenle"
+                                aria-label="{{ membership.user.full_name }} kullanıcısını düzenle"
+                            >
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/></svg>
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="8" class="empty-state">Bu site için henüz kullanıcı oluşturulmadı.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<section class="panel">
+    <div class="section-heading">
+        <div>
+            <p class="eyebrow">Yalnız Süper Admin</p>
+            <h2>Rol ve yetki matrisi</h2>
+            <p class="section-copy">Bu matris site kullanıcılarının ekranlarında gösterilmez. Paket dışında kalan menüler kilitlenir; kayıtlı rol tercihleri paket yeniden yükseltildiğinde kullanılmak üzere korunur.</p>
+        </div>
+    </div>
+    <div class="platform-permission-workspace" data-role-workspace>
+        <aside class="platform-role-navigation" aria-label="Site rolleri">
+            {% for role in roles %}
+            <button
+                type="button"
+                class="platform-role-selector{% if loop.first %} is-active{% endif %}"
+                data-role-selector="role-{{ role.id }}"
+                aria-pressed="{{ 'true' if loop.first else 'false' }}"
+            >
+                <strong>{{ role.name }}</strong>
+                <small>{{ effective_role_counts.get(role.id, 0) }} etkin · {{ role.permissions|length }} kayıtlı</small>
+            </button>
+            {% endfor %}
+        </aside>
+
+        <div class="platform-role-content">
+            {% for role in roles %}
+            {% set selected_codes = role.permissions|map(attribute='code')|list %}
+            <section
+                class="platform-role-view{% if loop.first %} is-active{% endif %}"
+                id="role-{{ role.id }}"
+                data-role-view
+                {% if not loop.first %}hidden{% endif %}
+            >
+                <div class="platform-role-heading">
+                    <div>
+                        <h3>{{ role.name }}</h3>
+                        <code>{{ role.code }}</code>
+                    </div>
+                    {% if role.code == 'OWNER_MANAGER' %}<span class="status-badge">Varsayılan tam yetkili</span>{% endif %}
+                </div>
+
+                <form method="post" action="{{ url_for('platform.update_role_permissions', site_id=site.id, role_id=role.id) }}" class="platform-permission-form" data-permission-form>
+                    <input type="hidden" name="csrf_token" value="{{ session.get('auth_csrf_token', '') }}">
+                    <div class="platform-menu-tree">
+                        {% for feature, permissions, package_enabled in permission_groups %}
+                        {% set menu_permission = permissions|selectattr('kind', 'equalto', 'menu')|first %}
+                        {% set child_permissions = permissions|rejectattr('kind', 'equalto', 'menu')|list %}
+                        <section class="platform-menu-node{% if not package_enabled %} is-package-locked{% endif %}" data-permission-menu>
+                            <div class="platform-menu-row">
+                                <button
+                                    type="button"
+                                    class="platform-menu-expand"
+                                    data-permission-menu-toggle
+                                    aria-expanded="false"
+                                    aria-controls="role-{{ role.id }}-feature-{{ feature.id }}"
+                                >
+                                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+                                    <span>{{ feature.name }}</span>
+                                    {% if not package_enabled %}<span class="status-badge warning platform-package-lock">Paket dışında</span>{% endif %}
+                                </button>
+                                {% if menu_permission %}
+                                <label class="permission-switch" title="{{ menu_permission.name }}">
+                                    <input
+                                        type="checkbox"
+                                        name="permission_codes"
+                                        value="{{ menu_permission.code }}"
+                                        data-menu-permission
+                                        {% if menu_permission.code in selected_codes %}checked{% endif %}
+                                        {% if not package_enabled %}disabled{% endif %}
+                                    >
+                                    <span class="permission-switch-track" aria-hidden="true"></span>
+                                    <span class="sr-only">{{ menu_permission.name }}</span>
+                                </label>
+                                {% endif %}
+                            </div>
+                            <div class="platform-menu-children" id="role-{{ role.id }}-feature-{{ feature.id }}" hidden>
+                                {% for permission in child_permissions %}
+                                <div class="permission-row">
+                                    <span><strong>{{ permission.name }}</strong><small>{{ permission.kind }}</small></span>
+                                    <label class="permission-switch" title="{{ permission.name }}">
+                                        <input
+                                            type="checkbox"
+                                            name="permission_codes"
+                                            value="{{ permission.code }}"
+                                            data-child-permission
+                                            {% if permission.code in selected_codes %}checked{% endif %}
+                                            {% if not package_enabled %}disabled{% endif %}
+                                        >
+                                        <span class="permission-switch-track" aria-hidden="true"></span>
+                                        <span class="sr-only">{{ permission.name }}</span>
+                                    </label>
+                                </div>
+                                {% else %}
+                                <p class="platform-menu-empty">Bu menü için ek yetki bulunmuyor.</p>
+                                {% endfor %}
+                            </div>
+                        </section>
+                        {% endfor %}
+                    </div>
+                    <div class="form-actions platform-permission-actions"><button type="submit" class="primary-button">Yetkileri Kaydet</button></div>
+                </form>
+            </section>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+    const workspace = document.querySelector("[data-role-workspace]");
+    if (!workspace) return;
+
+    workspace.querySelectorAll("[data-role-selector]").forEach((selector) => {
+        selector.addEventListener("click", () => {
+            const targetId = selector.dataset.roleSelector;
+            workspace.querySelectorAll("[data-role-selector]").forEach((item) => {
+                const active = item === selector;
+                item.classList.toggle("is-active", active);
+                item.setAttribute("aria-pressed", String(active));
+            });
+            workspace.querySelectorAll("[data-role-view]").forEach((view) => {
+                const active = view.id === targetId;
+                view.hidden = !active;
+                view.classList.toggle("is-active", active);
+            });
+        });
+    });
+
+    workspace.querySelectorAll("[data-permission-menu]").forEach((menu) => {
+        const toggle = menu.querySelector("[data-permission-menu-toggle]");
+        const children = menu.querySelector(".platform-menu-children");
+        const menuPermission = menu.querySelector("[data-menu-permission]");
+        const childPermissions = [...menu.querySelectorAll("[data-child-permission]")];
+
+        toggle?.addEventListener("click", () => {
+            const expanded = toggle.getAttribute("aria-expanded") === "true";
+            toggle.setAttribute("aria-expanded", String(!expanded));
+            children.hidden = expanded;
+            menu.classList.toggle("is-open", !expanded);
+        });
+        menuPermission?.addEventListener("change", () => {
+            if (!menuPermission.checked) childPermissions.forEach((item) => { item.checked = false; });
+        });
+        childPermissions.forEach((item) => {
+            item.addEventListener("change", () => {
+                if (item.checked && menuPermission) menuPermission.checked = true;
+            });
+        });
+    });
+});
+</script>
+{% endblock %}
+

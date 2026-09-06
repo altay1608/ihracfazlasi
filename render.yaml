@@ -1,0 +1,35 @@
+services:
+  - type: web
+    name: ihrac-fazlasi-giyim
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: bash start.sh
+    healthCheckPath: /health
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ihrac-fazlasi-giyim-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: AUTH_USERNAME
+        value: admin
+      - key: CUSTOMER_SITE_CODE
+        value: IFG
+      - key: CUSTOMER_STORE_CODE
+        value: MERKEZ
+      - key: STORE_NAME
+        value: İhraç Fazlası Giyim
+      - key: AUTH_PASSWORD
+        sync: false
+      - key: MFA_REQUIRED
+        value: "0"
+      - key: MFA_ISSUER
+        value: İhraç Fazlası Giyim
+      - key: FINANCE_APPROVAL_LIMIT
+        value: "5000"
+
+databases:
+  - name: ihrac-fazlasi-giyim-db

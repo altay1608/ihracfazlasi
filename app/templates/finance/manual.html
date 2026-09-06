@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% from "_ui_icons.html" import reverse_icon %}
+{% block title %}Manuel Finans Hareketi{% endblock %}
+{% block page_title %}Manuel Finans Hareketi{% endblock %}
+{% block topbar_actions %}{% endblock %}
+{% block content %}
+<section class="finance-page">
+    {% include "finance/_nav.html" %}
+    <form method="post" class="finance-tool finance-form-grid finance-form-wide" data-manual-finance-form>
+        <input type="hidden" name="csrf_token" value="{{ session.get('auth_csrf_token', '') }}">
+        <label>İşlem Tarihi<input type="datetime-local" name="occurred_at" value="{{ now_value }}" required></label>
+        <label>Hesap<select name="account_id" required>{% for account in accounts %}<option value="{{ account.id }}">{{ account.name }}</option>{% endfor %}</select></label>
+        <label>Yön<select name="direction" required data-manual-direction><option value="in">Gelir</option><option value="out">Gider</option></select></label>
+        <label>Kategori<select name="category_id" required data-manual-category>{% for category in categories if not category.is_system or category.code in ['MANUAL_IN','MANUAL_OUT'] %}<option value="{{ category.id }}" data-direction="{{ category.direction }}" data-default-overhead="{{ '1' if category.default_is_overhead else '0' }}">{{ category.name }}</option>{% endfor %}</select></label>
+        <label>Tutar<input type="number" name="amount" min="0.01" step="0.01" required></label>
+        <label>Belge No<input type="text" name="document_no" maxlength="100"></label>
+        <label>Cari (isteğe bağlı)<select name="current_account_id"><option value="">Cari yok</option>{% for current in current_accounts %}<option value="{{ current.id }}">{{ current.code }} - {{ current.name }}</option>{% endfor %}</select></label>
+        <input type="hidden" name="is_overhead_mode" value="default" data-overhead-mode>
+        <label class="finance-check finance-overhead-check"><input type="checkbox" name="is_overhead" value="1" data-manual-overhead><span>Genel Gider</span></label>
+        <p class="helper-text finance-overhead-message finance-full" data-overhead-message hidden>Bu hareket kaydedildiğinde fiili genel gidere dahil edilir.</p>
+        <label class="finance-full">Açıklama<textarea name="description" rows="3" required></textarea></label>
+        <button class="primary-button" type="submit">Hareketi Kaydet</button>
+    </form>
+
+    <div class="finance-table-section panel">
+        <div class="section-heading"><div><p class="eyebrow">Düzeltme Merkezi</p><h2>Manuel Hareketler</h2></div></div>
+        <div class="table-wrap">
+            <table id="manualMovementsTable" data-enhanced-table data-table-key="finance-manual-v3" data-export-name="manuel-finans-hareketleri">
+                <thead><tr><th>Tarih</th><th>Hesap</th><th>Kategori</th><th>Açıklama</th><th>Belge</th><th>Genel Gider</th><th data-summary="currency">Gelir</th><th data-summary="currency">Gider</th><th class="finance-action-column" data-no-filter="true" data-no-sort="true">İşlem</th></tr></thead>
+                <tbody>
+                {% for movement in manual_movements %}
+                <tr>
+                    <td>{{ movement.occurred_at|tr_datetime }}</td>
+                    <td>{{ movement.account.name }}</td>
+                    <td>{{ movement.category.name }}</td>
+                    <td>{{ movement.description or '-' }}</td>
+                    <td>{{ movement.document_no or '-' }}</td>
+                    <td>{{ 'Evet' if movement.is_overhead else '-' }}</td>
+                    <td class="money-in" data-summary-value="{{ movement.amount if movement.direction == 'in' else 0 }}">{{ movement.amount|currency if movement.direction == 'in' else '-' }}</td>
+                    <td class="money-out" data-summary-value="{{ movement.amount if movement.direction == 'out' else 0 }}">{{ movement.amount|currency if movement.direction == 'out' else '-' }}</td>
+                    <td class="finance-action-column">
+                        {% if movement.reversal_of_id %}<span class="status-badge">Ters Kayıt</span>
+                        {% elif movement.id in reversed_movement_ids %}<span class="status-badge success">Düzeltildi</span>
+                        {% else %}<form method="post" action="{{ url_for('finance.reverse', movement_id=movement.id) }}" class="finance-inline-action finance-reversal-action"><input type="hidden" name="csrf_token" value="{{ session.get('auth_csrf_token', '') }}"><input type="text" name="reason" required placeholder="Düzeltme nedeni" aria-label="Düzeltme nedeni"><button type="submit" class="icon-action-button" title="Ters kayıt oluştur" data-tooltip="Ters kayıt oluştur" aria-label="Ters kayıt oluştur">{{ reverse_icon() }}</button></form>{% endif %}
+                    </td>
+                </tr>
+                {% else %}<tr><td colspan="9" class="empty-state">Manuel hareket bulunmuyor.</td></tr>{% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+{% endblock %}
+{% block scripts %}
+{{ super() }}
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+    const form = document.querySelector("[data-manual-finance-form]");
+    const direction = form?.querySelector("[data-manual-direction]");
+    const category = form?.querySelector("[data-manual-category]");
+    const overhead = form?.querySelector("[data-manual-overhead]");
+    const overheadMode = form?.querySelector("[data-overhead-mode]");
+    const overheadMessage = form?.querySelector("[data-overhead-message]");
+    if (!direction || !category) return;
+    const syncOverheadMessage = () => {
+        if (overheadMessage) overheadMessage.hidden = !overhead?.checked;
+    };
+    const applyCategoryDefault = () => {
+        if (!overhead) return;
+        const selected = category.selectedOptions[0];
+        overhead.checked = direction.value === "out" && selected?.dataset.defaultOverhead === "1";
+        if (overheadMode) overheadMode.value = "default";
+        syncOverheadMessage();
+    };
+    const syncCategories = () => {
+        const selectedDirection = direction.value;
+        let firstEnabled = null;
+        [...category.options].forEach((option) => {
+            const allowed = option.dataset.direction === "both" || option.dataset.direction === selectedDirection;
+            option.disabled = !allowed;
+            option.hidden = !allowed;
+            if (allowed && !firstEnabled) firstEnabled = option;
+        });
+        if (category.selectedOptions[0]?.disabled && firstEnabled) category.value = firstEnabled.value;
+        if (overhead) {
+            overhead.disabled = selectedDirection !== "out";
+            if (overhead.disabled) overhead.checked = false;
+        }
+        applyCategoryDefault();
+    };
+    direction.addEventListener("change", syncCategories);
+    category.addEventListener("change", applyCategoryDefault);
+    overhead?.addEventListener("change", () => {
+        if (overheadMode) overheadMode.value = "override";
+        syncOverheadMessage();
+    });
+    syncCategories();
+});
+</script>
+{% endblock %}

@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Hesap Transferleri{% endblock %}{% block page_title %}Hesap Transferleri{% endblock %}{% block topbar_actions %}{% endblock %}
+{% block content %}<section class="finance-page">{% include "finance/_nav.html" %}
+<form method="post" class="finance-tool finance-form-grid finance-form-wide"><input type="hidden" name="csrf_token" value="{{ session.get('auth_csrf_token', '') }}">
+<label>Tarih<input type="datetime-local" name="occurred_at" value="{{ now_value }}" required></label>
+<label>Çıkış Hesabı<select name="from_account_id" required>{% for account in accounts %}<option value="{{ account.id }}">{{ account.name }}</option>{% endfor %}</select></label>
+<label>Giriş Hesabı<select name="to_account_id" required>{% for account in accounts %}<option value="{{ account.id }}">{{ account.name }}</option>{% endfor %}</select></label>
+<label>Tutar<input type="number" name="amount" min="0.01" step="0.01" required></label>
+<label class="finance-full">Açıklama<input type="text" name="description" maxlength="500"></label><button class="primary-button" type="submit">Transferi Kaydet</button></form>
+<div class="finance-table-section panel"><div class="section-heading"><div><p class="eyebrow">Geçmiş</p><h2>Hesap Transferleri</h2></div></div><div class="table-wrap"><table id="financeTransfersTable" data-enhanced-table data-table-key="finance-transfers-v2" data-export-name="hesap-transferleri"><thead><tr><th>Tarih</th><th>Çıkış Hesabı</th><th>Giriş Hesabı</th><th>Açıklama</th><th data-summary="currency">Tutar</th></tr></thead><tbody>{% for row in transfers %}<tr><td>{{ row.occurred_at|tr_datetime }}</td><td>{{ account_names.get(row.from_account_id, '-') }}</td><td>{{ account_names.get(row.to_account_id, '-') }}</td><td>{{ row.description or '-' }}</td><td data-summary-value="{{ row.amount }}">{{ row.amount|currency }}</td></tr>{% else %}<tr><td colspan="5" class="empty-state">Hesap transferi bulunmuyor.</td></tr>{% endfor %}</tbody></table></div></div>
+</section>{% endblock %}

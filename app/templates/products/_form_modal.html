@@ -1,0 +1,14 @@
+<form
+    method="post"
+    class="styled-form"
+    data-ajax-form
+    data-refresh-target="#products-table-section"
+    action="{{ request.path }}"
+>
+    {{ form.hidden_tag() }}
+    {% include "products/_form_fields.html" %}
+    <div class="modal-inline-actions">
+        <button type="button" class="ghost-button" data-close-modal>Vazgeç</button>
+        {{ form.submit(class_="primary-button") }}
+    </div>
+</form>

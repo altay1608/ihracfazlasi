@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}POS Mutabakatı{% endblock %}{% block page_title %}POS Mutabakatı{% endblock %}{% block topbar_actions %}{% endblock %}
+{% block content %}<section class="finance-page">{% include "finance/_nav.html" %}
+<form method="post" class="finance-tool finance-form-grid finance-form-wide" data-pos-reconciliation-form><input type="hidden" name="csrf_token" value="{{ session.get('auth_csrf_token', '') }}">
+<label>Tarih<input type="datetime-local" name="occurred_at" value="{{ now_value }}" required></label>
+<label>POS Alacağı<select name="pos_account_id" required>{% for account in accounts if account.account_type == 'pos_receivable' %}<option value="{{ account.id }}">{{ account.name }}</option>{% endfor %}</select></label>
+<label>Banka<select name="bank_account_id" required>{% for account in accounts if account.account_type == 'bank' %}<option value="{{ account.id }}">{{ account.name }}</option>{% endfor %}</select></label>
+<label>Brüt Tutar<input type="number" name="gross_amount" min="0.01" step="0.01" required data-pos-gross></label>
+<label>Komisyon Oranı (%)<input type="number" name="commission_rate" min="0" max="99.9999" step="0.0001" value="0" required data-pos-rate></label>
+<label>Hesaplanan Komisyon<input type="text" value="₺0,00" readonly tabindex="-1" data-pos-commission-preview></label>
+<label>Banka Net Tutarı<input type="text" value="₺0,00" readonly tabindex="-1" data-pos-net-preview></label>
+<label>Referans<input type="text" name="reference" maxlength="120"></label><button class="primary-button" type="submit">Mutabakatı Kaydet</button></form>
+<div class="finance-table-section panel"><div class="section-heading"><div><p class="eyebrow">Geçmiş</p><h2>POS Mutabakatları</h2></div></div><div class="table-wrap"><table id="posReconciliationsTable" data-enhanced-table data-table-key="finance-pos-v3" data-export-name="pos-mutabakatlari"><thead><tr><th>Tarih</th><th>Referans</th><th data-summary="currency">Brüt</th><th>Komisyon Oranı</th><th data-summary="currency">Komisyon Tutarı</th><th data-summary="currency">Net</th></tr></thead><tbody>{% for row in reconciliations %}<tr><td>{{ row.occurred_at|tr_datetime }}</td><td>{{ row.reference or '-' }}</td><td data-summary-value="{{ row.gross_amount }}">{{ row.gross_amount|currency }}</td><td>{{ row.commission_rate|percentage }}</td><td data-summary-value="{{ row.commission_amount }}">{{ row.commission_amount|currency }}</td><td data-summary-value="{{ row.net_amount }}">{{ row.net_amount|currency }}</td></tr>{% else %}<tr><td colspan="6" class="empty-state">Mutabakat kaydı yok.</td></tr>{% endfor %}</tbody></table></div></div>
+</section>{% endblock %}

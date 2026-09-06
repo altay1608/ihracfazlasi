@@ -1,0 +1,87 @@
+<section
+    id="inventoryCountsListSection"
+    class="panel"
+    data-partial-url="{{ url_for('inventory_counts.index', partial='table') }}"
+>
+    <div class="section-heading">
+        <div>
+            <p class="eyebrow">Sayım Listeleri</p>
+            <h2>Oluşturulan sayımlar ve onay durumları</h2>
+        </div>
+        <div class="topbar-actions">
+            {% if can('inventory_counts.action.create') %}
+            <a class="primary-button" href="{{ url_for('inventory_counts.create') }}">Yeni Sayım Listesi</a>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="table-wrap">
+        <table data-enhanced-table data-table-key="inventory-counts-list">
+            <thead>
+                <tr>
+                    <th>Sayım No</th>
+                    <th>Sayım Adı</th>
+                    <th>Kategori</th>
+                    <th>Durum</th>
+                    <th>Oluşturma</th>
+                    <th>Onay</th>
+                    <th data-no-filter="true" data-no-sort="true">İşlemler</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for count in counts %}
+                <tr>
+                    <td>#{{ count.document_no }}</td>
+                    <td>{{ count.name }}</td>
+                    <td>{{ count.category_filter or "Tüm kategoriler" }}</td>
+                    <td>{{ "Onaylandı" if count.status == "approved" else "Taslak" }}</td>
+                    <td>{{ count.created_at|tr_date }}</td>
+                    <td>{{ count.approved_at|tr_date if count.approved_at else "-" }}</td>
+                    <td>
+                        <div class="inline-actions compact-actions">
+                            <a
+                                class="icon-action-button"
+                                href="{{ url_for('inventory_counts.detail', count_id=count.id) }}"
+                                title="Sayıma Gir"
+                                data-tooltip="Sayıma Gir"
+                                aria-label="Sayıma Gir"
+                            >
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h11"/><path d="M9 12h11"/><path d="M9 18h11"/><path d="M4 6h.01"/><path d="M4 12h.01"/><path d="M4 18h.01"/></svg>
+                            </a>
+                            {% if can('inventory_counts.action.delete') %}
+                            <form
+                                class="inline-action-form"
+                                method="post"
+                                action="{{ url_for('inventory_counts.delete', count_id=count.id) }}"
+                                data-confirm-form
+                                data-confirm-method="POST"
+                                data-confirm-title="Sayım listesini sil"
+                                data-confirm-message="{{ count.name }} isimli sayım listesi silinecektir. Bu işlem geri alınamaz, emin misiniz?"
+                                data-confirm-record-code="{{ count.name }}"
+                                data-confirm-record-label="{{ count.category_filter or 'Tüm kategoriler' }}"
+                                data-refresh-target="#inventoryCountsListSection"
+                                data-refresh-url="{{ url_for('inventory_counts.index', partial='table') }}"
+                            >
+                                <button
+                                    type="submit"
+                                    class="icon-action-button icon-action-danger"
+                                    title="Sil"
+                                    data-tooltip="Sil"
+                                    aria-label="Sil"
+                                >
+                                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+                                </button>
+                            </form>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="7" class="empty-state">Henüz sayım listesi yok.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>

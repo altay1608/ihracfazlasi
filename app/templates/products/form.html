@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+
+{% block title %}{{ page_title }} | İhraç Fazlası Giyim{% endblock %}
+{% block page_title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<section class="panel form-panel">
+    <form method="post" class="styled-form">
+        {{ form.hidden_tag() }}
+        {% include "products/_form_fields.html" %}
+        <div class="form-actions">
+            <a class="ghost-button" href="{{ url_for('products.index') }}">Vazgeç</a>
+            {{ form.submit(class_="primary-button") }}
+        </div>
+    </form>
+</section>
+{% endblock %}
+

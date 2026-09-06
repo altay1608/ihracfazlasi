@@ -1,0 +1,52 @@
+<div class="form-grid">
+    <div>
+        {{ form.name.label }}
+        {{ form.name(placeholder="Örn. Slim Fit Erkek Gömlek") }}
+        {% for error in form.name.errors %}<p class="form-error">{{ error }}</p>{% endfor %}
+    </div>
+    <div>
+        {{ form.category.label }}
+        {{ form.category() }}
+        {% for error in form.category.errors %}<p class="form-error">{{ error }}</p>{% endfor %}
+    </div>
+    <div>
+        {{ form.product_code.label }}
+        {{ form.product_code(placeholder="100000000001", readonly=true) }}
+        <p class="input-hint">Ürün kodu sistem tarafından sıradaki numara ile otomatik verilir.</p>
+        {% for error in form.product_code.errors %}<p class="form-error">{{ error }}</p>{% endfor %}
+    </div>
+    <div>
+        {{ form.variant.label }}
+        {{ form.variant() }}
+        {% for error in form.variant.errors %}<p class="form-error">{{ error }}</p>{% endfor %}
+    </div>
+    <div>
+        {{ form.purchase_price.label }}
+        {{ form.purchase_price(step="0.01") }}
+        {% for error in form.purchase_price.errors %}<p class="form-error">{{ error }}</p>{% endfor %}
+    </div>
+    <div>
+        {{ form.retail_multiplier_id.label }}
+        {{ form.retail_multiplier_id() }}
+        <p class="input-hint">Satış fiyatı, alış fiyatı x seçilen çarpan olarak otomatik hesaplanır.</p>
+        {% for error in form.retail_multiplier_id.errors %}<p class="form-error">{{ error }}</p>{% endfor %}
+    </div>
+    <div>
+        {{ form.sale_price.label }}
+        {{ form.sale_price(step="0.01", readonly=true) }}
+        {% for error in form.sale_price.errors %}<p class="form-error">{{ error }}</p>{% endfor %}
+    </div>
+    <div>
+        {{ form.stock_quantity.label }}
+        {{ form.stock_quantity(min="0") }}
+        {% for error in form.stock_quantity.errors %}<p class="form-error">{{ error }}</p>{% endfor %}
+    </div>
+    {% if can('alerts.access') %}
+    <div>
+        {{ form.critical_stock_level.label }}
+        {{ form.critical_stock_level(min="0", placeholder="Boş bırakılırsa kategori veya genel KSS kullanılır") }}
+        <p class="input-hint">Ürüne özel kritik stok seviyesi tanımlamak için kullanılır.</p>
+        {% for error in form.critical_stock_level.errors %}<p class="form-error">{{ error }}</p>{% endfor %}
+    </div>
+    {% endif %}
+</div>

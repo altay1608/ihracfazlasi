@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'Mağaza Düzenle' if store else 'Yeni Mağaza' }} | İhraç Fazlası Giyim{% endblock %}
+{% block page_title %}{{ 'Mağaza Düzenle' if store else 'Yeni Mağaza' }}{% endblock %}
+{% block page_back_button %}<a class="ghost-button back-button" href="{{ url_for('platform.site_detail', site_id=site.id) }}">Site Yönetimine Dön</a>{% endblock %}
+{% block topbar_actions %}{% endblock %}
+
+{% block content %}
+<section class="panel platform-site-form-panel">
+    <div class="section-heading">
+        <div>
+            <p class="eyebrow">{{ site.name }} · {{ site.code }}</p>
+            <h2>{{ 'Mağaza bilgilerini güncelle' if store else 'Siteye mağaza ekle' }}</h2>
+            <p class="section-copy">Mağaza kodu site içinde benzersizdir ve son aktif mağaza pasife alınamaz.</p>
+        </div>
+    </div>
+    {% if form_data %}
+        {% set active_value = form_data.get('is_active') == '1' %}
+    {% else %}
+        {% set active_value = store.is_active if store else true %}
+    {% endif %}
+    <form method="post" class="account-form platform-site-form">
+        <input type="hidden" name="csrf_token" value="{{ session.get('auth_csrf_token', '') }}">
+        <label>Mağaza Adı<input type="text" name="name" maxlength="160" required value="{{ form_data.get('name', store.name if store else '') }}" placeholder="Cadde Mağazası"></label>
+        <label>Mağaza Kodu<input type="text" name="code" maxlength="30" required value="{{ form_data.get('code', store.code if store else '') }}" placeholder="CADDE"></label>
+        <label class="checkbox-label"><input type="checkbox" name="is_active" value="1" {% if active_value %}checked{% endif %}> Mağaza aktif</label>
+        <div class="form-actions">
+            <a class="ghost-button" href="{{ url_for('platform.site_detail', site_id=site.id) }}">Vazgeç</a>
+            <button type="submit" class="primary-button">{{ 'Güncelle' if store else 'Mağaza Oluştur' }}</button>
+        </div>
+    </form>
+</section>
+{% endblock %}
+

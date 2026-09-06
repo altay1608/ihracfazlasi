@@ -1,0 +1,80 @@
+<section
+    id="returns-list-section"
+    class="panel"
+    data-partial-url="{{ url_for('returns.index', partial='list') }}"
+>
+    <div class="section-heading">
+        <div>
+            <p class="eyebrow">İade Kayıtları</p>
+            <h2>İşlem Geçmişi</h2>
+        </div>
+    </div>
+    <div class="table-wrap">
+        <table data-enhanced-table data-table-key="returns-list">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Orijinal Satış</th>
+                    <th>Satış Sipariş Satır No</th>
+                    <th>Tarih</th>
+                    <th>Tip</th>
+                    <th>Durum</th>
+                    <th>Neden / Not</th>
+                    <th>Ürünler</th>
+                    <th data-no-sort="true" data-no-filter="true">İşlemler</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for record in return_records %}
+                <tr>
+                    <td>#{{ record.document_no|default(record.id, true) }}</td>
+                    <td>#{{ record.original_sale.document_no if record.original_sale is defined and record.original_sale else record.original_sale_id }}</td>
+                    <td>{{ record.returned_line_references|join(', ') if record.returned_line_references else '-' }}</td>
+                    <td>{{ record.return_date|tr_date }}</td>
+                    <td>{{ return_types.get(record.type, record.type) }}</td>
+                    <td><span class="status-badge">{{ record.status }}</span></td>
+                    <td>
+                        <strong>{{ record.reason }}</strong>
+                        {% if record.note %}
+                        <div class="muted">{{ record.note }}</div>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% for item in record.items|sort(attribute="refund_amount", reverse=true) %}
+                            {% set display_name = item.display_product_name|default(item.product.name, true) %}
+                            {% set display_variant = item.display_product_variant|default(item.product.variant, true) %}
+                            {% if record.type == "degisim" and item.refund_amount < 0 %}
+                            Yeni Ürün: {{ display_name }}{% if display_variant %} / {{ display_variant }}{% endif %} ({{ item.quantity }})
+                            {% else %}
+                            İade: {{ display_name }}{% if display_variant %} / {{ display_variant }}{% endif %} ({{ item.quantity }})
+                            {% endif %}
+                            {% if not loop.last %}, {% endif %}
+                        {% endfor %}
+                    </td>
+                    <td>
+                        <div class="inline-actions compact-actions">
+                            {% if can('returns.action.receipt') %}
+                            <a
+                                class="icon-action-button"
+                                href="{{ url_for('returns.receipt', return_id=record.id) }}"
+                                target="_blank"
+                                rel="noopener"
+                                title="Fiş Yazdır"
+                                data-tooltip="Fiş Yazdır"
+                                aria-label="Fiş Yazdır"
+                            >
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 8V4h10v4"/><rect x="5" y="8" width="14" height="8" rx="2"/><path d="M8 16h8v4H8z"/><path d="M9 12h6"/></svg>
+                            </a>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="9" class="empty-state">Henüz iade veya değişim kaydı yok.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>

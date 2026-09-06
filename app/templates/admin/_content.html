@@ -1,0 +1,175 @@
+<div
+    id="admin-tabs-content"
+    data-partial-url="{{ url_for('admin.index', partial='content', tab=active_tab) }}"
+>
+    <section class="panel">
+        <div class="section-heading">
+            <div>
+                <p class="eyebrow">Yönetim</p>
+                <h2>Temel Referans Verileri</h2>
+            </div>
+        </div>
+        <div class="admin-shortcuts">
+            {% for tab_key, config in tab_config.items() %}
+            <a
+                href="{{ url_for('admin.index', tab=tab_key) }}"
+                class="admin-shortcut-card {% if active_tab == tab_key %}active{% endif %}"
+            >
+                <span class="admin-shortcut-label">{{ config.label }}</span>
+                <strong class="admin-shortcut-count">{{ tabs[tab_key]|length }}</strong>
+            </a>
+            {% endfor %}
+        </div>
+        <div class="tab-nav">
+            {% for tab_key, config in tab_config.items() %}
+            <a
+                href="{{ url_for('admin.index', tab=tab_key) }}"
+                class="tab-link {% if active_tab == tab_key %}active{% endif %}"
+            >{{ config.label }}</a>
+            {% endfor %}
+        </div>
+    </section>
+
+    <section class="panel">
+        <div class="section-heading">
+            <div>
+                <p class="eyebrow">{{ tab_config[active_tab].label }}</p>
+                <h2>{{ tab_config[active_tab].label }} Yönetimi</h2>
+            </div>
+            {% if can('reference_data.action.manage') %}
+            <a
+                href="{{ url_for('admin.create', entity=active_tab, tab=active_tab) }}"
+                class="primary-button"
+                data-modal-url="{{ url_for('admin.create', entity=active_tab, tab=active_tab) }}"
+                data-modal-title="+ Yeni Ekle"
+            >+ Yeni Ekle</a>
+            {% endif %}
+        </div>
+
+        <div class="table-wrap">
+            <table data-enhanced-table data-table-key="admin-{{ active_tab }}">
+                <thead>
+                    <tr>
+                        {% if active_tab == "categories" %}
+                        <th>Ad</th>
+                        <th>Açıklama</th>
+                        <th>Durum</th>
+                        {% elif active_tab == "payment_methods" %}
+                        <th>Ad</th>
+                        <th>Durum</th>
+                        {% elif active_tab == "retail_multipliers" %}
+                        <th>Tanım</th>
+                        <th>Çarpan</th>
+                        <th>Durum</th>
+                        <th>Varsayılan</th>
+                        {% else %}
+                        <th>Ad</th>
+                        <th>Durum</th>
+                        {% endif %}
+                        {% if can('reference_data.action.manage') %}
+                        <th data-no-sort="true" data-no-filter="true">İşlemler</th>
+                        {% endif %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in tabs[active_tab] %}
+                    <tr>
+                        <td>{{ row.name }}</td>
+                        {% if active_tab == "categories" %}
+                        <td>{{ row.description or "-" }}</td>
+                        <td>
+                            <span class="status-badge {% if not row.is_active %}warning{% endif %}">
+                                {{ "Aktif" if row.is_active else "Pasif" }}
+                            </span>
+                        </td>
+                        {% elif active_tab == "payment_methods" %}
+                        <td>
+                            <span class="status-badge {% if not row.is_active %}warning{% endif %}">
+                                {{ "Aktif" if row.is_active else "Pasif" }}
+                            </span>
+                        </td>
+                        {% elif active_tab == "retail_multipliers" %}
+                        <td>{{ row.multiplier }}x</td>
+                        <td>
+                            <span class="status-badge {% if not row.is_active %}warning{% endif %}">
+                                {{ "Aktif" if row.is_active else "Pasif" }}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="status-badge {% if not row.is_default %}warning{% endif %}">
+                                {{ "Varsayılan" if row.is_default else "Standart" }}
+                            </span>
+                        </td>
+                        {% else %}
+                        <td>
+                            <span class="status-badge {% if not row.is_active %}warning{% endif %}">
+                                {{ "Aktif" if row.is_active else "Pasif" }}
+                            </span>
+                        </td>
+                        {% endif %}
+                        {% if can('reference_data.action.manage') %}
+                        <td>
+                            <div class="inline-actions compact-actions">
+                                {% if row.is_active is defined %}
+                                <form
+                                    method="post"
+                                    action="{{ url_for('admin.toggle_record', entity=active_tab, record_id=row.id, tab=active_tab) }}"
+                                    class="admin-action-form"
+                                    data-ajax-form
+                                    data-refresh-target="#admin-tabs-content"
+                                    data-refresh-url="{{ url_for('admin.index', partial='content', tab=active_tab) }}"
+                                >
+                                    <button
+                                        type="submit"
+                                        class="icon-action-button"
+                                        title="Durumu Değiştir"
+                                        data-tooltip="Durumu Değiştir"
+                                        aria-label="Durumu Değiştir"
+                                    >
+                                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h8a4 4 0 1 1 0 8H9"/><path d="M9 7a4 4 0 1 0 0 8h8"/><circle cx="9" cy="11" r="2.5"/><circle cx="15" cy="11" r="2.5"/></svg>
+                                    </button>
+                                </form>
+                                {% endif %}
+                                <a
+                                    href="{{ url_for('admin.edit', entity=active_tab, record_id=row.id, tab=active_tab) }}"
+                                    class="icon-action-button"
+                                    data-modal-url="{{ url_for('admin.edit', entity=active_tab, record_id=row.id, tab=active_tab) }}"
+                                    data-modal-title="Düzenle"
+                                    title="Düzenle"
+                                    data-tooltip="Düzenle"
+                                    aria-label="Düzenle"
+                                >
+                                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 20 4.5-1 9-9-3.5-3.5-9 9z"/><path d="M13.5 6.5 17 10"/><path d="M4 20h16"/></svg>
+                                </a>
+                                <form
+                                    method="post"
+                                    action="{{ url_for('admin.delete', entity=active_tab, record_id=row.id, tab=active_tab) }}"
+                                    class="admin-action-form"
+                                    onsubmit="return confirm('Bu kaydı silmek istediğinize emin misiniz?');"
+                                >
+                                    <button
+                                        type="submit"
+                                        class="icon-action-button icon-action-danger"
+                                        title="Sil"
+                                        data-tooltip="Sil"
+                                        aria-label="Sil"
+                                    >
+                                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M7 7l1 13h8l1-13"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                        {% endif %}
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="{% if active_tab == 'retail_multipliers' %}{{ 5 if can('reference_data.action.manage') else 4 }}{% elif active_tab == 'categories' %}{{ 4 if can('reference_data.action.manage') else 3 }}{% elif active_tab == 'payment_methods' %}{{ 3 if can('reference_data.action.manage') else 2 }}{% else %}{{ 3 if can('reference_data.action.manage') else 2 }}{% endif %}" class="empty-state">
+                            Bu sekmede henüz kayıt bulunmuyor.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>

@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% from "_ui_icons.html" import save_icon %}
+{% block title %}Cari Takip{% endblock %}
+{% block page_title %}Cari Takip{% endblock %}
+{% block topbar_actions %}{% endblock %}
+{% block content %}
+<section class="finance-page">
+    {% include "finance/_nav.html" %}
+    <div class="finance-two-column">
+        <form method="post" action="{{ url_for('finance.create_current_account_route') }}" class="finance-tool finance-form-grid">
+            <input type="hidden" name="csrf_token" value="{{ session.get('auth_csrf_token', '') }}">
+            <div class="finance-full"><p class="eyebrow">Kart</p><h2>Yeni Cari</h2></div>
+            <label>Kategori<select name="account_category" required>{% for value, config in current_account_categories.items() %}<option value="{{ value }}">{{ config.label }} · {{ config.prefix }} serisi</option>{% endfor %}</select></label>
+            <label>Ad<input type="text" name="name" required></label>
+            <label>Vergi/VKN<input type="text" name="tax_no"></label>
+            <label>Telefon<input type="text" name="phone"></label>
+            <label>E-posta<input type="email" name="email"></label>
+            <label>Not<input type="text" name="note"></label>
+            <p class="helper-text finance-full">Cari kodu seçilen kategoriye göre site içinde otomatik oluşturulur.</p>
+            <button class="primary-button" type="submit">Cari Oluştur</button>
+        </form>
+        <form method="post" action="{{ url_for('finance.create_current_entry_route') }}" class="finance-tool finance-form-grid">
+            <input type="hidden" name="csrf_token" value="{{ session.get('auth_csrf_token', '') }}">
+            <div class="finance-full"><p class="eyebrow">Planlama</p><h2>Borç / Alacak Kaydı</h2></div>
+            <label>Cari<select name="current_account_id" required>{% for current in current_accounts %}<option value="{{ current.id }}">{{ current.code }} - {{ current.name }}</option>{% endfor %}</select></label>
+            <label>Tür<select name="entry_type"><option value="receivable">Alacağımız</option><option value="payable">Borcumuz</option></select></label>
+            <label>Tutar<input type="number" name="amount" min="0.01" step="0.01" required></label>
+            <label>Vade<input type="date" name="due_date"></label>
+            <label class="finance-full">Açıklama<input type="text" name="description"></label>
+            <button class="primary-button" type="submit">Kaydı Oluştur</button>
+        </form>
+    </div>
+
+    <div class="finance-table-section panel">
+        <div class="section-heading"><div><p class="eyebrow">Perakende Dışı</p><h2>Cari Bakiyeler</h2></div></div>
+        <div class="table-wrap"><table id="currentAccountsTable" data-enhanced-table data-table-key="finance-current-accounts-v2" data-export-name="cari-bakiyeler">
+            <thead><tr><th>Kod</th><th>Kategori</th><th>Cari</th><th>İletişim</th><th data-summary="currency">Net Bakiye</th></tr></thead>
+            <tbody>{% for current in current_accounts %}<tr><td>{{ current.code }}</td><td>{{ current_account_categories.get(current.account_category, {}).get('label', current.account_category) }}</td><td>{{ current.name }}</td><td>{{ current.phone or current.email or '-' }}</td><td class="{% if current_totals.get(current.id, 0) >= 0 %}money-in{% else %}money-out{% endif %}" data-summary-value="{{ current_totals.get(current.id, 0) }}">{{ current_totals.get(current.id, 0)|currency }}</td></tr>{% else %}<tr><td colspan="5" class="empty-state">Cari kart yok.</td></tr>{% endfor %}</tbody>
+        </table></div>
+    </div>
+
+    <div class="finance-table-section panel">
+        <div class="section-heading"><div><p class="eyebrow">Açık Kalemler</p><h2>Borç / Alacak Hareketleri</h2></div></div>
+        <div class="table-wrap"><table id="currentEntriesTable" data-enhanced-table data-table-key="finance-current-entries-v2" data-export-name="cari-hareketler">
+            <thead><tr><th>Cari</th><th>Tür</th><th>Vade</th><th data-summary="currency">Tutar</th><th data-summary="currency">Tahsil Edilen / Ödenen</th><th data-summary="currency">Kalan</th><th>Durum</th><th data-no-filter="true" data-no-sort="true">Tahsilat / Ödeme</th></tr></thead>
+            <tbody>
+            {% for entry in entries %}
+            {% set settled_amount = entry.amount - entry.remaining_amount %}
+            <tr class="{% if entry.remaining_amount == 0 %}finance-row-settled{% elif entry.due_date and entry.due_date < today %}finance-row-overdue{% elif entry.due_date and entry.due_date == today %}finance-row-due{% endif %}">
+                <td>{% for current in current_accounts if current.id == entry.current_account_id %}{{ current.code }} - {{ current.name }}{% endfor %}</td>
+                <td>{{ 'Alacak' if entry.entry_type == 'receivable' else 'Borç' }}</td>
+                <td>{{ entry.due_date.strftime('%d.%m.%Y') if entry.due_date else '-' }}</td>
+                <td data-summary-value="{{ entry.amount }}">{{ entry.amount|currency }}</td>
+                <td data-summary-value="{{ settled_amount }}">{{ settled_amount|currency }}</td>
+                <td data-summary-value="{{ entry.remaining_amount }}">{{ entry.remaining_amount|currency }}</td>
+                <td>{{ current_status_labels.get(entry.status, entry.status) }}</td>
+                <td>{% if entry.remaining_amount > 0 %}<form method="post" action="{{ url_for('finance.settle_current_entry_route', entry_id=entry.id) }}" class="finance-inline-action"><input type="hidden" name="csrf_token" value="{{ session.get('auth_csrf_token', '') }}"><select name="finance_account_id" required>{% for account in accounts %}<option value="{{ account.id }}">{{ account.name }}</option>{% endfor %}</select><input type="number" name="amount" max="{{ entry.remaining_amount }}" min="0.01" step="0.01" required placeholder="Tutar"><input type="hidden" name="occurred_at" value="{{ now_value }}"><button class="icon-action-button" type="submit" title="Tahsilat veya ödemeyi kaydet" data-tooltip="Kaydet" aria-label="Tahsilat veya ödemeyi kaydet">{{ save_icon() }}</button></form>{% else %}<span class="status-badge success">Kapalı</span>{% endif %}</td>
+            </tr>
+            {% else %}<tr><td colspan="8" class="empty-state">Cari hareket yok.</td></tr>{% endfor %}
+            </tbody>
+        </table></div>
+    </div>
+</section>
+{% endblock %}

@@ -1,0 +1,351 @@
+{% extends "base.html" %}
+
+{% block title %}Lobby | İhraç Fazlası Giyim{% endblock %}
+{% block page_title %}Lobby Kontrol Merkezi{% endblock %}
+
+{% set revenue_target = 5000 %}
+{% set revenue_ratio = ((metrics.revenue / revenue_target) * 100) if revenue_target else 0 %}
+{% set revenue_percent = 100 if revenue_ratio > 100 else (0 if revenue_ratio < 0 else revenue_ratio) %}
+{% set stock_health_ratio = 100 - ((low_stock_products|length * 12) if (low_stock_products|length * 12) < 100 else 100) %}
+{% set top_product = top_products[0] if top_products else None %}
+
+{% block content %}
+<section class="lobby-page">
+    <div class="lobby-hero panel">
+        <div>
+            <p class="lobby-kicker">Atölye Telemetrisi</p>
+            <h2>Butik Operasyon Kokpiti</h2>
+            <p class="helper-text">Tüm mağaza akışını tek bakışta izle, kritik panellere doğrudan kartların içinden geç.</p>
+        </div>
+        <div class="lobby-hero-meta">
+            <span class="lobby-meta-chip">Canlı Akış</span>
+            <span class="lobby-meta-chip">KPI Paneli</span>
+            <span class="lobby-meta-chip">Mağaza Hazır</span>
+        </div>
+    </div>
+
+    <div class="lobby-summary-grid">
+        {% if can('dashboard.column.sales_trend') %}
+        <a class="panel lobby-link-card lobby-status-alert" href="{{ url_for('sales.index') }}">
+            <div class="lobby-link-card-top">
+                <p class="cockpit-label">Satış Nabzı</p>
+                <span class="lobby-link-arrow">↗</span>
+            </div>
+            <div class="cockpit-value">{{ metrics.total_sales }}</div>
+            <div class="cockpit-subgrid">
+                <span>Bugünkü işlem</span>
+                <strong>Satış listesine git</strong>
+            </div>
+            <p class="lobby-link-note">{{ metrics.discount|currency }} toplam indirim</p>
+        </a>
+        {% endif %}
+
+        {% if can('dashboard.column.finance') %}
+        <a class="panel lobby-link-card lobby-status-success" href="{{ url_for('reports.daily') }}">
+            <div class="lobby-link-card-top">
+                <p class="cockpit-label">Ciro Kilidi</p>
+                <span class="lobby-link-arrow">↗</span>
+            </div>
+            <div class="cockpit-value">{{ metrics.revenue|currency }}</div>
+            <div class="cockpit-subgrid">
+                <span>Bugünkü ciro</span>
+                <strong>Rapor ekranına git</strong>
+            </div>
+            <p class="lobby-link-note">{{ metrics.profit|currency }} tahmini kâr</p>
+        </a>
+        {% endif %}
+
+        {% if can('dashboard.column.stock') %}
+        <a class="panel lobby-link-card lobby-status-info" href="{{ url_for('alerts.index') }}">
+            <div class="lobby-link-card-top">
+                <p class="cockpit-label">Stok Radarı</p>
+                <span class="lobby-link-arrow">↗</span>
+            </div>
+            <div class="cockpit-value">{{ low_stock_products|length }}</div>
+            <div class="cockpit-subgrid">
+                <span>Riskli ürün</span>
+                <strong>Alarm listesine git</strong>
+            </div>
+            <p class="lobby-link-note">Eşik değeri {{ threshold }}</p>
+        </a>
+        {% endif %}
+
+        {% if can('dashboard.column.sales_trend') %}
+        <a
+            class="panel lobby-link-card lobby-status-neutral"
+            href="{% if top_product %}{{ url_for('products.index', search=top_product.name) }}{% else %}{{ url_for('products.index') }}{% endif %}"
+        >
+            <div class="lobby-link-card-top">
+                <p class="cockpit-label">Trend Ürün</p>
+                <span class="lobby-link-arrow">↗</span>
+            </div>
+            <div class="cockpit-value cockpit-value-text">{{ top_product.name if top_product else "Hazır" }}</div>
+            <div class="cockpit-subgrid">
+                <span>En çok hareket gören</span>
+                <strong>Ürün listesine git</strong>
+            </div>
+            <p class="lobby-link-note">{% if top_product %}{{ top_product.quantity }} adet satıldı{% else %}Henüz satış verisi yok{% endif %}</p>
+        </a>
+        {% endif %}
+    </div>
+
+    <div class="lobby-command-grid">
+        {% if can('dashboard.column.sales_trend') %}
+        <article class="panel cockpit-chart-card lobby-chart-main">
+            <div class="section-heading">
+                <div>
+                    <p class="cockpit-label">Satış İvmesi</p>
+                    <h2>Son 7 Gün Hareketi</h2>
+                </div>
+                <div class="lobby-meta-chip">Grafik Akışı</div>
+            </div>
+            <canvas id="salesChart" height="92"></canvas>
+        </article>
+        {% endif %}
+
+        <aside class="panel lobby-monitoring-card">
+            <div class="section-heading">
+                <div>
+                    <p class="cockpit-label">Operasyon Takibi</p>
+                    <h2>Operasyon İstasyonu</h2>
+                </div>
+            </div>
+            <div class="lobby-monitoring-body">
+                {% if can('dashboard.column.stock') %}
+                <div class="monitoring-alarm">
+                    <span class="monitoring-alarm-dot {% if low_stock_products|length %}is-alert{% else %}is-safe{% endif %}"></span>
+                    <div>
+                        <strong>{{ "Alarm Var" if low_stock_products|length else "Durum Normal" }}</strong>
+                        <p>{{ low_stock_products|length }} ürün stok radarında görünüyor.</p>
+                    </div>
+                </div>
+                {% endif %}
+
+                <div class="monitoring-list">
+                    {% if can('dashboard.column.sales_trend') %}
+                    <div class="monitoring-row">
+                        <span>Bugünkü satış</span>
+                        <strong>{{ metrics.total_sales }}</strong>
+                    </div>
+                    {% endif %}
+                    {% if can('dashboard.column.finance') %}
+                    <div class="monitoring-row">
+                        <span>Toplam indirim</span>
+                        <strong>{{ metrics.discount|currency }}</strong>
+                    </div>
+                    <div class="monitoring-row">
+                        <span>Hedef tamamlama</span>
+                        <strong>{{ "%.0f"|format(revenue_percent) }}%</strong>
+                    </div>
+                    {% endif %}
+                    {% if can('dashboard.column.stock') %}
+                    <div class="monitoring-row">
+                        <span>Stok sağlığı</span>
+                        <strong>{{ "%.0f"|format(stock_health_ratio) }}%</strong>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <div class="monitoring-links">
+                    {% if can('sales.action.complete') %}
+                    <a href="{{ url_for('sales.pos') }}">POS Operasyonu</a>
+                    {% endif %}
+                    {% if can('alerts.access') %}
+                    <a href="{{ url_for('alerts.index') }}">Stok Alarm Ekranı</a>
+                    {% endif %}
+                    {% if can('daily_reports.access') %}
+                    <a href="{{ url_for('reports.daily') }}">Günlük Rapor</a>
+                    {% endif %}
+                    {% if can('reference_data.access') %}
+                    <a href="{{ url_for('admin.index') }}">Yönetim Konsolu</a>
+                    {% endif %}
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <div class="lobby-grid">
+        {% if can('dashboard.column.finance') or can('dashboard.column.stock') %}
+        <article class="panel cockpit-gauge-card">
+            <div class="section-heading">
+                <div>
+                    <p class="cockpit-label">Hedef Halkaları</p>
+                    <h2>Performans Göstergeleri</h2>
+                </div>
+            </div>
+            <div class="gauge-cluster">
+                {% if can('dashboard.column.finance') %}
+                <div class="gauge-ring" style="--gauge-value: {{ revenue_percent }};">
+                    <div class="gauge-ring-inner">
+                        <strong>{{ "%.0f"|format(revenue_percent) }}%</strong>
+                        <span>Ciro Hedefi</span>
+                    </div>
+                </div>
+                {% endif %}
+                {% if can('dashboard.column.stock') %}
+                <div class="gauge-ring gauge-ring-secondary" style="--gauge-value: {{ stock_health_ratio }};">
+                    <div class="gauge-ring-inner">
+                        <strong>{{ "%.0f"|format(stock_health_ratio) }}%</strong>
+                        <span>Stok Sağlığı</span>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </article>
+        {% endif %}
+
+        {% if can('dashboard.column.sales_trend') %}
+        <article class="panel cockpit-table-card">
+            <div class="section-heading">
+                <div>
+                    <p class="cockpit-label">Hızlı Liste</p>
+                    <h2>En Çok Satan 5 Ürün</h2>
+                </div>
+                <a class="ghost-button lobby-ghost-button" href="{{ url_for('sales.index') }}">Tümünü Gör</a>
+            </div>
+            <div class="table-wrap dashboard-table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Ürün</th>
+                            <th>Adet</th>
+                            <th>Toplam</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in top_products %}
+                        <tr>
+                            <td>{{ row.name }}{% if row.variant %} / {{ row.variant }}{% endif %}</td>
+                            <td>{{ row.quantity }}</td>
+                            <td>{{ row.total|currency }}</td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="3" class="empty-state">Henüz satış verisi yok.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </article>
+        {% endif %}
+
+        {% if can('dashboard.column.stock') %}
+        <article class="panel cockpit-table-card">
+            <div class="section-heading">
+                <div>
+                    <p class="cockpit-label">Alarm Yığını</p>
+                    <h2>Düşük Stoklu Ürünler</h2>
+                </div>
+                <a class="ghost-button lobby-ghost-button" href="{{ url_for('alerts.index') }}">Tümünü Gör</a>
+            </div>
+            <div class="table-wrap dashboard-table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Ürün</th>
+                            <th>Kategori</th>
+                            <th>Varyant</th>
+                            <th>Stok</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for product in low_stock_products %}
+                        <tr>
+                            <td>{{ product.name }}</td>
+                            <td>{{ product.category }}</td>
+                            <td>{{ product.variant or "-" }}</td>
+                            <td>{{ product.stock_quantity }}</td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="4" class="empty-state">Şu anda düşük stok uyarısı yok.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </article>
+        {% endif %}
+    </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+{% if can('dashboard.column.sales_trend') %}
+<script>
+const chartPayload = {{ chart_data|tojson }};
+const canvas = document.getElementById("salesChart");
+
+if (canvas && chartPayload.length) {
+    const ctx = canvas.getContext("2d");
+    const width = canvas.width = canvas.offsetWidth * window.devicePixelRatio;
+    const height = canvas.height = 132 * window.devicePixelRatio;
+    canvas.style.height = "132px";
+
+    const padding = 28 * window.devicePixelRatio;
+    const values = chartPayload.map(item => Number(item.value || 0));
+    const maxValue = Math.max(...values, 1);
+    const stepX = values.length > 1 ? (width - (padding * 2)) / (values.length - 1) : 0;
+
+    ctx.clearRect(0, 0, width, height);
+    ctx.strokeStyle = "rgba(126, 250, 255, 0.16)";
+    ctx.fillStyle = "rgba(147, 165, 179, 0.88)";
+    ctx.font = `${11 * window.devicePixelRatio}px 'Segoe UI'`;
+    ctx.lineWidth = 1;
+
+    for (let i = 0; i < 5; i += 1) {
+        const y = padding + ((height - (padding * 2)) / 4) * i;
+        ctx.beginPath();
+        ctx.moveTo(padding, y);
+        ctx.lineTo(width - padding, y);
+        ctx.stroke();
+    }
+
+    const points = values.map((value, index) => ({
+        x: padding + (stepX * index),
+        y: height - padding - ((value / maxValue) * (height - (padding * 2)))
+    }));
+
+    ctx.beginPath();
+    points.forEach((point, index) => {
+        if (index === 0) {
+            ctx.moveTo(point.x, point.y);
+        } else {
+            ctx.lineTo(point.x, point.y);
+        }
+    });
+    ctx.strokeStyle = "#7efaff";
+    ctx.lineWidth = 3 * window.devicePixelRatio;
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(points[0].x, height - padding);
+    points.forEach((point) => ctx.lineTo(point.x, point.y));
+    ctx.lineTo(points[points.length - 1].x, height - padding);
+    ctx.closePath();
+    const gradient = ctx.createLinearGradient(0, padding, 0, height);
+    gradient.addColorStop(0, "rgba(126, 250, 255, 0.30)");
+    gradient.addColorStop(1, "rgba(126, 250, 255, 0.02)");
+    ctx.fillStyle = gradient;
+    ctx.fill();
+
+    points.forEach((point, index) => {
+        ctx.beginPath();
+        ctx.arc(point.x, point.y, 4 * window.devicePixelRatio, 0, Math.PI * 2);
+        ctx.fillStyle = "#ffd166";
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(point.x, point.y, 7 * window.devicePixelRatio, 0, Math.PI * 2);
+        ctx.strokeStyle = "rgba(255, 209, 102, 0.25)";
+        ctx.lineWidth = 2 * window.devicePixelRatio;
+        ctx.stroke();
+        ctx.fillStyle = "rgba(255,255,255,0.82)";
+        ctx.textAlign = "center";
+        ctx.fillText(chartPayload[index].label, point.x, height - (8 * window.devicePixelRatio));
+    });
+}
+</script>
+{% endif %}
+{% endblock %}
+

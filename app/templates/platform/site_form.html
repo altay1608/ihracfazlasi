@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block title %}Yeni Site | İhraç Fazlası Giyim{% endblock %}
+{% block page_title %}Yeni Site{% endblock %}
+{% block page_back_button %}<a class="ghost-button back-button" href="{{ url_for('platform.index') }}">Platform Yönetimine Dön</a>{% endblock %}
+{% block topbar_actions %}{% endblock %}
+
+{% block content %}
+<section class="panel platform-site-form-panel">
+    <div class="section-heading">
+        <div>
+            <p class="eyebrow">Süper Admin</p>
+            <h2>Site ve ilk mağaza</h2>
+        </div>
+    </div>
+    <form method="post" class="account-form platform-site-form">
+        <input type="hidden" name="csrf_token" value="{{ session.get('auth_csrf_token', '') }}">
+        <label>Site Adı<input type="text" name="site_name" maxlength="160" required value="{{ form_data.get('site_name', '') }}" placeholder="FY Butik"></label>
+        <label>Site Kodu<input type="text" name="site_code" maxlength="20" required value="{{ form_data.get('site_code', '') }}" placeholder="FYB"></label>
+        <label>Paket
+            <select name="package_id" required>
+                <option value="">Paket seçin</option>
+                {% for package in packages %}
+                <option
+                    value="{{ package.id }}"
+                    {% if form_data.get('package_id', '')|string == package.id|string %}selected{% endif %}
+                    {% if not package.features %}disabled{% endif %}
+                >{{ package.name }} · {{ package.max_stores }} mağaza · {{ package.max_users }} kullanıcı{% if not package.features %} · Kapsam bekliyor{% endif %}</option>
+                {% endfor %}
+            </select>
+        </label>
+        <div class="platform-form-spacer" aria-hidden="true"></div>
+        <label>İlk Mağaza Adı<input type="text" name="store_name" maxlength="160" required value="{{ form_data.get('store_name', '') }}" placeholder="Merkez Mağaza"></label>
+        <label>Mağaza Kodu<input type="text" name="store_code" maxlength="30" required value="{{ form_data.get('store_code', '') }}" placeholder="MERKEZ"></label>
+        <div class="form-actions">
+            <a class="ghost-button" href="{{ url_for('platform.index') }}">Vazgeç</a>
+            <button type="submit" class="primary-button">Siteyi Oluştur</button>
+        </div>
+    </form>
+</section>
+{% endblock %}
+

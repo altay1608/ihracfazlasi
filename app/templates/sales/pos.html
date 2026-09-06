@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+
+{% block title %}{% if sale_edit %}Satışı Yeniden Düzenle #{{ sale.document_no }}{% else %}POS{% endif %} | İhraç Fazlası Giyim{% endblock %}
+{% block page_title %}{% if sale_edit %}Satış #{{ sale.document_no }} Yeniden Düzenle{% else %}Barkodlu Satış Ekranı{% endif %}{% endblock %}
+
+{% block content %}
+<section class="content-grid pos-grid">
+    {% if can('sales.customer.view') %}
+    <aside class="panel pos-customer-panel">
+        <div class="section-heading">
+            <div>
+                <p class="eyebrow">Müşteri Bilgileri</p>
+                <h2>Opsiyonel Satış Bilgisi</h2>
+            </div>
+        </div>
+
+        <div class="customer-lookup-box">
+            <label for="customerSearchInput">Müşteri Ara</label>
+            <input id="customerSearchInput" type="text" placeholder="Ad, telefon, mail veya VKN ile ara">
+            <div id="customerSearchResults" class="customer-search-results is-hidden" hidden></div>
+        </div>
+
+        <div class="customer-form-grid">
+            <div>
+                <label for="customerName">Ad Soyad</label>
+                <input id="customerName" type="text" placeholder="Müşteri adı soyadı">
+            </div>
+            <div>
+                <label for="customerMobile">Cep Telefonu</label>
+                <input id="customerMobile" type="text" placeholder="05xx...">
+            </div>
+            <div>
+                <label for="customerEmail">Mail</label>
+                <input id="customerEmail" type="email" placeholder="ornek@mail.com">
+            </div>
+            <div>
+                <label for="customerTaxOffice">Vergi Dairesi</label>
+                <input id="customerTaxOffice" type="text" placeholder="Varsa vergi dairesi">
+            </div>
+            <div>
+                <label for="customerProvince">İl</label>
+                <select id="customerProvince">
+                    <option value="">İl seçin</option>
+                </select>
+            </div>
+            <div>
+                <label for="customerDistrict">İlçe</label>
+                <select id="customerDistrict" disabled>
+                    <option value="">Önce il seçin</option>
+                </select>
+            </div>
+            <div class="full-span">
+                <label for="customerTaxNumber">VKN / TCKN</label>
+                <input id="customerTaxNumber" type="text" placeholder="Varsa kimlik ya da vergi no">
+            </div>
+            <div class="full-span customer-bottom-field">
+                <label for="customerAddress">Açık Adres</label>
+                <textarea id="customerAddress" rows="4" placeholder="Teslimat veya fatura adresi"></textarea>
+            </div>
+            <div class="full-span customer-bottom-field">
+                <label for="customerNote">Açıklama</label>
+                <textarea id="customerNote" rows="4" placeholder="Örn. kapıda ödeme notu, teslim bilgisi"></textarea>
+            </div>
+        </div>
+    </aside>
+    {% endif %}
+
+    <div class="pos-main-stack">
+        <article class="panel">
+            <div class="section-heading">
+                <div>
+                    <p class="eyebrow">{{ 'Korunan Sipariş' if line_edits_locked else 'Hızlı İşlem' }}</p>
+                    <h2>{{ 'Sipariş Satırları' if line_edits_locked else 'Sepete Ürün Ekle' }}</h2>
+                </div>
+            </div>
+            {% if line_edits_locked %}
+            <p class="form-help">
+                Bu siparişte iade hareketi bulunduğu için ürün, fiyat, indirim ve ödeme bilgileri korunur.
+                Müşteri ve açıklama alanlarını güncelleyebilirsiniz.
+            </p>
+            {% else %}
+            <div class="barcode-box">
+                <label for="barcodeInput">Barkod</label>
+                <input id="barcodeInput" type="text" placeholder="Barkodu okutun ve Enter'a basın" autocomplete="off">
+            </div>
+            {% endif %}
+            <div class="table-wrap">
+                <table id="cartTable">
+                    <thead>
+                        <tr>
+                            <th>Ürün</th>
+                            <th>Adet</th>
+                            <th>Birim Fiyat</th>
+                            <th>Toplam</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="empty-cart-row">
+                            <td colspan="5" class="empty-state">Sepet boş. Barkod okutunca ürün burada görünecek.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </article>
+
+        <section class="panel pos-payment-panel">
+            <div class="section-heading">
+                <div>
+                    <p class="eyebrow">Ödeme</p>
+                        <h2>{{ 'Sipariş Bilgilerini Güncelle' if line_edits_locked else ('Siparişi Güncelle' if sale_edit else 'Satışı Tamamla') }}</h2>
+                </div>
+            </div>
+            <div class="summary-box">
+                <div class="summary-row"><span>Ara Toplam</span><strong id="subtotalAmount">₺0,00</strong></div>
+                <div class="summary-row">
+                    <span>İndirim Tutarı</span>
+                    <div class="summary-input-wrap">
+                        <input id="manualDiscountInput" class="summary-input" type="text" inputmode="decimal" value="0,00" placeholder="0,00" {% if line_edits_locked %}readonly{% endif %}>
+                    </div>
+                </div>
+                <div class="summary-row">
+                    <span>İndirim Oranı</span>
+                    <div class="summary-input-wrap">
+                        <input id="discountRateInput" class="summary-input summary-readonly" type="text" value="%0,00" readonly>
+                    </div>
+                </div>
+                <div class="summary-row"><span>KDV (%{{ (vat_rate * 100)|int }})</span><strong id="vatAmount">₺0,00</strong></div>
+                <div class="summary-row grand-total"><span>Genel Toplam</span><strong id="grandTotalAmount">₺0,00</strong></div>
+            </div>
+            <label for="paymentMethod">Ödeme Yöntemi</label>
+            <select id="paymentMethod" {% if line_edits_locked %}disabled{% endif %}>
+                {% for value, label in payment_methods.items() %}
+                <option value="{{ value }}" {% if value|lower == 'nakit' or label|lower == 'nakit' %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+            {% if (sale_edit and can('sales.action.edit')) or (not sale_edit and can('sales.action.complete')) %}
+            <button id="completeSaleBtn" class="primary-button wide-button" type="button">
+                {{ 'Sipariş Bilgilerini Güncelle' if line_edits_locked else ('Siparişi Güncelle' if sale_edit else 'Satışı Tamamla') }}
+            </button>
+            {% endif %}
+            <p id="posFeedback" class="muted"></p>
+        </section>
+    </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+window.posConfig = {
+    barcodeLookupBase: "{{ url_for('products.get_by_barcode', barcode='__BARCODE__') }}",
+    completeSaleUrl: "{{ url_for('sales.complete') }}",
+    updateSaleUrl: {% if sale_edit %}"{{ url_for('sales.update', sale_id=sale.id) }}"{% else %}null{% endif %},
+    customerSearchUrl: {% if can('sales.customer.view') %}"{{ url_for('sales.customer_search') }}"{% else %}null{% endif %},
+    recentCustomersUrl: {% if can('sales.customer.view') %}"{{ url_for('sales.customer_recent') }}"{% else %}null{% endif %},
+    cityMap: {{ city_map|tojson }},
+    vatRate: {{ vat_rate }},
+    saleEditMode: {{ (sale_edit or false)|tojson }},
+    lineEditsLocked: {{ (line_edits_locked or false)|tojson }},
+    initialCart: {{ (initial_cart or [])|tojson }},
+    initialCustomer: {{ (initial_customer or none)|tojson }},
+    initialDiscountAmount: {{ (initial_discount_amount or 0)|float|tojson }},
+    initialPaymentMethod: {{ (sale.payment_method if sale_edit else "")|tojson }}
+};
+</script>
+<script src="{{ url_for('static', filename='js/pos.js', v='20260821-exact-unit-v2') }}"></script>
+{% endblock %}
+

@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+
+{% block title %}Satış Sipariş Satırları | İhraç Fazlası Giyim{% endblock %}
+{% block page_title %}Satış Sipariş Satırları{% endblock %}
+
+{% block content %}
+{% set effective_start_date = start_date if start_date is defined else selected_date %}
+{% set effective_end_date = end_date if end_date is defined else effective_start_date %}
+<section class="panel">
+    <form method="get" class="filter-bar">
+        <input type="date" name="date_from" value="{{ effective_start_date.isoformat() }}" aria-label="Başlangıç tarihi">
+        <input type="date" name="date_to" value="{{ effective_end_date.isoformat() }}" aria-label="Bitiş tarihi">
+        <button type="submit" class="ghost-button">Filtrele</button>
+    </form>
+</section>
+
+<section class="panel">
+    <div class="section-heading">
+        <div>
+            <p class="eyebrow">{{ effective_start_date|tr_date }} - {{ effective_end_date|tr_date }}</p>
+            <h2>Sipariş satırları</h2>
+        </div>
+        <span class="status-badge">{{ order_lines|length }} satır</span>
+    </div>
+    <div class="table-wrap">
+        <table data-enhanced-table data-table-key="customer-order-lines">
+            <thead>
+                <tr>
+                    <th>Sipariş No</th>
+                    <th>Satır</th>
+                    <th>Tarih</th>
+                    <th>Satır Durumu</th>
+                    <th>Ürün</th>
+                    <th>Birim Barkodları</th>
+                    <th>Sipariş</th>
+                    <th>İade</th>
+                    <th>İndirim (KDV Dahil)</th>
+                    <th>Satır Toplamı (KDV Dahil)</th>
+                    {% if can('sales.customer.view') %}<th>Müşteri</th>{% endif %}
+                    <th>Ödeme</th>
+                    <th data-no-sort="true" data-no-filter="true">İşlemler</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for sale, item in order_lines %}
+                <tr>
+                    <td>#{{ sale.document_no }}</td>
+                    <td>{{ item.line_no }}.{{ item.release_no }}</td>
+                    <td>{{ sale.sale_date|tr_date }} {{ sale.sale_date.strftime('%H:%M') }}</td>
+                    <td>
+                        <span class="status-badge {{ 'warning' if item.line_status != 'DELIVERED' else '' }}">
+                            {{ item.status_label }}
+                        </span>
+                    </td>
+                    <td>
+                        <strong>{{ item.product_name_snapshot }}</strong>
+                        {% if item.product_variant_snapshot %}<div class="muted-text">{{ item.product_variant_snapshot }}</div>{% endif %}
+                        <div class="muted-text">{{ item.product_code_snapshot }}</div>
+                    </td>
+                    <td>
+                        {% set barcode_values = item.product_barcodes|map(attribute='barcode')|list %}
+                        {{ barcode_values|join(' / ') if barcode_values else '-' }}
+                    </td>
+                    <td>{{ item.quantity }}</td>
+                    <td>{{ item.returned_quantity }}</td>
+                    <td>{{ item.gross_discount_amount|currency }}</td>
+                    <td>{{ item.gross_amount|currency }}</td>
+                    {% if can('sales.customer.view') %}<td>{{ sale.customer_name or "-" }}</td>{% endif %}
+                    <td>{{ payment_methods.get(sale.payment_method, sale.payment_method) }}</td>
+                    <td>
+                        <div class="inline-actions compact-actions">
+                            {% if can('returns.action.create') and item.returned_quantity < item.delivered_quantity %}
+                            <a class="icon-action-button" href="{{ url_for('returns.create', sale_id=sale.document_no) }}" data-modal-url="{{ url_for('returns.create', sale_id=sale.document_no) }}" data-modal-title="İade / Değişim İşlemi" title="İade / Değişim Başlat" data-tooltip="İade / Değişim Başlat" aria-label="İade / Değişim Başlat">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h8a4 4 0 1 1 0 8H9"/><path d="M7 11 3 7l4-4"/><path d="M17 17H9a4 4 0 1 1 0-8h6"/><path d="m17 13 4 4-4 4"/></svg>
+                            </a>
+                            {% endif %}
+                            {% if can('sales.action.receipt') %}
+                            <a class="icon-action-button" href="{{ url_for('sales.receipt', sale_id=sale.id) }}" title="Fiş Yazdır" data-tooltip="Fiş Yazdır" aria-label="Fiş Yazdır" target="_blank" rel="noopener">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 8V4h10v4"/><path d="M6 17H5a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-1"/><path d="M7 14h10v6H7z"/><path d="M8 18h8"/><path d="M8 11h.01"/></svg>
+                            </a>
+                            {% endif %}
+                            {% if can('sales.action.edit') and sale.order_status != 'CANCELLED' %}
+                            <a class="icon-action-button" href="{{ url_for('sales.edit', sale_id=sale.id) }}" title="Siparişi Yeniden Düzenle" data-tooltip="Siparişi Yeniden Düzenle" aria-label="Siparişi Yeniden Düzenle">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h13"/><path d="M3 12h9"/><path d="M3 18h7"/><path d="m14 19 5-5 2 2-5 5h-2z"/><path d="m18.5 14.5 2 2"/></svg>
+                            </a>
+                            {% endif %}
+                            <a class="icon-action-button" href="{{ url_for('sales.detail', sale_id=sale.id, return_date_from=effective_start_date.isoformat(), return_date_to=effective_end_date.isoformat()) }}" title="Sipariş Detayı" data-tooltip="Sipariş Detayı" aria-label="Sipariş Detayı">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12s3.5-6 9-6 9 6 9 6-3.5 6-9 6-9-6-9-6Z"/><circle cx="12" cy="12" r="3"/></svg>
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="13" class="empty-state">Bu tarih aralığında satış sipariş satırı yok.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}
+

@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block title %}Kullanıcı Yönetimi | İhraç Fazlası Giyim{% endblock %}
+{% block page_title %}{{ 'Kullanıcı Düzenle' if user else 'Yeni Kullanıcı' }}{% endblock %}
+{% block page_back_button %}<a class="ghost-button back-button" href="{{ url_for('platform.site_detail', site_id=site.id) }}">Site Yönetimine Dön</a>{% endblock %}
+{% block topbar_actions %}{% endblock %}
+
+{% block content %}
+<section class="panel account-panel platform-user-form-panel">
+    <div class="section-heading">
+        <div>
+            <p class="eyebrow">{{ site.name }} · {{ site.code }}</p>
+            <h2>{{ 'Hesap bilgilerini güncelle' if user else 'Site kullanıcısı oluştur' }}</h2>
+            <p class="section-copy">Geçici şifre yalnız parola özeti olarak saklanır ve kullanıcı ilk girişte yeni şifre belirler.</p>
+        </div>
+    </div>
+    {% set current_role_id = form_data.get('role_id', membership.role_id if membership else '') %}
+    {% set all_stores_value = form_data.get('all_stores', '1' if membership and membership.all_stores else '') %}
+    {% set selected_store_ids = form_data.getlist('store_ids') if form_data else (user.store_access|map(attribute='store_id')|map('string')|list if user else []) %}
+    <form method="post" class="account-form platform-user-form">
+        <input type="hidden" name="csrf_token" value="{{ session.get('auth_csrf_token', '') }}">
+        <label>Ad Soyad<input type="text" name="full_name" maxlength="160" required value="{{ form_data.get('full_name', user.full_name if user else '') }}"></label>
+        <label>Kullanıcı Adı<input type="text" name="username" maxlength="60" required value="{{ form_data.get('username', user.username if user else '') }}"></label>
+        <label>E-posta<input type="email" name="email" maxlength="180" value="{{ form_data.get('email', user.email if user and user.email else '') }}"></label>
+        <label>Rol
+            <select name="role_id" required>
+                <option value="">Rol seçin</option>
+                {% for role in roles %}<option value="{{ role.id }}" {% if current_role_id|string == role.id|string %}selected{% endif %}>{{ role.name }}</option>{% endfor %}
+            </select>
+        </label>
+        <label>{{ 'Yeni Geçici Şifre (isteğe bağlı)' if user else 'Geçici Şifre' }}<input type="password" name="temporary_password" autocomplete="new-password" {% if not user %}required{% endif %}></label>
+        <label>Geçici Şifre Tekrar<input type="password" name="confirm_password" autocomplete="new-password" {% if not user %}required{% endif %}></label>
+        <fieldset class="platform-form-fieldset">
+            <legend>Mağaza Erişimi</legend>
+            <label class="checkbox-label"><input type="checkbox" name="all_stores" value="1" data-all-stores-toggle {% if all_stores_value == '1' %}checked{% endif %}> Tüm mağazalar</label>
+            <div class="platform-store-options">
+                {% for store in stores %}
+                <label class="checkbox-label"><input type="checkbox" name="store_ids" value="{{ store.id }}" data-store-access-option {% if all_stores_value == '1' or store.id|string in selected_store_ids %}checked{% endif %}> {{ store.name }}</label>
+                {% endfor %}
+            </div>
+        </fieldset>
+        <label class="checkbox-label"><input type="checkbox" name="is_active" value="1" {% if form_data.get('is_active', '1' if not user or user.is_active else '') == '1' %}checked{% endif %}> Kullanıcı aktif</label>
+        {% if user %}
+        <div class="platform-mfa-reset-group">
+            <div class="platform-mfa-status-row">
+                <strong>İki Adımlı Doğrulama</strong>
+                <span class="status-badge {{ 'warning' if not user.two_factor_enabled else '' }}">{{ 'Etkin' if user.two_factor_enabled else 'Kurulum bekliyor' }}</span>
+            </div>
+            {% if user.two_factor_enabled %}
+            <label class="checkbox-label platform-mfa-reset"><input type="checkbox" name="reset_two_factor" value="1"> İki adımlı doğrulamayı sıfırla</label>
+            <p class="section-copy platform-field-note">Yalnızca kullanıcı telefonunu değiştirdiğinde veya doğrulama uygulamasına erişemediğinde kullanın.</p>
+            {% else %}
+            <p class="section-copy platform-field-note is-unindented">Kullanıcı henüz doğrulama uygulamasını kurmadı; sıfırlanacak bir iki adımlı doğrulama kaydı bulunmuyor.</p>
+            {% endif %}
+        </div>
+        {% endif %}
+        <div class="form-actions">
+            <a class="ghost-button" href="{{ url_for('platform.site_detail', site_id=site.id) }}">Vazgeç</a>
+            <button type="submit" class="primary-button">{{ 'Güncelle' if user else 'Kullanıcı Oluştur' }}</button>
+        </div>
+    </form>
+</section>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+    const allStores = document.querySelector("[data-all-stores-toggle]");
+    const storeOptions = [...document.querySelectorAll("[data-store-access-option]")];
+    if (!allStores) return;
+
+    const syncStoreOptions = () => {
+        if (allStores.checked) storeOptions.forEach((option) => { option.checked = true; });
+        storeOptions.forEach((option) => { option.disabled = allStores.checked; });
+    };
+    allStores.addEventListener("change", syncStoreOptions);
+    syncStoreOptions();
+});
+</script>
+{% endblock %}
+

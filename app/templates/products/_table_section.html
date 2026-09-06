@@ -1,0 +1,228 @@
+{% macro product_action_cell(product) %}
+<td>
+    <div class="inline-actions compact-actions">
+        {% if can('products.action.label') %}
+        <a
+            class="icon-action-button"
+            href="{{ url_for('products.label', product_id=product.id) }}"
+            data-product-list-action="labels"
+            target="_blank"
+            rel="noopener"
+            title="Etiket Yazdır"
+            data-tooltip="Etiket Yazdır"
+            aria-label="Etiket Yazdır"
+        >
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 8V4h10v4"/><rect x="5" y="8" width="14" height="8" rx="2"/><path d="M8 16h8v4H8z"/><path d="M9 12h6"/></svg>
+        </a>
+        {% endif %}
+        {% if can('products.action.edit') %}
+        <a
+            class="icon-action-button"
+            href="{{ url_for('products.edit', product_id=product.id) }}"
+            data-modal-url="{{ url_for('products.edit', product_id=product.id) }}"
+            data-modal-title="Ürün Düzenle"
+            title="Düzenle"
+            data-tooltip="Düzenle"
+            aria-label="Düzenle"
+        >
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 20 4.5-1 9-9-3.5-3.5-9 9z"/><path d="M13.5 6.5 17 10"/><path d="M4 20h16"/></svg>
+        </a>
+        {% endif %}
+        {% if can('products.action.multiplier') %}
+        <a
+            class="icon-action-button"
+            href="{{ url_for('products.bulk_multiplier') }}?product_ids={{ product.id }}"
+            data-modal-url="{{ url_for('products.bulk_multiplier') }}?product_ids={{ product.id }}"
+            data-modal-title="Çarpan Güncelle"
+            data-product-list-action="multiplier"
+            title="Çarpan Güncelle"
+            data-tooltip="Çarpan Güncelle"
+            aria-label="Çarpan Güncelle"
+        >
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5"/><path d="M4 19h16"/><path d="m8 15 3-3 3 2 5-7"/><path d="M16 7h3v3"/></svg>
+        </a>
+        {% endif %}
+        {% if can('products.action.delete') %}
+        <button
+            type="button"
+            class="icon-action-button icon-action-danger"
+            data-confirm-url="{{ url_for('products.delete', product_id=product.id) }}"
+            data-confirm-method="POST"
+            data-confirm-message="Bu ürünü silmek istediğinize emin misiniz?"
+            data-confirm-title="Ürünü sil"
+            data-confirm-record-code="{{ product.product_code }}"
+            data-confirm-record-label="{{ product.name }}"
+            data-refresh-target="#products-table-section"
+            data-product-list-action="delete"
+            title="Sil"
+            data-tooltip="Sil"
+            aria-label="Sil"
+        >
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M7 7l1 13h8l1-13"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+        </button>
+        {% endif %}
+    </div>
+</td>
+{% endmacro %}
+
+<section
+    id="products-table-section"
+    class="panel"
+    data-partial-url="{{ url_for('products.index', partial='table', search=request.args.get('search', ''), category=request.args.get('category', ''), stock=request.args.get('stock', '')) }}"
+    data-low-threshold="{{ threshold }}"
+    data-critical-threshold="{{ threshold * 2 }}"
+    data-bulk-labels-url="{{ url_for('products.bulk_labels') }}"
+    data-bulk-multiplier-url="{{ url_for('products.bulk_multiplier') }}"
+    data-bulk-delete-url="{{ url_for('products.bulk_delete') }}"
+    data-stock-palette-enabled="{{ '1' if can('alerts.access') else '0' }}"
+>
+    <div class="section-heading">
+        <div>
+            <p class="eyebrow">Toplam {{ products|length }} Ürün</p>
+            <h2>Ürün Listesi</h2>
+        </div>
+        <div class="topbar-actions">
+            {% if can('products.action.export') %}
+            <button type="button" class="ghost-button" data-export-table="#productsTable">Excel'e Aktar</button>
+            {% endif %}
+            {% if can('products.action.import') %}
+            <a class="ghost-button xlsx-action-button" href="{{ url_for('products.download_template') }}">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="m9 17 6-6"/><path d="m9 11 6 6"/></svg>
+                <span>Şablon İndir</span>
+            </a>
+            <a
+                class="ghost-button xlsx-action-button"
+                href="{{ url_for('products.upload_template') }}"
+                data-modal-url="{{ url_for('products.upload_template') }}"
+                data-modal-title="Şablon Yükle"
+            >
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M12 17V10"/><path d="m9 13 3-3 3 3"/></svg>
+                <span>Şablon Yükle</span>
+            </a>
+            {% endif %}
+            {% if can('products.action.create') %}
+            <a
+                class="primary-button"
+                href="{{ url_for('products.add') }}"
+                data-modal-url="{{ url_for('products.add') }}"
+                data-modal-title="Yeni Ürün Ekle"
+            >Yeni Ürün Ekle</a>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if can('alerts.access') %}
+    <div class="stock-palette-info">
+        <span class="stock-legend-item"><span class="stock-legend-swatch stock-legend-healthy"></span> Yeterli Stok</span>
+        <span class="stock-legend-item"><span class="stock-legend-swatch stock-legend-critical"></span> Kritik Stok</span>
+        <span class="stock-legend-item"><span class="stock-legend-swatch stock-legend-low"></span> Düşük Stok</span>
+    </div>
+    {% endif %}
+
+    <div class="bulk-selection-info muted">Birden fazla satır seçtiğinizde, işlemler sütunundaki ikonlar seçili kayıtlar için toplu çalışır.</div>
+
+    <div class="table-wrap">
+        <table id="productsTable" data-enhanced-table data-manual-export="true" data-table-key="products-list-selection-actions-v3">
+            <thead>
+                <tr>
+                    <th data-column-key="selection" data-no-sort="true" data-no-filter="true" data-column-label="Seçim">
+                        <label class="table-checkbox-label">
+                            <input type="checkbox" data-select-all-products>
+                            <span>Tümü</span>
+                        </label>
+                    </th>
+                    <th data-column-key="actions" data-no-sort="true" data-no-filter="true">İşlemler</th>
+                    <th data-column-key="product">Ürün</th>
+                    <th data-column-key="category">Kategori</th>
+                    <th data-column-key="product_code">Ürün Kodu</th>
+                    <th data-column-key="barcodes">Birim Barkodları</th>
+                    {% if can('products.column.purchase_price') %}<th data-column-key="purchase_price">Alış</th>{% endif %}
+                    {% if can('products.column.purchase_vat') %}<th data-column-key="purchase_price_gross">Alış KDV Dahil</th>{% endif %}
+                    {% if can('products.column.sale_net') %}<th data-column-key="sale_price">Satış</th>{% endif %}
+                    {% if can('products.column.sale_vat') %}<th data-column-key="sale_price_gross">Satış KDV Dahil</th>{% endif %}
+                    {% if can('products.column.stock') %}<th data-column-key="stock">Stok</th>{% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for product in products %}
+                {% if can('alerts.access') and product.stock_quantity <= product.effective_low_stock_threshold %}
+                    {% set stock_row_class = "stock-status-low" %}
+                {% elif can('alerts.access') and product.stock_quantity <= product.effective_critical_stock_threshold %}
+                    {% set stock_row_class = "stock-status-critical" %}
+                {% elif can('alerts.access') %}
+                    {% set stock_row_class = "stock-status-healthy" %}
+                {% else %}
+                    {% set stock_row_class = "" %}
+                {% endif %}
+                <tr
+                    class="{{ stock_row_class }}"
+                    {% if can('alerts.access') %}
+                    data-low-threshold="{{ product.effective_low_stock_threshold }}"
+                    data-critical-threshold="{{ product.effective_critical_stock_threshold }}"
+                    {% endif %}
+                >
+                    <td>
+                        <input
+                            type="checkbox"
+                            class="row-selector"
+                            value="{{ product.id }}"
+                            data-product-row-select
+                            data-product-code="{{ product.product_code }}"
+                            data-product-name="{{ product.name }}"
+                        >
+                    </td>
+                    {{ product_action_cell(product) }}
+                    <td>
+                        <strong>{{ product.name }}</strong>
+                        <div class="muted">{{ product.variant or "Varyant yok" }}</div>
+                    </td>
+                    <td>{{ product.category }}</td>
+                    <td>{{ product.product_code }}</td>
+                    <td>{{ get_barcode_span(product) }}</td>
+                    {% if can('products.column.purchase_price') %}<td>{{ product.purchase_price|currency }}</td>{% endif %}
+                    {% if can('products.column.purchase_vat') %}<td>{{ ((product.purchase_price|float) * 1.10)|currency }}</td>{% endif %}
+                    {% if can('products.column.sale_net') %}<td>{{ product.sale_price|currency }}</td>{% endif %}
+                    {% if can('products.column.sale_vat') %}<td>{{ get_customer_sale_price(product)|currency }}</td>{% endif %}
+                    {% if can('products.column.stock') %}
+                    <td class="stock-cell">
+                        {% if can('products.action.stock') %}
+                        <div class="inline-stock-editor" data-stock-endpoint="{{ url_for('products.update_stock', product_id=product.id) }}">
+                            <input type="number" min="0" value="{{ product.stock_quantity }}" aria-label="Stok">
+                            <button
+                                type="button"
+                                class="icon-action-button js-stock-save"
+                                title="Stok Güncelle"
+                                data-tooltip="Stok Güncelle"
+                                aria-label="Stok Güncelle"
+                            >
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v6h-6"/></svg>
+                            </button>
+                        </div>
+                        {% else %}{{ product.stock_quantity }}{% endif %}
+                    </td>
+                    {% endif %}
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="11" class="empty-state">Henüz ürün kaydı yok.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot class="products-table-footer">
+                <tr>
+                    <td></td>
+                    <td></td>
+                    <td class="products-table-footer-label">Dip Toplam</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    {% if can('products.column.purchase_price') %}<td data-summary-key="purchase_price">-</td>{% endif %}
+                    {% if can('products.column.purchase_vat') %}<td data-summary-key="purchase_price_gross">-</td>{% endif %}
+                    {% if can('products.column.sale_net') %}<td data-summary-key="sale_price">-</td>{% endif %}
+                    {% if can('products.column.sale_vat') %}<td data-summary-key="sale_price_gross">-</td>{% endif %}
+                    {% if can('products.column.stock') %}<td data-summary-key="stock">-</td>{% endif %}
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</section>

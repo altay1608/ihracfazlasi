@@ -1,0 +1,45 @@
+{% from "_ui_icons.html" import edit_icon, resume_icon, stop_icon %}
+<section class="finance-table-section panel" id="finance-obligation-plans-section">
+    <div class="section-heading"><div><p class="eyebrow">Otomatik Takvim</p><h2>Tekrar Planları</h2></div></div>
+    <div class="table-wrap"><table id="obligationPlansTable" data-enhanced-table data-table-key="finance-obligation-plans-v2" data-export-name="donemsel-borc-tekrar-planlari">
+        <thead><tr><th>Plan</th><th>Tekrar</th><th>İlk Vade</th><th>Sıradaki Vade</th><th data-summary="currency">Gelecek Tutar</th><th>Bitiş</th><th>Durum</th><th data-no-filter="true" data-no-sort="true">İşlem</th></tr></thead>
+        <tbody>
+        {% for plan in recurrence_plans %}
+        <tr>
+            <td>{{ plan.title }}</td>
+            <td>{{ recurrence_labels.get(plan.recurrence, plan.recurrence) }}</td>
+            <td>{{ plan.first_due_date.strftime('%d.%m.%Y') }}</td>
+            <td>{{ plan.next_due_date.strftime('%d.%m.%Y') if plan.status == 'active' else '-' }}</td>
+            <td data-summary-value="{{ plan.amount }}">{{ plan.amount|currency }}</td>
+            <td>{{ plan.end_date.strftime('%d.%m.%Y') if plan.end_date else 'Süresiz' }}</td>
+            <td><span class="status-badge">{{ obligation_plan_status_labels.get(plan.status, plan.status) }}</span></td>
+            <td class="finance-action-column">
+                <div class="inline-actions compact-actions finance-plan-actions">
+                <a
+                    href="{{ url_for('finance.update_obligation_plan_route', plan_id=plan.id) }}"
+                    class="icon-action-button"
+                    data-modal-url="{{ url_for('finance.update_obligation_plan_route', plan_id=plan.id) }}"
+                    data-modal-title="Tekrar Planını Düzenle"
+                    title="Tekrar planını düzenle"
+                    data-tooltip="Tekrar planını düzenle"
+                    aria-label="{{ plan.title }} tekrar planını düzenle"
+                >{{ edit_icon() }}</a>
+                {% if plan.status == 'active' %}
+                <form method="post" action="{{ url_for('finance.stop_obligation_plan_route', plan_id=plan.id) }}" class="inline-action-form" data-confirm-submit data-confirm-title="Tekrar planını durdur" data-confirm-message="Bu planın yeni borç dönemleri oluşturması duracaktır. Daha önce oluşmuş borçlar ve ödemeler korunacaktır." data-confirm-submit-label="Evet, tekrarı durdur">
+                    <input type="hidden" name="csrf_token" value="{{ session.get('auth_csrf_token', '') }}">
+                    <button class="icon-action-button icon-action-danger" title="Tekrarı durdur" data-tooltip="Tekrarı durdur" aria-label="Tekrarı durdur">{{ stop_icon() }}</button>
+                </form>
+                {% endif %}
+                {% if plan.status == 'stopped' %}
+                <form method="post" action="{{ url_for('finance.resume_obligation_plan_route', plan_id=plan.id) }}" class="inline-action-form" data-confirm-submit data-confirm-title="Tekrar planını devam ettir" data-confirm-message="Duraklatılan tarihler için geçmiş borç oluşturulmayacak; plan bugüne denk gelen veya bugünden sonraki ilk vadeden devam edecektir." data-confirm-submit-label="Evet, devam ettir" data-confirm-variant="primary">
+                    <input type="hidden" name="csrf_token" value="{{ session.get('auth_csrf_token', '') }}">
+                    <button class="icon-action-button" title="Tekrarı devam ettir" data-tooltip="Tekrarı devam ettir" aria-label="Tekrarı devam ettir">{{ resume_icon() }}</button>
+                </form>
+                {% endif %}
+                </div>
+            </td>
+        </tr>
+        {% else %}<tr><td colspan="8" class="empty-state">Aktif veya tamamlanmış tekrar planı yok.</td></tr>{% endfor %}
+        </tbody>
+    </table></div>
+</section>

@@ -1,0 +1,16 @@
+<nav class="finance-tabs" aria-label="Finans Yönetimi bölümleri">
+    {% if can('finance.ledger.view') %}<a href="{{ url_for('finance_ops.dashboard') }}" class="{% if request.endpoint == 'finance_ops.dashboard' %}active{% endif %}">Finans Merkezi</a>{% endif %}
+    {% if can('finance.accounts.manage') %}<a href="{{ url_for('finance_ops.daily_closing') }}" class="{% if request.endpoint == 'finance_ops.daily_closing' %}active{% endif %}">Gün Sonu</a>{% endif %}
+    {% if can('finance.manual.create') %}<a href="{{ url_for('finance_ops.expenses') }}" class="{% if request.endpoint == 'finance_ops.expenses' %}active{% endif %}">Masraf Fişleri</a>{% endif %}
+    {% if can('finance.current.manage') %}<a href="{{ url_for('finance_ops.supplier_invoices') }}" class="{% if request.endpoint == 'finance_ops.supplier_invoices' %}active{% endif %}">Alış Faturaları</a>{% endif %}
+    {% if can('finance.manual.create') %}<a href="{{ url_for('finance_ops.personnel') }}" class="{% if request.endpoint == 'finance_ops.personnel' %}active{% endif %}">Personel</a>{% endif %}
+    {% if can('finance.accounts.manage') %}<a href="{{ url_for('finance_ops.approvals') }}" class="{% if request.endpoint == 'finance_ops.approvals' %}active{% endif %}">Onaylar</a>{% endif %}
+    {% if can('finance.ledger.view') %}<a href="{{ url_for('finance.index') }}" class="{% if request.endpoint == 'finance.index' %}active{% endif %}">Kasa Defteri</a>{% endif %}
+    {% if can('finance.accounts.view') %}<a href="{{ url_for('finance.accounts') }}" class="{% if request.endpoint == 'finance.accounts' %}active{% endif %}">Hesaplar</a>{% endif %}
+    {% if can('finance.manual.create') %}<a href="{{ url_for('finance.manual') }}" class="{% if request.endpoint == 'finance.manual' %}active{% endif %}">Manuel Hareket</a>{% endif %}
+    {% if can('finance.transfer.create') %}<a href="{{ url_for('finance.transfers') }}" class="{% if request.endpoint == 'finance.transfers' %}active{% endif %}">Transferler</a>{% endif %}
+    {% if can('finance.pos_reconcile.create') %}<a href="{{ url_for('finance.pos_reconciliations') }}" class="{% if request.endpoint == 'finance.pos_reconciliations' %}active{% endif %}">POS Mutabakatı</a>{% endif %}
+    {% if can('finance.current.view') %}<a href="{{ url_for('finance.current_accounts') }}" class="{% if request.endpoint == 'finance.current_accounts' %}active{% endif %}">Cari Takip</a>{% endif %}
+    {% if can('finance.obligation.view') %}<a href="{{ url_for('finance.obligations') }}" class="{% if request.endpoint == 'finance.obligations' %}active{% endif %}">Dönemsel Borçlar</a>{% endif %}
+    {% if can('finance.overhead.view') %}<a href="{{ url_for('finance.overheads') }}" class="{% if request.endpoint in ['finance.overheads', 'finance.save_overhead'] %}active{% endif %}">Genel Gider</a>{% endif %}
+</nav>

@@ -1,0 +1,12 @@
+Flask==3.1.0
+Flask-SQLAlchemy==3.1.1
+Flask-Migrate==4.0.7
+Flask-WTF==1.2.2
+WTForms==3.2.1
+SQLAlchemy==2.0.39
+psycopg[binary]>=3.2,<4
+openpyxl==3.1.5
+cryptography>=45,<47
+pyotp>=2.9,<3
+qrcode[pil]>=8,<9
+gunicorn>=23,<24

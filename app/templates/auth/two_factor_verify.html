@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="tr">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Giriş Kodu | İhraç Fazlası Giyim</title><link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}?v=2" sizes="any"><link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20260819-login-mfa-v1') }}"></head>
+<body class="auth-page auth-step-page">
+    <main class="auth-step-shell"><section class="auth-step-card auth-verify-card">
+        <div class="auth-brand"><div class="brand-card"><div class="brand-mark">İhraç Fazlası</div><div class="brand-subtitle">GİYİM</div></div></div>
+        <p class="eyebrow">SON ADIM</p><h1>Giriş kodunu yazın</h1><p class="auth-step-copy">Telefonunuzdaki doğrulama uygulamasında görünen 6 haneli kodu girin.</p>
+        <form method="post" class="auth-form"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><label>Doğrulama kodu<input class="auth-code-input" type="text" name="verification_code" inputmode="text" autocomplete="one-time-code" maxlength="20" required autofocus placeholder="000000"></label>{% with messages = get_flashed_messages(with_categories=true) %}{% if messages %}<div class="auth-messages" role="alert">{% for category, message in messages %}<p class="form-error">{{ message }}</p>{% endfor %}</div>{% endif %}{% endwith %}<button type="submit" class="primary-button">Devam Et</button></form>
+        <p class="auth-inline-help">Telefonunuza erişemiyorsanız daha önce verilen kurtarma kodlarından birini de kullanabilirsiniz.</p>
+    </section></main>
+</body></html>
+

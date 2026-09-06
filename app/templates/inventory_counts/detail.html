@@ -1,0 +1,402 @@
+{% extends "base.html" %}
+
+{% block title %}{{ inventory_count.name }} | İhraç Fazlası Giyim{% endblock %}
+{% block page_title %}{{ inventory_count.name }}{% endblock %}
+
+{% block content %}
+<section class="panel inventory-count-overview-panel">
+    <div class="inventory-count-overview-main">
+        <div class="inventory-count-overview-topline">
+            <a class="ghost-button compact-ghost-button" href="{{ url_for('inventory_counts.index') }}">Sayım Listeleri</a>
+            <span class="inventory-count-status-pill {{ 'is-approved' if inventory_count.status == 'approved' else 'is-draft' }}">
+                {{ "Onaylandı" if inventory_count.status == "approved" else "Taslak" }}
+            </span>
+        </div>
+
+        <div class="inventory-count-overview-copy">
+            <p class="eyebrow">Sayım Özeti</p>
+            <h2>{{ inventory_count.name }}</h2>
+        </div>
+
+        <div class="inventory-count-meta">
+            <span class="inventory-count-meta-item"><strong>Sayım No:</strong> #{{ inventory_count.document_no }}</span>
+            <span class="inventory-count-meta-item"><strong>Kategori:</strong> {{ inventory_count.category_filter or "Tüm kategoriler" }}</span>
+            <span class="inventory-count-meta-item"><strong>Oluşturma:</strong> {{ inventory_count.created_at|tr_date }}</span>
+            {% if inventory_count.approved_at %}
+            <span class="inventory-count-meta-item"><strong>Onay Tarihi:</strong> {{ inventory_count.approved_at|tr_date }}</span>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="metrics-grid inventory-count-metrics-grid">
+        <article class="metric-card">
+            <p class="metric-label">Pozitif Sapma</p>
+            <strong id="summaryPositiveQty">{{ summary.positive_quantity }}</strong>
+            <span id="summaryPositiveAmount">{{ summary.positive_amount|currency }}</span>
+        </article>
+        <article class="metric-card">
+            <p class="metric-label">Negatif Sapma</p>
+            <strong id="summaryNegativeQty">{{ summary.negative_quantity }}</strong>
+            <span id="summaryNegativeAmount">{{ summary.negative_amount|currency }}</span>
+        </article>
+        <article class="metric-card">
+            <p class="metric-label">Net Parasal Etki</p>
+            <strong id="summaryNetAmount">{{ summary.net_amount|currency }}</strong>
+            <span>alış maliyeti bazlı</span>
+        </article>
+    </div>
+</section>
+
+{% if inventory_count.status != "approved" and can('inventory_counts.action.scan') %}
+<section class="panel">
+    <div class="section-heading">
+        <div>
+            <p class="eyebrow">Barkod ile Sayım</p>
+            <h2>Ürünü okut, sayım adedi otomatik artsın</h2>
+        </div>
+    </div>
+    <div class="barcode-box">
+        <label for="countBarcodeInput">Barkod</label>
+        <input id="countBarcodeInput" type="text" placeholder="Barkodu okutun ve Enter'a basın" autocomplete="off">
+    </div>
+    <p id="countScanFeedback" class="muted">Yalnızca sayım listesindeki kullanılabilir birim barkodları kabul edilir.</p>
+</section>
+{% endif %}
+
+{% if inventory_count.status != "approved" and (can('inventory_counts.action.save') or can('inventory_counts.action.approve')) %}
+<div class="count-detail-actions">
+    {% if can('inventory_counts.action.save') %}
+    <button type="submit" form="countDetailSaveForm" class="ghost-button">Sayımı Kaydet</button>
+    {% endif %}
+    {% if can('inventory_counts.action.approve') %}
+    <form
+        id="countDetailApproveForm"
+        method="post"
+        action="{{ url_for('inventory_counts.approve', count_id=inventory_count.id) }}"
+    >
+        <button id="countDetailApproveButton" type="submit" class="primary-button">Sayımı Onayla ve Sisteme Uygula</button>
+    </form>
+    {% endif %}
+</div>
+{% endif %}
+
+<section class="panel">
+    <div class="section-heading">
+        <div>
+            <p class="eyebrow">Sayım Satırları</p>
+            <h2>Mevcut stok, sahadan gelen stok ve sapma raporu</h2>
+        </div>
+    </div>
+
+    <form id="countDetailSaveForm" method="post" action="{{ url_for('inventory_counts.save', count_id=inventory_count.id) }}">
+        <div class="table-wrap">
+            <table data-enhanced-table data-table-key="inventory-count-lines">
+                <thead>
+                    <tr>
+                        <th>Ürün</th>
+                        <th>Kategori</th>
+                        <th>Varyant</th>
+                        <th>Sistem Stoku</th>
+                        <th>Sayılan Stok</th>
+                        <th>Okutulan Birim Barkodlar</th>
+                        <th>Sapma</th>
+                        <th>Parasal Etki</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for line in inventory_count.lines %}
+                    <tr id="count-line-{{ line.id }}" class="{% if line.variance_quantity < 0 %}stock-status-low{% elif line.variance_quantity > 0 %}stock-status-critical{% else %}stock-status-healthy{% endif %}">
+                        <td>{{ line.product.name }}</td>
+                        <td>{{ line.product.category }}</td>
+                        <td>{{ line.product.variant or "-" }}</td>
+                        <td>{{ line.system_quantity }}</td>
+                        <td><strong id="counted-display-{{ line.id }}">{{ line.counted_quantity }}</strong></td>
+                        <td>
+                            <div id="count-scans-{{ line.id }}" class="counted-barcode-list">
+                                {% for scan in line.scans|sort(attribute='scanned_at') %}
+                                <span class="counted-barcode-chip" data-count-scan-id="{{ scan.id }}" data-count-barcode="{{ scan.barcode_value|upper }}">
+                                    <code>{{ scan.barcode_value }}</code>
+                                    {% if inventory_count.status != "approved" and can('inventory_counts.action.scan') %}
+                                    <button
+                                        type="button"
+                                        class="counted-barcode-remove"
+                                        data-remove-count-scan
+                                        data-remove-url="{{ url_for('inventory_counts.remove_scan', count_id=inventory_count.id, scan_id=scan.id) }}"
+                                        title="Bu barkodu sayımdan çıkar"
+                                        aria-label="{{ scan.barcode_value }} barkodunu sayımdan çıkar"
+                                    >×</button>
+                                    {% endif %}
+                                </span>
+                                {% else %}
+                                <span class="muted counted-barcode-empty">Henüz barkod okutulmadı</span>
+                                {% endfor %}
+                            </div>
+                        </td>
+                        <td id="variance-qty-{{ line.id }}">{{ line.variance_quantity }}</td>
+                        <td id="variance-amount-{{ line.id }}">{{ line.variance_amount|currency }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="8" class="empty-state">Bu sayım listesinde satır yok.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </form>
+</section>
+{% endblock %}
+
+{% block scripts %}
+{% if inventory_count.status != "approved" and (can('inventory_counts.action.scan') or can('inventory_counts.action.approve')) %}
+<script>
+(function () {
+    const barcodeInput = document.getElementById("countBarcodeInput");
+    const feedback = document.getElementById("countScanFeedback");
+    const scanUrl = "{{ url_for('inventory_counts.scan', count_id=inventory_count.id) }}";
+    const scannedUnitBarcodes = new Set(
+        [...document.querySelectorAll("[data-count-barcode]")]
+            .map((item) => String(item.dataset.countBarcode || "").toLocaleUpperCase("tr"))
+            .filter(Boolean)
+    );
+    let errorAudioContext = null;
+
+    function formatCurrency(value) {
+        return new Intl.NumberFormat("tr-TR", {
+            style: "currency",
+            currency: "TRY",
+            minimumFractionDigits: 2
+        }).format(Number(value || 0));
+    }
+
+    function setFeedback(message, type = "muted") {
+        if (!feedback) {
+            return;
+        }
+        feedback.textContent = message;
+        feedback.className = type === "error" ? "form-error" : type === "success" ? "helper-text" : "muted";
+    }
+
+    function playErrorTone() {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContext) {
+            return;
+        }
+        if (!errorAudioContext) {
+            errorAudioContext = new AudioContext();
+        }
+
+        const playSequence = () => {
+            const context = errorAudioContext;
+            const startAt = context.currentTime + 0.01;
+            [
+                { frequency: 260, offset: 0, duration: 0.13 },
+                { frequency: 150, offset: 0.16, duration: 0.18 }
+            ].forEach((tone) => {
+                const oscillator = context.createOscillator();
+                const gain = context.createGain();
+                oscillator.type = "square";
+                oscillator.frequency.setValueAtTime(tone.frequency, startAt + tone.offset);
+                gain.gain.setValueAtTime(0.0001, startAt + tone.offset);
+                gain.gain.exponentialRampToValueAtTime(0.18, startAt + tone.offset + 0.015);
+                gain.gain.exponentialRampToValueAtTime(0.0001, startAt + tone.offset + tone.duration);
+                oscillator.connect(gain);
+                gain.connect(context.destination);
+                oscillator.start(startAt + tone.offset);
+                oscillator.stop(startAt + tone.offset + tone.duration + 0.02);
+            });
+        };
+
+        if (errorAudioContext.state === "suspended") {
+            errorAudioContext.resume().then(playSequence).catch(() => {});
+        } else {
+            playSequence();
+        }
+    }
+
+    function rejectScan(message) {
+        setFeedback(message, "error");
+        playErrorTone();
+        if (window.showToast) {
+            window.showToast(message, "error");
+        }
+    }
+
+    function updateSummary(summary) {
+        const positiveQty = document.getElementById("summaryPositiveQty");
+        const negativeQty = document.getElementById("summaryNegativeQty");
+        const positiveAmount = document.getElementById("summaryPositiveAmount");
+        const negativeAmount = document.getElementById("summaryNegativeAmount");
+        const netAmount = document.getElementById("summaryNetAmount");
+        if (positiveQty) positiveQty.textContent = summary.positive_quantity;
+        if (negativeQty) negativeQty.textContent = summary.negative_quantity;
+        if (positiveAmount) positiveAmount.textContent = formatCurrency(summary.positive_amount);
+        if (negativeAmount) negativeAmount.textContent = formatCurrency(summary.negative_amount);
+        if (netAmount) netAmount.textContent = formatCurrency(summary.net_amount);
+    }
+
+    function updateLine(line) {
+        const countedDisplay = document.getElementById(`counted-display-${line.id}`);
+        if (countedDisplay) countedDisplay.textContent = line.counted_quantity;
+
+        const varianceQty = document.getElementById(`variance-qty-${line.id}`);
+        if (varianceQty) varianceQty.textContent = line.variance_quantity;
+        const varianceAmount = document.getElementById(`variance-amount-${line.id}`);
+        if (varianceAmount) varianceAmount.textContent = formatCurrency(line.variance_amount);
+
+        const row = document.getElementById(`count-line-${line.id}`);
+        row?.classList.remove("stock-status-low", "stock-status-critical", "stock-status-healthy");
+        if (Number(line.variance_quantity) < 0) row?.classList.add("stock-status-low");
+        else if (Number(line.variance_quantity) > 0) row?.classList.add("stock-status-critical");
+        else row?.classList.add("stock-status-healthy");
+    }
+
+    function appendScan(lineId, scan) {
+        const host = document.getElementById(`count-scans-${lineId}`);
+        if (!host) return;
+        host.querySelector(".counted-barcode-empty")?.remove();
+
+        const chip = document.createElement("span");
+        chip.className = "counted-barcode-chip";
+        chip.dataset.countScanId = scan.id;
+        chip.dataset.countBarcode = String(scan.barcode || "").toLocaleUpperCase("tr");
+
+        const code = document.createElement("code");
+        code.textContent = scan.barcode;
+        chip.appendChild(code);
+
+        const removeButton = document.createElement("button");
+        removeButton.type = "button";
+        removeButton.className = "counted-barcode-remove";
+        removeButton.dataset.removeCountScan = "";
+        removeButton.dataset.removeUrl = scan.remove_url;
+        removeButton.title = "Bu barkodu sayımdan çıkar";
+        removeButton.setAttribute("aria-label", `${scan.barcode} barkodunu sayımdan çıkar`);
+        removeButton.textContent = "×";
+        chip.appendChild(removeButton);
+        host.appendChild(chip);
+    }
+
+    function ensureEmptyScanState(host) {
+        if (!host || host.querySelector("[data-count-scan-id]")) return;
+        const empty = document.createElement("span");
+        empty.className = "muted counted-barcode-empty";
+        empty.textContent = "Henüz barkod okutulmadı";
+        host.appendChild(empty);
+    }
+
+    async function scanBarcode(rawBarcode) {
+        const barcode = String(rawBarcode || "").trim();
+        if (!barcode) {
+            return;
+        }
+        const normalizedBarcode = barcode.toLocaleUpperCase("tr");
+        const isUnitBarcode = normalizedBarcode.includes("-");
+        if (isUnitBarcode && scannedUnitBarcodes.has(normalizedBarcode)) {
+            rejectScan("Bu barkodu daha önce okuttunuz.");
+            barcodeInput.value = "";
+            barcodeInput.focus();
+            return;
+        }
+
+        try {
+            const response = await fetch(scanUrl, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-Requested-With": "XMLHttpRequest"
+                },
+                body: JSON.stringify({ barcode })
+            });
+            const data = await response.json();
+            if (!response.ok || !data.success) {
+                throw new Error(data.message || "Barkod işlenemedi.");
+            }
+
+            const lineId = data.line.id;
+            updateLine(data.line);
+            updateSummary(data.summary);
+            appendScan(lineId, data.scan);
+
+            setFeedback(data.message, "success");
+            if (isUnitBarcode) {
+                scannedUnitBarcodes.add(normalizedBarcode);
+            }
+            if (window.showToast) {
+                window.showToast(data.message, "success");
+            }
+        } catch (error) {
+            setFeedback(error.message, "error");
+            playErrorTone();
+            if (window.showToast) {
+                window.showToast(error.message, "error");
+            }
+        } finally {
+            barcodeInput.value = "";
+            barcodeInput.focus();
+        }
+    }
+
+    if (barcodeInput) {
+        barcodeInput.addEventListener("keydown", (event) => {
+            if (event.key !== "Enter") {
+                return;
+            }
+            event.preventDefault();
+            scanBarcode(barcodeInput.value);
+        });
+        barcodeInput.focus();
+    }
+
+    document.addEventListener("click", async (event) => {
+        const removeButton = event.target.closest("[data-remove-count-scan]");
+        if (!removeButton) return;
+
+        const chip = removeButton.closest("[data-count-scan-id]");
+        const host = chip?.parentElement;
+        const barcode = String(chip?.dataset.countBarcode || "").toLocaleUpperCase("tr");
+        removeButton.disabled = true;
+        try {
+            const response = await fetch(removeButton.dataset.removeUrl, {
+                method: "POST",
+                headers: { "X-Requested-With": "XMLHttpRequest" }
+            });
+            const data = await response.json();
+            if (!response.ok || !data.success) throw new Error(data.message || "Barkod kaldırılamadı.");
+
+            chip?.remove();
+            scannedUnitBarcodes.delete(barcode);
+            ensureEmptyScanState(host);
+            updateLine(data.line);
+            updateSummary(data.summary);
+            setFeedback(data.message, "success");
+            window.showToast?.(data.message, "success");
+        } catch (error) {
+            removeButton.disabled = false;
+            rejectScan(error.message);
+        }
+    });
+
+    const approveForm = document.getElementById("countDetailApproveForm");
+    const approveButton = document.getElementById("countDetailApproveButton");
+    if (approveForm && approveButton && window.openConfirmModal) {
+        approveButton.addEventListener("click", (event) => {
+            event.preventDefault();
+            window.openConfirmModal(
+                {
+                    title: "Sayımı onayla",
+                    message: "Onayınız ile birlikte sahadaki sayım sonuçları sisteme aktarılacaktır, emin misiniz?",
+                    submitLabel: "Onayla",
+                    submitVariant: "primary"
+                },
+                async () => {
+                    approveForm.submit();
+                }
+            );
+        });
+    }
+})();
+</script>
+{% endif %}
+{% endblock %}
+

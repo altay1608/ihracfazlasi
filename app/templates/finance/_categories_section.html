@@ -1,0 +1,53 @@
+{% from "_ui_icons.html" import edit_icon %}
+<section id="finance-categories-section" class="finance-tool panel">
+    <div class="section-heading"><div><p class="eyebrow">Sınıflandırma</p><h2>Kategoriler</h2></div></div>
+    <form method="post" action="{{ url_for('finance.create_category') }}" class="finance-category-create-form" data-category-default-form>
+        <input type="hidden" name="csrf_token" value="{{ session.get('auth_csrf_token', '') }}">
+        <label>Kod<input type="text" name="code" required></label>
+        <label>Ad<input type="text" name="name" required></label>
+        <label>Yön<select name="direction" data-category-direction><option value="in">Gelir</option><option value="out">Gider</option><option value="both">Her İkisi</option></select></label>
+        <div class="finance-category-create-actions">
+            <label class="finance-check finance-overhead-check"><input type="checkbox" name="default_is_overhead" value="1" data-category-overhead><span>Varsayılan Genel Gider Olarak İşaretle</span></label>
+            <button class="primary-button" type="submit">Kategori Ekle</button>
+        </div>
+    </form>
+    <p class="helper-text">Varsayılan seçim yalnız yeni kayıtlara uygulanır; geçmiş hareketleri değiştirmez ve işlem sırasında kaldırılabilir.</p>
+    <div class="table-wrap">
+        <table id="financeCategoriesTable" data-enhanced-table data-table-key="finance-categories-v2" data-export-name="finans-kategorileri">
+            <thead>
+                <tr>
+                    <th>Kod</th>
+                    <th>Kategori</th>
+                    <th>Yön</th>
+                    <th class="finance-flag-column">Varsayılan Genel Gider</th>
+                    <th class="finance-action-column" data-no-filter="true" data-no-sort="true">İşlem</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for category in categories %}
+                <tr>
+                    <td>{{ category.code }}</td>
+                    <td>{{ category.name }}</td>
+                    <td>{{ {'in':'Gelir','out':'Gider','both':'Her İkisi'}.get(category.direction, category.direction) }}</td>
+                    <td class="finance-flag-column">{{ 'Evet' if category.default_is_overhead else '-' }}</td>
+                    <td class="finance-action-column">
+                        {% if can('finance.accounts.manage') and not category.is_system and category.direction != 'in' %}
+                        <a
+                            href="{{ url_for('finance.update_category_overhead_default', category_id=category.id) }}"
+                            class="icon-action-button"
+                            data-modal-url="{{ url_for('finance.update_category_overhead_default', category_id=category.id) }}"
+                            data-modal-title="Kategori Düzenle"
+                            title="Kategori Düzenle"
+                            data-tooltip="Kategori Düzenle"
+                            aria-label="{{ category.name }} kategorisini düzenle"
+                        >{{ edit_icon() }}</a>
+                        {% else %}-{% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="5" class="empty-state">Kategori bulunmuyor.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>

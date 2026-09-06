@@ -1,0 +1,20 @@
+{
+  "name": "İhraç Fazlası Giyim",
+  "short_name": "İhraç Giyim",
+  "description": "Butik stok, satis ve operasyon yonetimi.",
+  "lang": "tr-TR",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f4efe6",
+  "theme_color": "#2d2824",
+  "icons": [
+    {
+      "src": "/static/img/favicon-512x512.png?v=2",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
+

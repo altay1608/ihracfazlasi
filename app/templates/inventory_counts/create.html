@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block title %}Yeni Sayım | İhraç Fazlası Giyim{% endblock %}
+{% block page_title %}Yeni Sayım Listesi{% endblock %}
+
+{% block content %}
+<section class="panel form-panel">
+    <form method="post" class="styled-form">
+        <div class="form-grid">
+            <div>
+                <label for="name">Sayım Adı</label>
+                <input id="name" name="name" type="text" value="{{ suggested_name }}" placeholder="Örn. Nisan Genel Sayımı">
+            </div>
+            <div>
+                <label for="category_filter">Kategori Filtresi</label>
+                <select id="category_filter" name="category_filter">
+                    <option value="">Tüm kategoriler</option>
+                    {% for category in categories %}
+                    <option value="{{ category.name }}" {% if selected_category == category.name %}selected{% endif %}>{{ category.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        <p class="helper-text">Liste oluşturulduğunda sistem stokları referans alınır. Barkod okutma ile sayım adedi artar, istenirse manuel düzeltme de yapılabilir.</p>
+        <div class="form-actions">
+            <a class="ghost-button" href="{{ url_for('inventory_counts.index') }}">Listeye Dön</a>
+            <button type="submit" class="primary-button">Sayım Listesini Oluştur</button>
+        </div>
+    </form>
+</section>
+{% endblock %}
+

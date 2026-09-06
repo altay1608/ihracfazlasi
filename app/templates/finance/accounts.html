@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% from "_ui_icons.html" import save_icon %}
+{% block title %}Finans Hesapları | İhraç Fazlası Giyim{% endblock %}
+{% block page_title %}Finans Hesapları{% endblock %}
+{% block topbar_actions %}{% endblock %}
+{% block content %}
+<section class="finance-page">
+    {% include "finance/_nav.html" %}
+    {% if not activation %}
+    <form method="post" action="{{ url_for('finance.activate') }}" class="finance-tool finance-activation-tool">
+        <input type="hidden" name="csrf_token" value="{{ session.get('auth_csrf_token', '') }}">
+        <div><p class="eyebrow">Başlangıç</p><h2>Mağaza Finans Defterini Aktive Et</h2><p>Aktivasyon anından önceki satış/iade geçmişi aktarılmaz. Nakit devir tutarını açık doğrulamayla başlatın.</p></div>
+        <label>Devir Nakit Bakiyesi<input type="number" name="opening_cash" value="35000.00" min="0" step="0.01" required></label>
+        <button class="primary-button" type="submit">Aktive Et</button>
+    </form>
+    {% else %}
+    <div class="finance-balance-grid">
+        {% for row in account_rows %}
+        <article class="finance-balance-card">
+            <span>{{ row.account.display_code }} - {{ row.account.name }}</span>
+            <strong>{{ row.balance|currency }}</strong>
+        </article>
+        {% endfor %}
+    </div>
+    {% if can('finance.accounts.manage') %}
+    <form method="post" action="{{ url_for('finance.adjust_opening') }}" class="finance-tool finance-inline-tool finance-aligned-actions" data-confirm-submit data-confirm-title="Devir bakiyesini düzelt" data-confirm-message="Bu işlem değiştirilemez finans defterine kalıcı bir düzeltme hareketi ekler. Tutarı ve açıklamayı kontrol ettiniz mi?" data-confirm-submit-label="Evet, düzeltmeyi oluştur">
+        <input type="hidden" name="csrf_token" value="{{ session.get('auth_csrf_token', '') }}">
+        <label>Yeni Devir Bileşeni<input type="number" name="opening_cash" min="0" step="0.01" required></label>
+        <label>Düzeltme Açıklaması<input type="text" name="reason" required></label>
+        <button type="submit" class="primary-button">Devir Düzeltmesi Oluştur</button>
+    </form>
+    {% endif %}
+
+    <div class="finance-two-column">
+        <section class="finance-tool">
+            <div class="section-heading"><div><p class="eyebrow">Tahsilat Yönü</p><h2>Ödeme Yöntemi Eşlemeleri</h2></div></div>
+            {% for method in payment_methods %}
+            <form method="post" action="{{ url_for('finance.update_payment_mapping') }}" class="finance-mapping-row">
+                <input type="hidden" name="csrf_token" value="{{ session.get('auth_csrf_token', '') }}"><input type="hidden" name="payment_method" value="{{ method.name }}">
+                <span>{{ method.name }}</span>
+                <select name="account_id" required>{% for account in accounts %}<option value="{{ account.id }}" {% if mappings.get(method.name) and mappings.get(method.name).account_id == account.id %}selected{% endif %}>{{ account.name }}</option>{% endfor %}</select>
+                <button type="submit" class="icon-action-button" title="Eşlemeyi kaydet" data-tooltip="Eşlemeyi kaydet" aria-label="Eşlemeyi kaydet">{{ save_icon() }}</button>
+            </form>
+            {% else %}<p class="empty-state">Tanımlı ödeme yöntemi yok.</p>{% endfor %}
+        </section>
+
+        <section class="finance-tool">
+            <div class="section-heading"><div><p class="eyebrow">Hesap Planı</p><h2>Yeni Hesap</h2></div></div>
+            <form method="post" action="{{ url_for('finance.create_account') }}" class="finance-form-grid">
+                <input type="hidden" name="csrf_token" value="{{ session.get('auth_csrf_token', '') }}">
+                <label>Kod<input type="text" name="code" maxlength="40" required></label><label>Ad<input type="text" name="name" maxlength="140" required></label>
+                <label>Tür<select name="account_type"><option value="cash">Nakit</option><option value="bank">Banka</option><option value="pos_receivable">POS Alacağı</option></select></label>
+                <button class="primary-button" type="submit">Hesap Oluştur</button>
+            </form>
+        </section>
+    </div>
+
+    {% include "finance/_categories_section.html" %}
+    {% endif %}
+</section>
+{% endblock %}
+{% block scripts %}
+{{ super() }}
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+    const form = document.querySelector("[data-category-default-form]");
+    const direction = form?.querySelector("[data-category-direction]");
+    const overhead = form?.querySelector("[data-category-overhead]");
+    if (!direction || !overhead) return;
+    const syncOverhead = () => {
+        overhead.disabled = direction.value === "in";
+        if (overhead.disabled) overhead.checked = false;
+    };
+    direction.addEventListener("change", syncOverhead);
+    syncOverhead();
+});
+</script>
+{% endblock %}
+
