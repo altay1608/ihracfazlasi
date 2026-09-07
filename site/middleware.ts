@@ -18,7 +18,7 @@ export async function middleware(request: NextRequest) {
   // Admin route protection
   if (pathname.startsWith('/admin') && !pathname.startsWith('/admin/login')) {
     const adminSession = request.cookies.get('admin-session')?.value;
-    const adminPassword = process.env.ADMIN_PASSWORD;
+    const adminPassword = process.env.AUTH_PASSWORD || process.env.ADMIN_PASSWORD;
 
     if (!adminSession || !adminPassword) {
       return NextResponse.redirect(new URL('/admin/login', request.url));

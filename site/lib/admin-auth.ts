@@ -11,7 +11,7 @@ async function computeToken(password: string): Promise<string> {
 }
 
 export async function validateAdminSession(cookieValue: string): Promise<boolean> {
-  const adminPassword = process.env.ADMIN_PASSWORD;
+  const adminPassword = process.env.AUTH_PASSWORD || process.env.ADMIN_PASSWORD;
   if (!adminPassword || !cookieValue) return false;
   const expectedToken = await computeToken(adminPassword);
   return cookieValue === expectedToken;
@@ -20,7 +20,7 @@ export async function validateAdminSession(cookieValue: string): Promise<boolean
 export async function login(
   password: string
 ): Promise<{ success: true; token: string } | { success: false }> {
-  const adminPassword = process.env.ADMIN_PASSWORD;
+  const adminPassword = process.env.AUTH_PASSWORD || process.env.ADMIN_PASSWORD;
   if (!adminPassword || password !== adminPassword) return { success: false };
   const token = await computeToken(password);
   return { success: true, token };
