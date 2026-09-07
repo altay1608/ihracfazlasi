@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+import os
 
 from flask import has_request_context, session
 from sqlalchemy import func, inspect
@@ -111,6 +112,20 @@ def _select_store(user, membership):
 def apply_identity_session(identity):
     session["auth_user"] = identity.username
     if not identity.uses_database:
+        site_code = (os.getenv("CUSTOMER_SITE_CODE") or "IFG").strip().upper()
+        store_code = (os.getenv("CUSTOMER_STORE_CODE") or "MERKEZ").strip().upper()
+        site = Site.query.filter_by(code=site_code, is_active=True).first()
+        if site is not None:
+            store = Store.query.filter_by(
+                site_id=site.id,
+                code=store_code,
+                is_active=True,
+            ).first()
+            if store is not None:
+                session["active_site_id"] = site.id
+                session["active_store_id"] = store.id
+                session["active_site_code"] = site.code
+                session["active_store_code"] = store.code
         return
 
     user = identity.user

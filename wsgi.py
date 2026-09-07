@@ -23,3 +23,6 @@ database_url_is_configured = any(
 if os.getenv("VERCEL") and database_url_is_configured:
     with app.app_context():
         db.create_all()
+        from app.services.deployment_bootstrap import ensure_deployment_store
+
+        ensure_deployment_store()
