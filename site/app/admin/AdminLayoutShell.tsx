@@ -27,7 +27,8 @@ export default function AdminLayoutShell({ children }: { children: React.ReactNo
   const pathname = usePathname();
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
-  const managementPanelUrl = process.env.NEXT_PUBLIC_MANAGEMENT_PANEL_URL || '/panel';
+  const managementPanelUrl =
+    process.env.NEXT_PUBLIC_MANAGEMENT_PANEL_URL || 'https://ihracfazlasi.vercel.app';
 
   const isLoginPage = pathname === '/admin/login';
 
