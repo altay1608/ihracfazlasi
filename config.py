@@ -15,6 +15,21 @@ def normalize_database_url(value):
     return value
 
 
+def resolve_database_url():
+    """Return the first non-empty database URL provided by Vercel/Neon."""
+    for key in (
+        "DATABASE_URL",
+        "POSTGRES_URL",
+        "STORAGE_URL",
+        "DATABASE_URL_UNPOOLED",
+        "POSTGRES_URL_NON_POOLING",
+    ):
+        value = os.getenv(key, "").strip()
+        if value:
+            return value
+    return f"sqlite:///{BASE_DIR / 'lafemme.db'}"
+
+
 class BaseConfig:
     SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key-change-me")
     SQLALCHEMY_TRACK_MODIFICATIONS = False
@@ -37,9 +52,7 @@ class BaseConfig:
     PERMANENT_SESSION_LIFETIME = timedelta(hours=int(os.getenv("SESSION_HOURS", "8")))
 
     DEBUG = False
-    SQLALCHEMY_DATABASE_URI = normalize_database_url(
-        os.getenv("DATABASE_URL", f"sqlite:///{BASE_DIR / 'lafemme.db'}")
-    )
+    SQLALCHEMY_DATABASE_URI = normalize_database_url(resolve_database_url())
     AUTH_SETTINGS_PATH = os.getenv("AUTH_SETTINGS_PATH", str(BASE_DIR / "instance" / "auth.json"))
     SESSION_COOKIE_SECURE = True
 
