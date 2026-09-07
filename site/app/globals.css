@@ -1,0 +1,295 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+    padding: 0;
+    margin: 0;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    /* Prevent horizontal scroll on mobile */
+    overflow-x: hidden;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans;
+    /* Prevent content from being cut off on mobile */
+    overflow-x: hidden;
+    width: 100%;
+  }
+
+  /* Dark mode styles */
+  .dark {
+    --background: #0a0a0a;
+    --foreground: #fafafa;
+  }
+
+  .dark body {
+    @apply bg-[#0a0a0a] text-[#fafafa];
+  }
+
+  /* Apple-style focus ring */
+  :focus-visible {
+    @apply outline-none ring-2 ring-accent ring-offset-2;
+  }
+
+  /* Custom scrollbar - desktop only */
+  @media (min-width: 768px) {
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      @apply bg-gray-100;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      @apply bg-gray-500 rounded-full;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      @apply bg-gray-700;
+    }
+  }
+
+  /* Mobilde dokunma gecikmesini kaldır */
+  a,
+  button {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  /* Mobilde link tıklama alanını büyüt */
+  @media (max-width: 768px) {
+
+    button,
+    a {
+      min-height: 44px;
+    }
+  }
+}
+
+@layer components {
+
+  /* Apple-style button */
+  .btn-primary {
+    @apply inline-flex items-center justify-center px-6 py-3 bg-accent text-white font-medium rounded-full hover:bg-accent-hover active:scale-[0.98] transition-all duration-apple ease-apple;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center px-6 py-3 bg-gray-100 text-foreground font-medium rounded-full hover:bg-gray-200 active:scale-[0.98] transition-all duration-apple ease-apple;
+  }
+
+  .btn-whatsapp {
+    @apply inline-flex items-center justify-center gap-2 px-8 py-4 bg-success text-white font-semibold rounded-full text-lg hover:bg-success-hover active:scale-[0.98] transition-all duration-apple ease-apple shadow-apple;
+  }
+
+  /* Apple-style card */
+  .card {
+    @apply bg-white dark:bg-gray-900 rounded-apple p-6 shadow-apple transition-all duration-apple ease-apple hover:shadow-apple-hover;
+  }
+
+  /* Container */
+  .container-apple {
+    @apply max-w-[1024px] mx-auto px-4 sm:px-6;
+  }
+
+  .container-wide {
+    @apply max-w-[1440px] mx-auto px-4 sm:px-6;
+  }
+
+  /* Section spacing */
+  .section {
+    @apply py-10 sm:py-14 md:py-section;
+  }
+
+  .section-sm {
+    @apply py-8 sm:py-12 md:py-section-sm;
+  }
+
+  /* Text styles */
+  .text-gradient {
+    @apply bg-gradient-to-r from-foreground to-gray-500 bg-clip-text text-transparent;
+  }
+
+  /* Link styles */
+  .link {
+    @apply text-accent hover:underline underline-offset-4 transition-colors duration-200;
+  }
+
+  /* Input styles */
+  .input {
+    @apply w-full px-4 py-3 bg-gray-100 dark:bg-gray-800 border-none rounded-apple-sm text-foreground dark:text-white placeholder:text-gray-500 focus:ring-2 focus:ring-accent focus:bg-white dark:focus:bg-gray-700 transition-all duration-200;
+  }
+
+  /* Badge */
+  .badge {
+    @apply inline-flex items-center px-3 py-1 text-caption bg-gray-100 text-gray-700 rounded-full;
+  }
+
+  .badge-success {
+    @apply bg-success/10 text-success;
+  }
+
+  .badge-warning {
+    @apply bg-amber-100 text-amber-700;
+  }
+
+  .badge-error {
+    @apply bg-red-100 text-red-700;
+  }
+}
+
+@layer utilities {
+
+  /* Animation utilities */
+  .animate-fade-in {
+    animation: fadeIn 0.5s ease-out forwards;
+  }
+
+  .animate-slide-up {
+    animation: slideUp 0.5s ease-out forwards;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes slideUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Glass effect */
+  .glass {
+    @apply bg-white/80 dark:bg-gray-900/80 backdrop-blur-lg;
+  }
+
+  /* Parallax performance optimizations */
+  .will-change-transform {
+    will-change: transform;
+  }
+
+  .will-change-opacity {
+    will-change: opacity;
+  }
+
+  /* GPU acceleration for parallax layers */
+  .parallax-layer {
+    transform: translateZ(0);
+    backface-visibility: hidden;
+  }
+
+  /* Smooth transitions for scroll-linked animations */
+  .parallax-smooth {
+    transition: transform 0.1s linear;
+  }
+
+  /* 3D perspective container for card tilt effects */
+  .perspective-container {
+    perspective: 1000px;
+    transform-style: preserve-3d;
+  }
+
+  /* Magnetic hover base */
+  .magnetic-hover {
+    transition: transform 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
+  }
+
+  /* Premium text shimmer */
+  @keyframes textShimmer {
+    0% {
+      background-position: -200% center;
+    }
+
+    100% {
+      background-position: 200% center;
+    }
+  }
+
+  .text-shimmer {
+    background-size: 200% auto;
+    animation: textShimmer 4s ease-in-out infinite;
+  }
+
+  /* Floating animation for decorative elements */
+  @keyframes float {
+
+    0%,
+    100% {
+      transform: translateY(0) rotate(0deg);
+    }
+
+    33% {
+      transform: translateY(-8px) rotate(1deg);
+    }
+
+    66% {
+      transform: translateY(4px) rotate(-1deg);
+    }
+  }
+
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+
+  /* Glow pulse for CTAs */
+  @keyframes glowPulse {
+
+    0%,
+    100% {
+      box-shadow: 0 0 20px rgba(0, 113, 227, 0.2);
+    }
+
+    50% {
+      box-shadow: 0 0 40px rgba(0, 113, 227, 0.4);
+    }
+  }
+
+  .glow-pulse {
+    animation: glowPulse 3s ease-in-out infinite;
+  }
+
+  /* Mobile safe areas */
+  .safe-top {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .safe-left {
+    padding-left: env(safe-area-inset-left);
+  }
+
+  .safe-right {
+    padding-right: env(safe-area-inset-right);
+  }
+
+  /* Mobil touch scroll */
+  .touch-scroll {
+    -webkit-overflow-scrolling: touch;
+    overflow-y: auto;
+  }
+}

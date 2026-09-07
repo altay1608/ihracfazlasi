@@ -2,6 +2,15 @@
 
 Flask + SQLite tabanli butik ERP/POS uygulamasi.
 
+## Proje Yapisi
+
+- Depo koku: magazanin yonetim ve on muhasebe paneli (Flask)
+- `site/`: ihracfazlasigiyim.com web sitesi ve web admin alani (Next.js)
+
+Web sitesini Vercel'e baglarken **Root Directory** degeri `site` olmalidir.
+Yonetim paneli ayri bir Vercel projesi olarak yayinlanacaksa Root Directory bos
+birakilir.
+
 ## Kurulum
 
 ```powershell
