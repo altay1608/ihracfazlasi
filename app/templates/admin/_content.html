@@ -119,6 +119,7 @@
                                     data-refresh-target="#admin-tabs-content"
                                     data-refresh-url="{{ url_for('admin.index', partial='content', tab=active_tab) }}"
                                 >
+                                    <input type="hidden" name="csrf_token" value="{{ session.get('auth_csrf_token', '') }}">
                                     <button
                                         type="submit"
                                         class="icon-action-button"
@@ -145,8 +146,14 @@
                                     method="post"
                                     action="{{ url_for('admin.delete', entity=active_tab, record_id=row.id, tab=active_tab) }}"
                                     class="admin-action-form"
-                                    onsubmit="return confirm('Bu kaydı silmek istediğinize emin misiniz?');"
+                                    data-confirm-form
+                                    data-confirm-title="{{ tab_config[active_tab].label }} kaydını sil"
+                                    data-confirm-message="Bu kaydı silmek istediğinize emin misiniz?"
+                                    data-confirm-record-label="{{ row.name }}"
+                                    data-refresh-target="#admin-tabs-content"
+                                    data-refresh-url="{{ url_for('admin.index', partial='content', tab=active_tab) }}"
                                 >
+                                    <input type="hidden" name="csrf_token" value="{{ session.get('auth_csrf_token', '') }}">
                                     <button
                                         type="submit"
                                         class="icon-action-button icon-action-danger"

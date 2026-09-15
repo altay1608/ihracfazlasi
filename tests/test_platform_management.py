@@ -7,7 +7,7 @@ from werkzeug.security import generate_password_hash
 
 from app import create_app
 from app.extensions import db
-from app.models import Feature, Package, PaymentMethod, Permission, Role, Site, Store, User, UserSiteRole
+from app.models import Category, Feature, Package, PaymentMethod, Permission, Role, Site, Store, User, UserSiteRole
 from app.security_catalog import FEATURES, PERMISSIONS
 from config import BaseConfig
 
@@ -641,6 +641,33 @@ class PlatformManagementTests(unittest.TestCase):
         self.assertEqual(store_form.status_code, 200)
         self.assertIn("Site Yönetimine Dön", store_html)
         self.assertIn(">Vazgeç</a>", store_html)
+
+    def test_reference_data_delete_uses_csrf_protected_ajax_confirmation(self):
+        client = self.app.test_client()
+        self.assertEqual(self._login(client, "admin", "AdminSecret123").status_code, 302)
+
+        page = client.get("/admin/?tab=categories")
+        html = page.get_data(as_text=True)
+        self.assertEqual(page.status_code, 200)
+        self.assertIn("data-confirm-form", html)
+        self.assertIn('name="csrf_token"', html)
+        self.assertNotIn("onsubmit=\"return confirm(", html)
+
+        with self.app.app_context():
+            category = Category.query.filter_by(name="Aksesuar").one()
+            category_id = category.id
+
+        deleted = client.post(
+            f"/admin/categories/{category_id}/delete?tab=categories",
+            data={"csrf_token": self._csrf(client, "/admin/?tab=categories")},
+            headers={"X-Requested-With": "XMLHttpRequest"},
+        )
+
+        self.assertEqual(deleted.status_code, 200, deleted.get_data(as_text=True))
+        self.assertTrue(deleted.get_json()["success"])
+        self.assertEqual(deleted.get_json()["refresh_target"], "#admin-tabs-content")
+        with self.app.app_context():
+            self.assertIsNone(Category.query.filter_by(name="Aksesuar").first())
 
     def test_login_uses_first_authorized_page_when_dashboard_is_disabled(self):
         with self.app.app_context():
