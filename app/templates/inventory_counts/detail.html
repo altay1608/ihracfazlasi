@@ -74,6 +74,7 @@
         method="post"
         action="{{ url_for('inventory_counts.approve', count_id=inventory_count.id) }}"
     >
+        <input type="hidden" name="csrf_token" value="{{ session.get('auth_csrf_token', '') }}">
         <button id="countDetailApproveButton" type="submit" class="primary-button">Sayımı Onayla ve Sisteme Uygula</button>
     </form>
     {% endif %}
@@ -89,6 +90,7 @@
     </div>
 
     <form id="countDetailSaveForm" method="post" action="{{ url_for('inventory_counts.save', count_id=inventory_count.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ session.get('auth_csrf_token', '') }}">
         <div class="table-wrap">
             <table data-enhanced-table data-table-key="inventory-count-lines">
                 <thead>
@@ -154,6 +156,7 @@
     const barcodeInput = document.getElementById("countBarcodeInput");
     const feedback = document.getElementById("countScanFeedback");
     const scanUrl = "{{ url_for('inventory_counts.scan', count_id=inventory_count.id) }}";
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || "";
     const scannedUnitBarcodes = new Set(
         [...document.querySelectorAll("[data-count-barcode]")]
             .map((item) => String(item.dataset.countBarcode || "").toLocaleUpperCase("tr"))
@@ -304,7 +307,8 @@
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
-                    "X-Requested-With": "XMLHttpRequest"
+                    "X-Requested-With": "XMLHttpRequest",
+                    "X-CSRF-Token": csrfToken
                 },
                 body: JSON.stringify({ barcode })
             });
@@ -359,7 +363,10 @@
         try {
             const response = await fetch(removeButton.dataset.removeUrl, {
                 method: "POST",
-                headers: { "X-Requested-With": "XMLHttpRequest" }
+                headers: {
+                    "X-Requested-With": "XMLHttpRequest",
+                    "X-CSRF-Token": csrfToken
+                }
             });
             const data = await response.json();
             if (!response.ok || !data.success) throw new Error(data.message || "Barkod kaldırılamadı.");

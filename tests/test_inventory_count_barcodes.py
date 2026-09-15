@@ -136,6 +136,9 @@ class InventoryCountBarcodeTests(unittest.TestCase):
         html = detail.get_data(as_text=True)
         self.assertEqual(detail.status_code, 200)
         self.assertIn(f"Sayım No:</strong> #{self.count_document_no}", html)
+        self.assertIn('const csrfToken = document.querySelector(\'meta[name="csrf-token"]\')?.content || "";', html)
+        self.assertIn('"X-CSRF-Token": csrfToken', html)
+        self.assertGreaterEqual(html.count('name="csrf_token"'), 2)
         self.assertNotIn('name="counted_quantity', html)
         self.assertNotIn('type="number"', html)
 
