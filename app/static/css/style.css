@@ -4894,9 +4894,9 @@ th:hover .table-column-resize-handle::after,
     width: 50mm;
     height: 50mm;
     min-height: 50mm;
-    padding: 2.2mm 2.6mm 1.8mm;
-    border-radius: 1.4mm;
-    border: 0.25mm solid #111111;
+    padding: 2.2mm;
+    border-radius: 1.2mm;
+    border: 0.3mm solid #111111;
     background: #ffffff;
     display: block;
     position: relative;
@@ -4907,47 +4907,27 @@ th:hover .table-column-resize-handle::after,
     break-inside: avoid;
 }
 
-.compact-fashion-label-tier {
-    position: absolute;
-    top: 1.6mm;
-    right: 1.6mm;
-    width: 5.2mm;
-    height: 5.2mm;
-    border: 0.25mm solid #111111;
-    border-radius: 50%;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 3mm;
-    line-height: 1;
-    font-weight: 900;
-    color: #111111;
-    background: #ffffff;
-    z-index: 2;
-}
-
 .compact-fashion-label-topline {
     display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 1.8mm;
+    align-items: center;
+    justify-content: center;
     position: absolute;
-    top: 2.7mm;
-    left: 2.8mm;
-    right: 8.4mm;
+    top: 2.5mm;
+    left: 2.5mm;
+    right: 2.5mm;
+    height: 5mm;
+    padding-bottom: 1.2mm;
+    border-bottom: 0.25mm solid #111111;
 }
 
 .compact-fashion-label-brand {
-    font-family: Georgia, "Times New Roman", serif;
-    font-size: 3.7mm;
-    line-height: 0.96;
-    font-weight: 800;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 3.05mm;
+    line-height: 1;
+    font-weight: 900;
+    letter-spacing: 0.08em;
     color: #121212;
-    min-width: 0;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    gap: 0.05mm;
+    text-align: center;
 }
 
 .compact-fashion-label-brand span {
@@ -4957,12 +4937,12 @@ th:hover .table-column-resize-handle::after,
 
 .compact-fashion-label-name {
     position: absolute;
-    top: 11.2mm;
-    left: 2.8mm;
-    right: 2.8mm;
-    font-size: 3.35mm;
-    line-height: 1.08;
-    font-weight: 800;
+    top: 10.1mm;
+    left: 2.5mm;
+    right: 2.5mm;
+    font-size: 3.5mm;
+    line-height: 1.12;
+    font-weight: 900;
     color: #121212;
     white-space: normal;
     overflow: hidden;
@@ -4975,22 +4955,22 @@ th:hover .table-column-resize-handle::after,
 .compact-fashion-label-meta {
     display: flex;
     justify-content: space-between;
-    gap: 1.6mm;
-    align-items: baseline;
+    gap: 1.2mm;
+    align-items: center;
     position: absolute;
-    top: 18.9mm;
-    left: 2.8mm;
-    right: 2.8mm;
-    font-size: 3.15mm;
+    top: 20.1mm;
+    left: 2.5mm;
+    right: 2.5mm;
+    font-size: 2.8mm;
     color: #111111;
     font-weight: 800;
 }
 
 .compact-fashion-label-chip {
     min-width: 0;
-    padding: 0;
-    border: 0;
-    border-radius: 0;
+    padding: 0.75mm 1.1mm;
+    border: 0.2mm solid #111111;
+    border-radius: 0.8mm;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -4999,25 +4979,16 @@ th:hover .table-column-resize-handle::after,
 
 .compact-fashion-label-size {
     flex: 0 1 auto;
-    font-size: 3.15mm;
+    font-size: 2.8mm;
 }
 
 .compact-fashion-label-code {
     flex: 0 0 auto;
-    max-width: 59%;
-    font-size: 2.9mm;
+    max-width: 62%;
+    font-size: 2.55mm;
     font-weight: 900;
     text-align: right;
     letter-spacing: 0.01em;
-}
-
-.compact-fashion-label-price {
-    font-weight: 800;
-    font-size: 4mm;
-    line-height: 1;
-    white-space: nowrap;
-    flex-shrink: 0;
-    text-align: right;
 }
 
 .compact-fashion-label-barcode-wrap {
@@ -5025,10 +4996,10 @@ th:hover .table-column-resize-handle::after,
     flex-direction: column;
     justify-content: flex-end;
     position: absolute;
-    left: 1.2mm;
-    right: 1.2mm;
-    top: 23.0mm;
-    bottom: 0.8mm;
+    left: 1.8mm;
+    right: 1.8mm;
+    top: 27.2mm;
+    bottom: 1.8mm;
     align-items: center;
     overflow: hidden;
 }
@@ -5042,7 +5013,7 @@ th:hover .table-column-resize-handle::after,
 
 .compact-fashion-label-barcode svg {
     width: 100%;
-    height: 15.2mm;
+    height: 19.5mm;
     display: block;
 }
 

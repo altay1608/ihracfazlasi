@@ -1,4 +1,3 @@
-from decimal import Decimal
 from io import BytesIO
 
 from flask import Blueprint, current_app, flash, jsonify, redirect, render_template, request, url_for
@@ -21,7 +20,6 @@ from app.services.product_inventory import (
     get_customer_sale_price,
     get_multiplier_by_id,
     get_next_product_code,
-    get_product_retail_multiplier_code,
     round_customer_price,
     resolve_unit_barcode,
     sync_product_sale_price,
@@ -40,11 +38,6 @@ from .forms import ProductForm
 
 
 bp = Blueprint("products", __name__, url_prefix="/products")
-LABEL_PRICE_VAT_MULTIPLIER = Decimal("1.10")
-
-
-def get_label_price(product):
-    return get_customer_sale_price(product)
 
 
 def build_product_label_entries(product):
@@ -56,8 +49,6 @@ def build_product_label_entries(product):
     return [
         {
             "product": product,
-            "label_price": get_label_price(product),
-            "multiplier_code": get_product_retail_multiplier_code(product),
             "barcode_value": barcode_value,
             # Unit suffixes (-01, -02, ...) must be encoded, not only printed as text.
             "barcode_svg": generate_code128_svg(barcode_value, compact=True),
