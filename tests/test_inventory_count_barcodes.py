@@ -3,6 +3,8 @@ from decimal import Decimal
 from pathlib import Path
 from uuid import uuid4
 
+from sqlalchemy import text
+
 from app import create_app
 from app.extensions import db
 from app.models import (
@@ -103,6 +105,11 @@ class InventoryCountBarcodeTests(unittest.TestCase):
             headers={"X-Requested-With": "XMLHttpRequest"},
         )
 
+    def _enable_foreign_keys(self):
+        with self.app.app_context():
+            db.session.execute(text("PRAGMA foreign_keys=ON"))
+            db.session.commit()
+
     def test_scan_rejects_unknown_outside_and_duplicate_barcodes(self):
         unknown = self._scan("UNKNOWN-9999")
         self.assertEqual(unknown.status_code, 404)
@@ -185,6 +192,41 @@ class InventoryCountBarcodeTests(unittest.TestCase):
             self.assertEqual(transaction.quantity_before, 3)
             self.assertEqual(transaction.quantity_after, 2)
             self.assertEqual(transaction.barcode_values, self.unit_barcodes[1])
+
+    def test_product_in_draft_count_can_be_deleted_without_foreign_key_error(self):
+        self._enable_foreign_keys()
+        self.assertEqual(self._scan(self.unit_barcodes[0]).status_code, 200)
+
+        deleted = self.client.post(
+            f"/products/{self.product_id}/delete",
+            headers={"X-Requested-With": "XMLHttpRequest"},
+        )
+
+        self.assertEqual(deleted.status_code, 200, deleted.get_data(as_text=True))
+        self.assertTrue(deleted.get_json()["success"])
+        with self.app.app_context():
+            self.assertIsNone(db.session.get(Product, self.product_id))
+            self.assertEqual(InventoryCountLine.query.filter_by(product_id=self.product_id).count(), 0)
+            self.assertEqual(InventoryCountScan.query.count(), 0)
+            self.assertEqual(ProductBarcode.query.filter_by(product_id=self.product_id).count(), 0)
+
+    def test_product_in_approved_count_returns_clear_json_error(self):
+        self._enable_foreign_keys()
+        with self.app.app_context():
+            inventory_count = db.session.get(InventoryCount, self.count_id)
+            inventory_count.status = "approved"
+            db.session.commit()
+
+        blocked = self.client.post(
+            f"/products/{self.product_id}/delete",
+            headers={"X-Requested-With": "XMLHttpRequest"},
+        )
+
+        self.assertEqual(blocked.status_code, 400)
+        self.assertFalse(blocked.get_json()["success"])
+        self.assertIn("onaylanmış stok sayımında", blocked.get_json()["message"])
+        with self.app.app_context():
+            self.assertIsNotNone(db.session.get(Product, self.product_id))
 
 
 if __name__ == "__main__":

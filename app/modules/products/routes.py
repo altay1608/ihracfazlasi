@@ -5,10 +5,20 @@ from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Font, PatternFill
 from openpyxl.worksheet.datavalidation import DataValidation
 from sqlalchemy import or_
+from sqlalchemy.exc import IntegrityError
 from werkzeug.utils import secure_filename
 
 from app.extensions import db
-from app.models import Category, Product, ProductBarcode, RetailMultiplier, Variant
+from app.models import (
+    Category,
+    InventoryCount,
+    InventoryCountLine,
+    Product,
+    ProductBarcode,
+    RetailMultiplier,
+    SupplierInvoiceLine,
+    Variant,
+)
 from app.services.barcodes import generate_code128_svg
 from app.services.access_control import has_permission
 from app.services.inventory_history import record_inventory_movement
@@ -38,6 +48,44 @@ from .forms import ProductForm
 
 
 bp = Blueprint("products", __name__, url_prefix="/products")
+
+
+def get_product_delete_block_message(product):
+    if product.sale_items.count() or product.return_items.count():
+        return "Bu ürün işlem geçmişinde kullanıldığı için silinemez."
+
+    approved_count_exists = (
+        InventoryCountLine.query.join(InventoryCount)
+        .filter(
+            InventoryCountLine.product_id == product.id,
+            InventoryCount.status == "approved",
+        )
+        .first()
+        is not None
+    )
+    if approved_count_exists:
+        return "Bu ürün onaylanmış stok sayımında bulunduğu için silinemez."
+    return None
+
+
+def prepare_product_for_delete(product):
+    draft_count_lines = (
+        InventoryCountLine.query.join(InventoryCount)
+        .filter(
+            InventoryCountLine.product_id == product.id,
+            InventoryCount.status != "approved",
+        )
+        .all()
+    )
+    for line in draft_count_lines:
+        db.session.delete(line)
+
+    SupplierInvoiceLine.query.filter_by(product_id=product.id).update(
+        {SupplierInvoiceLine.product_id: None},
+        synchronize_session=False,
+    )
+    # Delete count scans before the product's unit barcodes on PostgreSQL.
+    db.session.flush()
 
 
 def build_product_label_entries(product):
@@ -363,25 +411,34 @@ def edit(product_id):
 @bp.route("/<int:product_id>/delete", methods=["POST"])
 def delete(product_id):
     product = Product.query.get_or_404(product_id)
-    if product.sale_items.count() or product.return_items.count():
-        message = "Bu ürün işlem geçmişinde kullanıldığı için silinemez."
+    message = get_product_delete_block_message(product)
+    if message:
         if is_ajax_request():
             return jsonify({"success": False, "message": message}), 400
         flash(message, "error")
         return redirect(url_for("products.index"))
 
-    record_inventory_movement(
-        product,
-        transaction_type="product_delete",
-        quantity_before=product.stock_quantity,
-        quantity_after=0,
-        source_type="product",
-        source_id=product.id,
-        source_reference=f"Ürün #{product.id}",
-        note="Ürün kartı silindi",
-    )
-    db.session.delete(product)
-    db.session.commit()
+    try:
+        prepare_product_for_delete(product)
+        record_inventory_movement(
+            product,
+            transaction_type="product_delete",
+            quantity_before=product.stock_quantity,
+            quantity_after=0,
+            source_type="product",
+            source_id=product.id,
+            source_reference=f"Ürün #{product.id}",
+            note="Ürün kartı silindi",
+        )
+        db.session.delete(product)
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        message = "Ürün bağlı bir işlem kaydında kullanıldığı için silinemedi."
+        if is_ajax_request():
+            return jsonify({"success": False, "message": message}), 409
+        flash(message, "error")
+        return redirect(url_for("products.index"))
 
     if is_ajax_request():
         return jsonify(
@@ -403,23 +460,30 @@ def bulk_delete():
         return jsonify({"success": False, "message": "Silinecek ürün seçilmedi."}), 400
 
     products = Product.query.filter(Product.id.in_(product_ids)).all()
-    blocked = [product.name for product in products if product.sale_items.count() or product.return_items.count()]
+    blocked = [product.name for product in products if get_product_delete_block_message(product)]
     if blocked:
         return jsonify({"success": False, "message": f"İşlem geçmişi olan ürünler silinemez: {', '.join(blocked[:4])}"}), 400
 
-    for product in products:
-        record_inventory_movement(
-            product,
-            transaction_type="product_delete",
-            quantity_before=product.stock_quantity,
-            quantity_after=0,
-            source_type="product",
-            source_id=product.id,
-            source_reference=f"Ürün #{product.id}",
-            note="Toplu ürün silme",
-        )
-        db.session.delete(product)
-    db.session.commit()
+    try:
+        for product in products:
+            prepare_product_for_delete(product)
+            record_inventory_movement(
+                product,
+                transaction_type="product_delete",
+                quantity_before=product.stock_quantity,
+                quantity_after=0,
+                source_type="product",
+                source_id=product.id,
+                source_reference=f"Ürün #{product.id}",
+                note="Toplu ürün silme",
+            )
+            db.session.delete(product)
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify(
+            {"success": False, "message": "Seçilen ürünlerden biri bağlı bir işlem kaydında kullanıldığı için silinemedi."}
+        ), 409
     return jsonify(
         {
             "success": True,

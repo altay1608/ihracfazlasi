@@ -2730,10 +2730,14 @@ function bindDocumentEvents() {
                         const response = await fetch(confirmTrigger.dataset.confirmUrl, {
                             method: confirmTrigger.dataset.confirmMethod || "POST",
                             headers: {
-                                "X-Requested-With": "XMLHttpRequest"
+                                "X-Requested-With": "XMLHttpRequest",
+                                "X-CSRF-Token": document.querySelector('meta[name="csrf-token"]')?.content || ""
                             }
                         });
-                        const data = await response.json();
+                        const contentType = response.headers.get("content-type") || "";
+                        const data = contentType.includes("application/json")
+                            ? await response.json()
+                            : { success: false, message: "Sunucu silme işlemini tamamlayamadı. Sayfayı yenileyip tekrar deneyin." };
                         if (!response.ok || !data.success) {
                             throw new Error(data.message || "Silme işlemi başarısız.");
                         }
@@ -2851,11 +2855,15 @@ function bindDocumentEvents() {
                         const response = await fetch(confirmForm.getAttribute("action"), {
                             method: confirmForm.dataset.confirmMethod || confirmForm.getAttribute("method") || "POST",
                             headers: {
-                                "X-Requested-With": "XMLHttpRequest"
+                                "X-Requested-With": "XMLHttpRequest",
+                                "X-CSRF-Token": document.querySelector('meta[name="csrf-token"]')?.content || ""
                             },
                             body: new FormData(confirmForm)
                         });
-                        const data = await response.json();
+                        const contentType = response.headers.get("content-type") || "";
+                        const data = contentType.includes("application/json")
+                            ? await response.json()
+                            : { success: false, message: "Sunucu silme işlemini tamamlayamadı. Sayfayı yenileyip tekrar deneyin." };
                         if (!response.ok || !data.success) {
                             throw new Error(data.message || "Silme işlemi başarısız.");
                         }
