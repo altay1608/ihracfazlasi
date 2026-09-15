@@ -16,9 +16,43 @@
         {% for error in form.product_code.errors %}<p class="form-error">{{ error }}</p>{% endfor %}
     </div>
     <div>
-        {{ form.variant.label }}
-        {{ form.variant() }}
-        {% for error in form.variant.errors %}<p class="form-error">{{ error }}</p>{% endfor %}
+        {% if product %}
+            {{ form.variant.label }}
+            {{ form.variant() }}
+            {% for error in form.variant.errors %}<p class="form-error">{{ error }}</p>{% endfor %}
+        {% else %}
+            {{ form.variants.label }}
+            <div class="product-variant-groups" role="group" aria-label="Eklenecek bedenler">
+                <section class="product-variant-group">
+                    <strong>Üst Giyim Bedenleri</strong>
+                    <div class="product-variant-picker">
+                        {% for option in form.variants if option.data in form.upper_body_variants %}
+                        <label class="product-variant-option">
+                            <input type="checkbox" name="{{ form.variants.name }}" value="{{ option.data }}" {% if option.data in (form.variants.data or []) %}checked{% endif %}>
+                            <span>{{ option.label.text }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </section>
+                <section class="product-variant-group">
+                    <strong>Alt Giyim Bedenleri</strong>
+                    <div class="product-variant-picker">
+                        {% for option in form.variants if option.data in form.lower_body_variants %}
+                        <label class="product-variant-option">
+                            <input type="checkbox" name="{{ form.variants.name }}" value="{{ option.data }}" {% if option.data in (form.variants.data or []) %}checked{% endif %}>
+                            <span>{{ option.label.text }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </section>
+                <label class="product-variant-option product-variant-none">
+                    <input type="checkbox" name="{{ form.variants.name }}" value="__none__" {% if "__none__" in (form.variants.data or []) %}checked{% endif %}>
+                    <span>Beden / Varyant Yok</span>
+                </label>
+            </div>
+            <p class="input-hint">Aynı üründen eklemek istediğiniz tüm bedenleri birlikte işaretleyin.</p>
+            {% for error in form.variants.errors %}<p class="form-error">{{ error }}</p>{% endfor %}
+        {% endif %}
     </div>
     <div>
         {{ form.purchase_price.label }}
@@ -39,6 +73,7 @@
     <div>
         {{ form.stock_quantity.label }}
         {{ form.stock_quantity(min="0") }}
+        {% if not product %}<p class="input-hint">Bu adet, seçilen her beden için ayrı ayrı stoğa eklenir.</p>{% endif %}
         {% for error in form.stock_quantity.errors %}<p class="form-error">{{ error }}</p>{% endfor %}
     </div>
     {% if can('alerts.access') %}

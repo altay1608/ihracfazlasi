@@ -1,8 +1,10 @@
 import unittest
+from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
 from types import SimpleNamespace
 from uuid import uuid4
+from unittest.mock import patch
 
 from flask import session
 
@@ -87,6 +89,25 @@ class SalesVatTests(unittest.TestCase):
         self.assertEqual(receipt["vat_amount"], Decimal("10.00"))
         self.assertEqual(receipt["line_items"][0]["gross_total"], Decimal("110.00"))
         self.assertEqual(receipt["line_items"][0]["vat_rate"], 10)
+
+    def test_receipt_print_time_uses_istanbul_clock(self):
+        sale = SimpleNamespace(
+            id=8,
+            document_no=8,
+            site=SimpleNamespace(code="TEST"),
+            sale_date=datetime(2026, 9, 15, 9, 0),
+            created_at=datetime(2026, 9, 15, 9, 0),
+            total_discount=Decimal("0.00"),
+            items=[],
+        )
+
+        with self.app.test_request_context("/sales/8/receipt", base_url="http://127.0.0.1:5000/"), patch(
+            "app.modules.sales.routes.now_in_istanbul",
+            return_value=datetime(2026, 9, 15, 14, 37),
+        ):
+            receipt = build_sale_receipt_context(sale)
+
+        self.assertEqual(receipt["print_time"], "14:37")
 
     def test_pos_page_shows_ten_percent_vat_label(self):
         response = self.app.test_client().get("/sales/pos")

@@ -151,7 +151,7 @@ def calculate_sale_breakdown(sale):
 
 
 def build_sale_receipt_context(sale):
-    now = datetime.now()
+    now = now_in_istanbul()
     breakdown = calculate_sale_breakdown(sale)
     receipt_url = request.url_root.rstrip("/") + url_for("sales.receipt", sale_id=sale.id)
     line_items = []

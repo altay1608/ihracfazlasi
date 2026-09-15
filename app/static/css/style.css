@@ -3175,6 +3175,74 @@ tbody tr:hover a {
     grid-column: 1 / -1;
 }
 
+.product-variant-groups {
+    display: grid;
+    gap: 12px;
+    margin-top: 7px;
+}
+
+.product-variant-group {
+    padding: 12px;
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    background: var(--color-surface);
+}
+
+.product-variant-group > strong {
+    display: block;
+    margin-bottom: 2px;
+    color: var(--color-text);
+    font-size: 0.9rem;
+}
+
+.product-variant-picker {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
+    gap: 8px;
+    margin-top: 7px;
+}
+
+.product-variant-option {
+    position: relative;
+    cursor: pointer;
+}
+
+.product-variant-option input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.product-variant-option span {
+    min-height: 38px;
+    padding: 8px 10px;
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    background: var(--color-surface-alt);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-muted);
+    font-weight: 800;
+    transition: border-color 0.16s ease, background 0.16s ease, color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.product-variant-option input:checked + span {
+    border-color: var(--color-primary);
+    background: rgba(153, 29, 24, 0.1);
+    color: var(--color-primary);
+    box-shadow: inset 0 0 0 1px var(--color-primary);
+}
+
+.product-variant-option input:focus-visible + span {
+    outline: 3px solid rgba(153, 29, 24, 0.2);
+    outline-offset: 2px;
+}
+
+.product-variant-none {
+    max-width: 220px;
+}
+
 .form-page-header {
     margin-bottom: 16px;
 }

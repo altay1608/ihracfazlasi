@@ -25,9 +25,8 @@ DEFAULT_CATEGORIES = [
 ]
 
 DEFAULT_VARIANTS = [
-    "XS", "S", "M", "L", "XL", "XXL", "3XL",
-    "28", "29", "30", "31", "32", "33", "34", "36", "38", "40",
-    "42", "44", "46", "48", "50", "52", "54", "56", "58", "60",
+    "S", "M", "L", "XL", "XXL", "3XL", "4XL",
+    "30", "31", "32", "33", "34", "36", "38", "40", "42",
 ]
 DEFAULT_PAYMENT_METHODS = [
     ("Nakit", True),
@@ -59,9 +58,18 @@ def ensure_reference_data():
                 db.session.add(Category(name=name, description=description, is_active=True))
                 changed = True
 
-        if Variant.query.count() == 0:
-            for name in DEFAULT_VARIANTS:
+        existing_variants = {item.name: item for item in Variant.query.all()}
+        for name in DEFAULT_VARIANTS:
+            variant = existing_variants.get(name)
+            if variant is None:
                 db.session.add(Variant(name=name, is_active=True))
+                changed = True
+            elif not variant.is_active:
+                variant.is_active = True
+                changed = True
+        for name, variant in existing_variants.items():
+            if name not in DEFAULT_VARIANTS and variant.is_active:
+                variant.is_active = False
                 changed = True
 
         if PaymentMethod.query.count() == 0:
@@ -109,7 +117,10 @@ def get_category_choices(include_blank=False):
 
 def get_variant_choices(include_blank=True):
     ensure_reference_data()
-    choices = [(item.name, item.name) for item in Variant.query.order_by(Variant.name.asc()).all()]
+    choices = [
+        (item.name, item.name)
+        for item in Variant.query.filter_by(is_active=True).order_by(Variant.name.asc()).all()
+    ]
     if include_blank:
         return [("", "Varyant Yok")] + choices
     return choices

@@ -173,6 +173,17 @@ def render_bulk_multiplier_modal(product_ids):
     )
 
 
+def get_selected_product_variants(form):
+    selected = list(dict.fromkeys(form.variants.data or []))
+    if not selected:
+        form.variants.errors.append("En az bir beden veya Varyant Yok seçeneğini işaretleyin.")
+        return None
+    if "__none__" in selected and len(selected) > 1:
+        form.variants.errors.append("Varyant Yok seçeneği bedenlerle birlikte kullanılamaz.")
+        return None
+    return [None] if selected == ["__none__"] else selected
+
+
 @bp.route("/")
 def index():
     products, categories, threshold = get_products_listing()
@@ -198,6 +209,8 @@ def index():
 @bp.route("/add", methods=["GET", "POST"])
 def add():
     form = ProductForm()
+    if request.method == "POST":
+        form.variant.data = ""
     populate_product_form_defaults(form)
 
     if request.method == "GET" and is_modal_request():
@@ -205,42 +218,63 @@ def add():
         return html
 
     if form.validate_on_submit():
+        selected_variants = get_selected_product_variants(form)
         product_code = form.product_code.data.strip()
         existing = Product.query.filter(
             or_(Product.product_code == product_code, Product.barcode == product_code)
         ).first()
         if existing:
             form.product_code.errors.append("Bu ürün kodu zaten kayıtlı.")
-        else:
+        elif selected_variants:
             try:
                 payload = prepare_product_payload(form)
             except ValueError as exc:
                 form.retail_multiplier_id.errors.append(str(exc))
             else:
-                product = Product(**payload)
-                db.session.add(product)
-                db.session.flush()
-                sync_product_barcodes(product, product.stock_quantity)
-                record_inventory_movement(
-                    product,
-                    transaction_type="product_opening",
-                    quantity_before=0,
-                    quantity_after=product.stock_quantity,
-                    source_type="product",
-                    source_id=product.id,
-                    source_reference=f"Ürün #{product.id}",
-                )
+                created_products = []
+                next_product_code = product_code
+                for selected_variant in selected_variants:
+                    variant_payload = dict(payload)
+                    variant_payload.update(
+                        barcode=next_product_code,
+                        product_code=next_product_code,
+                        variant=selected_variant,
+                    )
+                    product = Product(**variant_payload)
+                    db.session.add(product)
+                    db.session.flush()
+                    sync_product_barcodes(product, product.stock_quantity)
+                    record_inventory_movement(
+                        product,
+                        transaction_type="product_opening",
+                        quantity_before=0,
+                        quantity_after=product.stock_quantity,
+                        source_type="product",
+                        source_id=product.id,
+                        source_reference=f"Ürün #{product.id}",
+                    )
+                    created_products.append(product)
+                    next_product_code = get_next_product_code()
+
                 db.session.commit()
+                created_product_ids = [product.id for product in created_products]
+                print_url = url_for("products.bulk_labels", product_ids=created_product_ids)
+                message = (
+                    f"{len(created_products)} beden başarıyla stoğa eklendi. Etiketler hazırlandı."
+                    if len(created_products) > 1
+                    else "Ürün başarıyla eklendi. Etiketi hazırlandı."
+                )
                 if is_ajax_request():
                     return jsonify(
                         {
                             "success": True,
-                            "message": "Ürün başarıyla eklendi.",
+                            "message": message,
                             "refresh_target": "#products-table-section",
+                            "print_url": print_url,
                         }
                     )
-                flash("Ürün başarıyla eklendi.", "success")
-                return redirect(url_for("products.index"))
+                flash(message, "success")
+                return redirect(print_url)
 
     populate_product_form_defaults(form)
     if is_ajax_request():
@@ -253,6 +287,8 @@ def add():
 def edit(product_id):
     product = Product.query.get_or_404(product_id)
     form = ProductForm(obj=product)
+    if product.variant and product.variant not in {value for value, _ in form.variant.choices}:
+        form.variant.choices.append((product.variant, f"{product.variant} (mevcut eski beden)"))
     if request.method == "GET":
         form.product_code.data = product.product_code
         if product.retail_multiplier_id:
@@ -396,7 +432,8 @@ def bulk_delete():
 @bp.route("/bulk/labels")
 def bulk_labels():
     product_ids = [int(value) for value in request.args.getlist("product_ids") if str(value).isdigit()]
-    products = Product.query.filter(Product.id.in_(product_ids)).order_by(Product.name.asc()).all()
+    products_by_id = {product.id: product for product in Product.query.filter(Product.id.in_(product_ids)).all()}
+    products = [products_by_id[product_id] for product_id in product_ids if product_id in products_by_id]
     labels = []
     for product in products:
         labels.extend(build_product_label_entries(product))
