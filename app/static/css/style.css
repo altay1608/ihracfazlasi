@@ -4854,9 +4854,9 @@ th:hover .table-column-resize-handle::after,
 }
 
 .bulk-label-sheet {
-    width: min(100%, 56mm);
+    width: min(100%, 50mm);
     display: grid;
-    grid-template-columns: repeat(auto-fill, 56mm);
+    grid-template-columns: repeat(auto-fill, 50mm);
     gap: 4mm;
     justify-content: center;
     align-content: start;
@@ -4864,13 +4864,13 @@ th:hover .table-column-resize-handle::after,
 }
 
 .bulk-label-item {
-    width: 56mm;
+    width: 50mm;
     break-inside: avoid;
     page-break-inside: avoid;
 }
 
 .compact-fashion-label-sheet {
-    width: 56mm;
+    width: 50mm;
 }
 
 .compact-label-print-page:not(.bulk-label-print-page) .compact-fashion-label-sheet,
@@ -4882,7 +4882,7 @@ th:hover .table-column-resize-handle::after,
 }
 
 .compact-label-print-page:not(.bulk-label-print-page) .compact-fashion-label-sheet {
-    width: min(92vw, 56mm);
+    width: min(92vw, 50mm);
 }
 
 .compact-label-print-page:not(.bulk-label-print-page) .compact-fashion-label {
@@ -4891,9 +4891,9 @@ th:hover .table-column-resize-handle::after,
 }
 
 .compact-fashion-label {
-    width: 56mm;
-    height: 40mm;
-    min-height: 40mm;
+    width: 50mm;
+    height: 50mm;
+    min-height: 50mm;
     padding: 2.2mm 2.6mm 1.8mm;
     border-radius: 1.4mm;
     border: 0.25mm solid #111111;
@@ -6019,14 +6019,14 @@ th:hover .table-column-resize-handle::after,
     }
 
     @page compact-label {
-        size: 56mm 40mm;
+        size: 50mm 50mm;
         margin: 0;
     }
 
     html:has(.compact-label-print-page),
     body.compact-label-print-page:not(.bulk-label-print-page) {
-        width: 56mm;
-        height: 40mm;
+        width: 50mm;
+        height: 50mm;
         margin: 0 !important;
         padding: 0 !important;
         overflow: hidden !important;
@@ -6073,10 +6073,10 @@ th:hover .table-column-resize-handle::after,
 
     .compact-label-print-page {
         page: compact-label;
-        width: 56mm;
-        min-width: 56mm;
-        height: 40mm;
-        min-height: 40mm;
+        width: 50mm;
+        min-width: 50mm;
+        height: 50mm;
+        min-height: 50mm;
         margin: 0;
     }
 
@@ -6085,43 +6085,27 @@ th:hover .table-column-resize-handle::after,
     .compact-label-print-page .bulk-label-sheet,
     .compact-label-print-page .bulk-label-item,
     .compact-label-print-page .compact-fashion-label {
-        width: 56mm;
-        max-width: 56mm;
-        height: 40mm;
-        min-height: 40mm;
+        width: 50mm;
+        max-width: 50mm;
+        height: 50mm;
+        min-height: 50mm;
         margin: 0;
         transform: none;
         box-shadow: none;
         border-radius: 1.4mm;
     }
 
-    /* Zebra's printable origin sits slightly left of the physical label edge. */
-    .compact-label-print-page:not(.bulk-label-print-page) .compact-fashion-label-sheet {
-        width: 54.8mm !important;
-        max-width: 54.8mm !important;
-        min-width: 54.8mm !important;
-        margin-left: 1.2mm !important;
-        margin-right: 0 !important;
-    }
-
-    .compact-label-print-page:not(.bulk-label-print-page) .compact-fashion-label {
-        width: 54.8mm !important;
-        max-width: 54.8mm !important;
-        min-width: 54.8mm !important;
-        margin: 0 !important;
-    }
-
     .bulk-label-print-page .bulk-label-sheet {
-        width: 56mm;
+        width: 50mm;
         display: block;
         justify-content: start;
         gap: 0;
     }
 
     .bulk-label-print-page .bulk-label-item {
-        width: 56mm;
-        height: 40mm;
-        min-height: 40mm;
+        width: 50mm;
+        height: 50mm;
+        min-height: 50mm;
         display: block;
         break-after: page;
         page-break-after: always;
