@@ -13,6 +13,11 @@ class ReceiptInstagramTests(unittest.TestCase):
         self.assertIn('class="thermal-instagram-icon"', template)
         self.assertIn('class="thermal-contact"', template)
         self.assertIn("0538 479 36 96", template)
+        self.assertNotIn("İŞLEM SORGULAMA QR", template)
+        self.assertNotIn("receipt.qr_url", template)
+        self.assertNotIn("receipt.lookup_id", template)
+        self.assertIn("Bu belge yalnızca bilgilendirme amaçlıdır", template)
+        self.assertIn("mali belge niteliği taşımaz", template)
 
 
 if __name__ == "__main__":

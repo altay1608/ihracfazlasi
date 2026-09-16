@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Satış Siparişi Fişi #{{ sale.document_no }}</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20260916-receipt-contact-v2') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20260916-receipt-notice-v3') }}">
 </head>
 <body class="print-page thermal-receipt-page">
     <div class="print-actions no-print">
@@ -80,23 +80,13 @@
         </div>
 
         <div class="thermal-line">------------------------------------------</div>
-        <div class="thermal-policy-title">İŞLEM SORGULAMA QR</div>
-        <div class="thermal-qr-wrap">
-            <img
-                class="thermal-qr-image"
-                src="{{ receipt.qr_url }}"
-                alt="İşlem sorgulama QR kodu"
-                loading="eager"
-                referrerpolicy="no-referrer"
-                onerror="this.style.display='none';"
-            >
-            <div>(İşlem ID: {{ receipt.lookup_id }})</div>
-        </div>
-
-        <div class="thermal-line">------------------------------------------</div>
         <div class="thermal-thanks">
             <div>Bizi tercih ettiğiniz için</div>
             <div>teşekkür ederiz!</div>
+        </div>
+        <div class="thermal-notice">
+            Bu belge yalnızca bilgilendirme amaçlıdır;<br>
+            mali belge niteliği taşımaz.
         </div>
         <div class="thermal-instagram" aria-label="Instagram: ihrac.fazlasigiyiminegol1">
             <svg class="thermal-instagram-icon" viewBox="0 0 24 24" aria-hidden="true">

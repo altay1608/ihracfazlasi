@@ -1,7 +1,6 @@
 from datetime import date, datetime, timedelta
 import os
 from decimal import Decimal
-from urllib.parse import quote
 
 from flask import Blueprint, flash, jsonify, redirect, render_template, request, url_for
 from sqlalchemy import or_
@@ -153,7 +152,6 @@ def calculate_sale_breakdown(sale):
 def build_sale_receipt_context(sale):
     now = now_in_istanbul()
     breakdown = calculate_sale_breakdown(sale)
-    receipt_url = request.url_root.rstrip("/") + url_for("sales.receipt", sale_id=sale.id)
     line_items = []
     for item in sale.items:
         item_name = getattr(item, "product_name_snapshot", None) or item.product.name
@@ -175,15 +173,12 @@ def build_sale_receipt_context(sale):
         )
     return {
         "tx_code": build_sale_transaction_code(sale),
-        "lookup_id": f"TX-{(getattr(sale, 'document_no', None) or sale.id):05d}",
         "cashier_name": STORE_INFO["cashier"],
         "store": STORE_INFO,
         "net_subtotal": breakdown["net_subtotal"],
         "vat_amount": breakdown["vat_amount"],
         "line_items": line_items,
         "print_time": now.strftime("%H:%M"),
-        "qr_url": f"https://api.qrserver.com/v1/create-qr-code/?size=180x180&data={quote(receipt_url, safe='')}",
-        "receipt_url": receipt_url,
     }
 
 
