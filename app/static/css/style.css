@@ -5507,6 +5507,37 @@ th:hover .table-column-resize-handle::after,
     image-rendering: pixelated;
 }
 
+.thermal-instagram,
+.thermal-contact {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    margin: 6px 0 4px;
+    font-size: 11.4px;
+    font-weight: 800;
+    letter-spacing: 0;
+    white-space: nowrap;
+}
+
+.thermal-instagram-icon {
+    width: 15px;
+    height: 15px;
+    flex: 0 0 15px;
+    color: #000000;
+}
+
+.thermal-contact {
+    margin-top: 0;
+}
+
+.thermal-contact-icon {
+    width: 14px;
+    height: 14px;
+    flex: 0 0 14px;
+    color: #000000;
+}
+
 .lobby-page {
     display: grid;
     gap: 10px;
