@@ -200,7 +200,7 @@ def prepare_product_payload(form, existing_product=None):
     purchase_price = form.purchase_price.data
     sale_price = compute_sale_price(purchase_price, multiplier.multiplier)
     return {
-        "name": form.name.data.strip(),
+        "name": title_case_product_name(form.name.data),
         "category": form.category.data.strip(),
         "barcode": form.product_code.data.strip(),
         "product_code": form.product_code.data.strip(),
@@ -216,6 +216,19 @@ def prepare_product_payload(form, existing_product=None):
         "barcode_mode": (form.barcode_mode.data or "unit").strip() or "unit",
         "retail_multiplier_id": multiplier.id,
     }
+
+
+def title_case_product_name(value):
+    """Normalize product names so each word starts with an uppercase letter."""
+    words = " ".join(str(value or "").strip().split()).split(" ")
+    turkish_upper = {"i": "İ", "ı": "I"}
+    normalized = []
+    for word in words:
+        if not word:
+            continue
+        first = turkish_upper.get(word[0], word[0].upper())
+        normalized.append(first + word[1:].lower())
+    return " ".join(normalized)
 
 
 def render_bulk_multiplier_modal(product_ids):
@@ -835,7 +848,7 @@ def process_template_upload(uploaded_file):
         for selected_variant in selected_variants or [None]:
             candidate_code = get_next_product_code()
             product = Product(
-                name=name,
+                name=title_case_product_name(name),
                 category=matched_category or (fallback_category.name if fallback_category else "Diğer"),
                 barcode=candidate_code,
                 product_code=candidate_code,

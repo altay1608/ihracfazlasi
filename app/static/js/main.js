@@ -410,6 +410,19 @@ function initializeProductForms(root = document) {
         const purchaseInput = form.querySelector('input[name="purchase_price"]');
         const multiplierSelect = form.querySelector('select[name="retail_multiplier_id"]');
         const salePriceInput = form.querySelector('input[name="sale_price"]');
+        const productNameInput = form.querySelector('input[name="name"]');
+
+        if (productNameInput) {
+            productNameInput.addEventListener("blur", () => {
+                const turkishUpper = { i: "İ", ı: "I" };
+                productNameInput.value = productNameInput.value
+                    .trim()
+                    .split(/\s+/)
+                    .filter(Boolean)
+                    .map((word) => (turkishUpper[word[0]] || word[0].toUpperCase()) + word.slice(1).toLowerCase())
+                    .join(" ");
+            });
+        }
 
         if (!purchaseInput || !multiplierSelect || !salePriceInput) {
             return;
