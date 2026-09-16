@@ -73,7 +73,7 @@
     <div>
         {{ form.stock_quantity.label }}
         {{ form.stock_quantity(min="0") }}
-        {% if not product %}<p class="input-hint">Bu adet, seçilen her beden için ayrı ayrı stoğa eklenir.</p>{% endif %}
+        {% if not product %}<p class="input-hint">Bu adet, seçilen her beden için ayrı ayrı stoğa eklenir. Örneğin 3 girerseniz 3 bağımsız birim barkodu ve 3 etiket oluşturulur; sayımda her barkod ayrı okutulur.</p>{% endif %}
         {% for error in form.stock_quantity.errors %}<p class="form-error">{{ error }}</p>{% endfor %}
     </div>
     {% if can('alerts.access') %}
