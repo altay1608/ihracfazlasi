@@ -637,13 +637,13 @@ def download_template():
     headers = [
         "Ürün Adı",
         "Kategori",
-        "Ürün Kodu (opsiyonel)",
         "Alış Fiyatı (₺)",
-        "Stok Miktarı",
-        "Beden/Varyant",
         "Perakende Çarpanı",
+        "Stok Miktarı (beden başına)",
+        "Eklenecek Bedenler (virgülle)",
+        "Ürün Bazlı KSS (opsiyonel)",
     ]
-    example_row = ["Örnek Erkek Gömlek", "Gömlek", "", "250.00", "10", "M", "Standart 1.80x"]
+    example_row = ["Örnek Erkek Gömlek", "Gömlek", "250.00", "Standart 1.80x", "10", "S, M, L", ""]
 
     header_fill = PatternFill("solid", fgColor="C9A84C")
     header_font = Font(bold=True, color="2A1010")
@@ -677,7 +677,7 @@ def download_template():
     if multipliers:
         multiplier_validation = DataValidation(type="list", formula1=f'"{",".join(multipliers)}"', allow_blank=False)
         worksheet.add_data_validation(multiplier_validation)
-        multiplier_validation.add("G2:G500")
+        multiplier_validation.add("D2:D500")
 
     stream = BytesIO()
     workbook.save(stream)
@@ -751,11 +751,11 @@ def process_template_upload(uploaded_file):
         values = [("" if value is None else str(value).strip()) for value in row[:7]]
         if not any(values):
             continue
-        if values == ["Örnek Erkek Gömlek", "Gömlek", "", "250.00", "10", "M", "Standart 1.80x"]:
+        if values == ["Örnek Erkek Gömlek", "Gömlek", "250.00", "Standart 1.80x", "10", "S, M, L", ""]:
             result["skipped"] += 1
             continue
 
-        name, category_name, product_code, purchase_price, stock_quantity, variant_name, multiplier_name = values
+        name, category_name, purchase_price, multiplier_name, stock_quantity, variants_value, critical_stock_level = values
         if not all([name, purchase_price, stock_quantity]):
             result["skipped"] += 1
             result["errors"].append(f"Satır {row_index}: zorunlu alanlar eksik.")
@@ -764,6 +764,7 @@ def process_template_upload(uploaded_file):
         try:
             purchase_price = float(purchase_price)
             stock_quantity = int(float(stock_quantity))
+            critical_stock_level = int(float(critical_stock_level)) if critical_stock_level else None
         except ValueError:
             result["skipped"] += 1
             result["errors"].append(f"Satır {row_index}: fiyat veya stok alanı sayısal değil.")
@@ -775,46 +776,54 @@ def process_template_upload(uploaded_file):
             continue
 
         matched_category = category_map.get(category_name.lower()) if category_name else None
-        matched_variant = variant_map.get(variant_name.lower()) if variant_name else None
         multiplier = multiplier_map.get(multiplier_name.lower()) if multiplier_name else default_multiplier
         if not multiplier:
             result["skipped"] += 1
             result["errors"].append(f"Satır {row_index}: perakende çarpanı bulunamadı.")
             continue
 
-        candidate_code = product_code or get_next_product_code()
-        existing = Product.query.filter(
-            or_(Product.product_code == candidate_code, Product.barcode == candidate_code)
-        ).first()
-        if existing:
+        selected_variants = []
+        for raw_variant in variants_value.replace(";", ",").replace("\n", ",").split(","):
+            raw_variant = raw_variant.strip()
+            if not raw_variant:
+                continue
+            matched_variant = variant_map.get(raw_variant.lower())
+            if not matched_variant:
+                result["errors"].append(f"Satır {row_index}: geçersiz beden/varyant: {raw_variant}.")
+                selected_variants = []
+                break
+            if matched_variant not in selected_variants:
+                selected_variants.append(matched_variant)
+        if variants_value and not selected_variants:
             result["skipped"] += 1
-            result["errors"].append(f"Satır {row_index}: ürün kodu zaten mevcut.")
             continue
-
-        product = Product(
-            name=name,
-            category=matched_category or (fallback_category.name if fallback_category else "Diğer"),
-            barcode=candidate_code,
-            product_code=candidate_code,
-            purchase_price=purchase_price,
-            sale_price=compute_sale_price(purchase_price, multiplier.multiplier),
-            stock_quantity=stock_quantity,
-            variant=matched_variant,
-            retail_multiplier_id=multiplier.id,
-        )
-        db.session.add(product)
-        db.session.flush()
-        sync_product_barcodes(product, stock_quantity)
-        record_inventory_movement(
-            product,
-            transaction_type="import_opening",
-            quantity_before=0,
-            quantity_after=product.stock_quantity,
-            source_type="product_import",
-            source_id=product.id,
-            source_reference="Excel ürün şablonu",
-        )
-        result["success"] += 1
+        for selected_variant in selected_variants or [None]:
+            candidate_code = get_next_product_code()
+            product = Product(
+                name=name,
+                category=matched_category or (fallback_category.name if fallback_category else "Diğer"),
+                barcode=candidate_code,
+                product_code=candidate_code,
+                purchase_price=purchase_price,
+                sale_price=compute_sale_price(purchase_price, multiplier.multiplier),
+                stock_quantity=stock_quantity,
+                critical_stock_level=critical_stock_level,
+                variant=selected_variant,
+                retail_multiplier_id=multiplier.id,
+            )
+            db.session.add(product)
+            db.session.flush()
+            sync_product_barcodes(product, stock_quantity)
+            record_inventory_movement(
+                product,
+                transaction_type="import_opening",
+                quantity_before=0,
+                quantity_after=product.stock_quantity,
+                source_type="product_import",
+                source_id=product.id,
+                source_reference="Excel ürün şablonu",
+            )
+            result["success"] += 1
 
     db.session.commit()
     return result
