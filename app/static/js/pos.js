@@ -451,9 +451,9 @@
         if (cart.has(product.id)) {
             const existing = cart.get(product.id);
             if (product.stock_quantity) {
-                existing.max_quantity = Math.max(Number(existing.max_quantity || 0), Number(product.stock_quantity || 0) + Number(existing.quantity || 0));
+                existing.max_quantity = Math.max(Number(existing.max_quantity || 0), Number(product.stock_quantity || 0));
             }
-            if (product.barcode_id && existing.scanned_barcode_ids?.includes(product.barcode_id)) {
+            if (product.barcode_mode !== "shared" && product.barcode_id && existing.scanned_barcode_ids?.includes(product.barcode_id)) {
                 showPosMessage("Barkod Uyarısı", "Bu birim barkod zaten sepette bulunuyor.");
                 return;
             }

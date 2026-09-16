@@ -21,6 +21,8 @@ def ensure_automatic_pos_schema():
         "ALTER TABLE finance_activations ADD COLUMN IF NOT EXISTS pos_settlement_days INTEGER NOT NULL DEFAULT 1",
         "ALTER TABLE finance_activations ADD COLUMN IF NOT EXISTS pos_bank_account_id INTEGER NULL",
         "ALTER TABLE sales ADD COLUMN IF NOT EXISTS payment_due_date DATE NULL",
+        "ALTER TABLE products ADD COLUMN IF NOT EXISTS barcode_mode VARCHAR(20) NOT NULL DEFAULT 'unit'",
+        "ALTER TABLE inventory_count_scans DROP CONSTRAINT IF EXISTS uq_inventory_count_scans_count_barcode",
         "CREATE INDEX IF NOT EXISTS ix_sales_payment_due_date ON sales (payment_due_date)",
         "ALTER TABLE pos_reconciliations ADD COLUMN IF NOT EXISTS sale_id INTEGER NULL",
         "ALTER TABLE pos_reconciliations ADD COLUMN IF NOT EXISTS expected_settlement_date DATE NULL",

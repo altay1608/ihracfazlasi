@@ -31,6 +31,7 @@ class Product(db.Model):
     _legacy_stock_quantity = db.Column("stock_quantity", db.Integer, nullable=False, default=0)
     critical_stock_level = db.Column(db.Integer, nullable=True)
     variant = db.Column(db.String(120), nullable=True)
+    barcode_mode = db.Column(db.String(20), nullable=False, default="unit")
     retail_multiplier_id = db.Column(db.Integer, db.ForeignKey("retail_multipliers.id"), nullable=True)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     updated_at = db.Column(

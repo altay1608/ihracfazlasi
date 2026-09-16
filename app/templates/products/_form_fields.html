@@ -83,5 +83,11 @@
         <p class="input-hint">Ürüne özel kritik stok seviyesi tanımlamak için kullanılır.</p>
         {% for error in form.critical_stock_level.errors %}<p class="form-error">{{ error }}</p>{% endfor %}
     </div>
+    <div>
+        {{ form.barcode_mode.label }}
+        {{ form.barcode_mode() }}
+        <p class="input-hint">Kıyafetlerde her adet ayrı barkod; parfüm ve benzeri ürünlerde tek ortak barkod seçin.</p>
+        {% for error in form.barcode_mode.errors %}<p class="form-error">{{ error }}</p>{% endfor %}
+    </div>
     {% endif %}
 </div>

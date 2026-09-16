@@ -195,10 +195,12 @@ def scan(count_id):
             }
         ), 400
 
-    existing_scan = InventoryCountScan.query.filter_by(
-        inventory_count_id=inventory_count.id,
-        product_barcode_id=barcode_record.id,
-    ).first()
+    existing_scan = None
+    if getattr(barcode_record.product, "barcode_mode", "unit") != "shared":
+        existing_scan = InventoryCountScan.query.filter_by(
+            inventory_count_id=inventory_count.id,
+            product_barcode_id=barcode_record.id,
+        ).first()
     if existing_scan:
         return jsonify(
             {
@@ -312,6 +314,8 @@ def approve(count_id):
 
     for line in inventory_count.lines:
         scans = list(line.scans)
+        if getattr(line.product, "barcode_mode", "unit") == "shared":
+            continue
         scanned_barcode_ids = {scan.product_barcode_id for scan in scans}
         available_barcodes = (
             ProductBarcode.query.filter_by(product_id=line.product_id, status="available")
@@ -336,6 +340,22 @@ def approve(count_id):
 
     for line in inventory_count.lines:
         quantity_before = line.product.stock_quantity
+        if getattr(line.product, "barcode_mode", "unit") == "shared":
+            line.counted_quantity = len(line.scans)
+            quantity_before = line.product.stock_quantity
+            line.product.stock_quantity = line.counted_quantity
+            record_inventory_movement(
+                line.product,
+                transaction_type="count_in" if line.counted_quantity > quantity_before else "count_out",
+                quantity_before=quantity_before,
+                quantity_after=line.counted_quantity,
+                source_type="inventory_count",
+                source_id=inventory_count.id,
+                source_reference=f"Sayım #{inventory_count.document_no}",
+                barcode_values=[scan.barcode_value for scan in line.scans],
+                note=inventory_count.name,
+            )
+            continue
         scanned_barcode_ids = {scan.product_barcode_id for scan in line.scans}
         available_barcodes = (
             ProductBarcode.query.filter_by(product_id=line.product_id, status="available")

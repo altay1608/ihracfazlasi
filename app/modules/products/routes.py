@@ -90,6 +90,8 @@ def prepare_product_for_delete(product):
 
 def build_product_label_entries(product):
     available_barcodes = get_available_barcodes(product)
+    if getattr(product, "barcode_mode", "unit") == "shared":
+        available_barcodes = available_barcodes[:1]
     barcode_values = [item.barcode for item in available_barcodes]
     if not barcode_values:
         barcode_values = [format_unit_barcode(product.product_code, 1)]
@@ -211,6 +213,7 @@ def prepare_product_payload(form, existing_product=None):
             else (existing_product.critical_stock_level if existing_product else None)
         ),
         "variant": (form.variant.data or "").strip() or None,
+        "barcode_mode": (form.barcode_mode.data or "unit").strip() or "unit",
         "retail_multiplier_id": multiplier.id,
     }
 
@@ -293,7 +296,7 @@ def add():
                     product = Product(**variant_payload)
                     db.session.add(product)
                     db.session.flush()
-                    sync_product_barcodes(product, product.stock_quantity)
+                    sync_product_barcodes(product, product.stock_quantity, product.barcode_mode)
                     record_inventory_movement(
                         product,
                         transaction_type="product_opening",
@@ -370,7 +373,7 @@ def edit(product_id):
                 for key, value in payload.items():
                     setattr(product, key, value)
                 try:
-                    sync_product_barcodes(product, form.stock_quantity.data)
+                    sync_product_barcodes(product, form.stock_quantity.data, product.barcode_mode)
                 except ValueError as exc:
                     product.stock_quantity = previous_stock
                     form.stock_quantity.errors.append(str(exc))
@@ -548,7 +551,7 @@ def update_stock(product_id):
         return jsonify({"success": False, "message": "Stok negatif olamaz."}), 400
 
     previous_stock = product.stock_quantity
-    sync_product_barcodes(product, stock_quantity)
+    sync_product_barcodes(product, stock_quantity, product.barcode_mode)
     record_inventory_movement(
         product,
         transaction_type="manual_in" if product.stock_quantity > previous_stock else "manual_out",
@@ -579,6 +582,19 @@ def get_by_barcode(barcode):
     raw_barcode = str(barcode or "").strip()
     barcode_record = resolve_unit_barcode(raw_barcode, status="available")
 
+    # Tek ortak barkod modunda etiket, ürün kodunun kendisidir.
+    if not barcode_record:
+        shared_product = Product.query.filter(
+            Product.barcode == raw_barcode,
+            Product.barcode_mode == "shared",
+        ).first()
+        if shared_product and shared_product.stock_quantity > 0:
+            barcode_record = (
+                ProductBarcode.query.filter_by(product_id=shared_product.id, status="available")
+                .order_by(ProductBarcode.sequence_no.asc())
+                .first()
+            )
+
     if not barcode_record:
         unavailable_barcode_record = resolve_unit_barcode(raw_barcode)
         if unavailable_barcode_record:
@@ -601,6 +617,14 @@ def get_by_barcode(barcode):
             404,
         )
 
+    if getattr(barcode_record.product, "barcode_mode", "unit") == "shared" and barcode_record.product.stock_quantity <= 0:
+        return jsonify(
+            {
+                "success": False,
+                "message": "Uygun stok miktarı yok, satış gerçekleştiremezsiniz.",
+            }
+        ), 409
+
     product = barcode_record.product
     return jsonify(
         {
@@ -615,6 +639,7 @@ def get_by_barcode(barcode):
                 "sale_price": float(product.sale_price),
                 "stock_quantity": product.stock_quantity,
                 "variant": product.variant,
+                "barcode_mode": product.barcode_mode,
             },
         }
     )
@@ -643,8 +668,9 @@ def download_template():
         "Stok Miktarı (beden başına)",
         "Eklenecek Bedenler (virgülle)",
         "Ürün Bazlı KSS (opsiyonel)",
+        "Barkod Tipi",
     ]
-    example_row = ["Örnek Erkek Gömlek", "Gömlek", "250.00", "Standart 1.80x", "450.00", "10", "S, M, L", ""]
+    example_row = ["Örnek Erkek Gömlek", "Gömlek", "250.00", "Standart 1.80x", "450.00", "10", "S, M, L", "", "unit"]
 
     header_fill = PatternFill("solid", fgColor="C9A84C")
     header_font = Font(bold=True, color="2A1010")
@@ -679,6 +705,10 @@ def download_template():
         multiplier_validation = DataValidation(type="list", formula1=f'"{",".join(multipliers)}"', allow_blank=False)
         worksheet.add_data_validation(multiplier_validation)
         multiplier_validation.add("D2:D500")
+
+    barcode_mode_validation = DataValidation(type="list", formula1='"unit,shared"', allow_blank=False)
+    worksheet.add_data_validation(barcode_mode_validation)
+    barcode_mode_validation.add("I2:I500")
 
     stream = BytesIO()
     workbook.save(stream)
@@ -749,14 +779,14 @@ def process_template_upload(uploaded_file):
     default_multiplier = get_default_retail_multiplier()
 
     for row_index, row in enumerate(worksheet.iter_rows(min_row=2, values_only=True), start=2):
-        values = [("" if value is None else str(value).strip()) for value in row[:8]]
+        values = [("" if value is None else str(value).strip()) for value in row[:9]]
         if not any(values):
             continue
-        if values == ["Örnek Erkek Gömlek", "Gömlek", "250.00", "Standart 1.80x", "450.00", "10", "S, M, L", ""]:
+        if values == ["Örnek Erkek Gömlek", "Gömlek", "250.00", "Standart 1.80x", "450.00", "10", "S, M, L", "", "unit"]:
             result["skipped"] += 1
             continue
 
-        name, category_name, purchase_price, multiplier_name, _sale_price_display, stock_quantity, variants_value, critical_stock_level = values
+        name, category_name, purchase_price, multiplier_name, _sale_price_display, stock_quantity, variants_value, critical_stock_level, barcode_mode = values
         if not all([name, purchase_price, stock_quantity]):
             result["skipped"] += 1
             result["errors"].append(f"Satır {row_index}: zorunlu alanlar eksik.")
@@ -798,6 +828,10 @@ def process_template_upload(uploaded_file):
         if variants_value and not selected_variants:
             result["skipped"] += 1
             continue
+        if barcode_mode not in {"unit", "shared"}:
+            result["skipped"] += 1
+            result["errors"].append(f"Satır {row_index}: barkod tipi unit veya shared olmalıdır.")
+            continue
         for selected_variant in selected_variants or [None]:
             candidate_code = get_next_product_code()
             product = Product(
@@ -810,11 +844,12 @@ def process_template_upload(uploaded_file):
                 stock_quantity=stock_quantity,
                 critical_stock_level=critical_stock_level,
                 variant=selected_variant,
+                barcode_mode=barcode_mode,
                 retail_multiplier_id=multiplier.id,
             )
             db.session.add(product)
             db.session.flush()
-            sync_product_barcodes(product, stock_quantity)
+            sync_product_barcodes(product, stock_quantity, product.barcode_mode)
             record_inventory_movement(
                 product,
                 transaction_type="import_opening",

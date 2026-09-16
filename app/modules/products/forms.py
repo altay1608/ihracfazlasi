@@ -38,6 +38,14 @@ class ProductForm(FlaskForm):
     )
     stock_quantity = IntegerField("Stok", validators=[DataRequired(), NumberRange(min=0)])
     critical_stock_level = IntegerField("Ürün Bazlı KSS", validators=[Optional(), NumberRange(min=0)])
+    barcode_mode = SelectField(
+        "Barkod Tipi",
+        choices=[
+            ("unit", "Her adet için ayrı barkod (kıyafet)"),
+            ("shared", "Tek ortak barkod (parfüm/aksesuar)"),
+        ],
+        validators=[DataRequired()],
+    )
     variant = SelectField("Beden / Varyant", validators=[Optional()], choices=[])
     variants = SelectMultipleField("Eklenecek Bedenler", validators=[Optional()], choices=[])
     submit = SubmitField("Kaydet")

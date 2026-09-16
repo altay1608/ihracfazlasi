@@ -118,13 +118,27 @@ def get_available_barcodes(product):
     return [barcode for barcode in product.product_barcodes if barcode.status == "available"]
 
 
-def sync_product_barcodes(product, desired_quantity):
+def sync_product_barcodes(product, desired_quantity, barcode_mode=None):
     desired_quantity = max(int(desired_quantity or 0), 0)
+    barcode_mode = barcode_mode or getattr(product, "barcode_mode", "unit") or "unit"
     available_units = sorted(get_available_barcodes(product), key=lambda item: item.sequence_no)
     sold_units = sorted(
         [barcode for barcode in product.product_barcodes if barcode.status == "sold"],
         key=lambda item: item.sequence_no,
     )
+
+    if barcode_mode == "shared":
+        for barcode in available_units[1:]:
+            db.session.delete(barcode)
+        if not available_units and desired_quantity > 0:
+            db.session.add(ProductBarcode(
+                product=product,
+                barcode=format_unit_barcode(product.product_code, 1),
+                sequence_no=1,
+                status="available",
+            ))
+        product.stock_quantity = desired_quantity
+        return sold_units
 
     current_available = len(available_units)
     if desired_quantity < current_available:
@@ -156,6 +170,19 @@ def sync_product_barcodes(product, desired_quantity):
 
 def reserve_barcodes_for_sale(product, sale_item, quantity, preferred_barcodes=None):
     preferred_barcodes = [value.strip() for value in (preferred_barcodes or []) if str(value).strip()]
+    if getattr(product, "barcode_mode", "unit") == "shared":
+        shared_barcode = (
+            ProductBarcode.query.filter_by(product_id=product.id, status="available")
+            .with_for_update()
+            .order_by(ProductBarcode.sequence_no.asc())
+            .first()
+        )
+        if not shared_barcode or product.stock_quantity < quantity:
+            raise ValueError(f"{product.name} için yeterli stok bulunmuyor.")
+        product.stock_quantity = max(0, product.stock_quantity - quantity)
+        # Ortak barkod stok sıfırlanana kadar kullanılabilir kalır.
+        return [shared_barcode] * quantity
+
     unique_barcodes = set(preferred_barcodes)
     if len(preferred_barcodes) != quantity or len(unique_barcodes) != quantity:
         raise ValueError(
@@ -186,6 +213,15 @@ def reserve_barcodes_for_sale(product, sale_item, quantity, preferred_barcodes=N
 
 
 def release_barcodes_from_sale(sale_item, barcode_values):
+    if getattr(sale_item.product, "barcode_mode", "unit") == "shared":
+        shared_barcode = (
+            ProductBarcode.query.filter_by(product_id=sale_item.product_id)
+            .order_by(ProductBarcode.sequence_no.asc())
+            .first()
+        )
+        sale_item.product.stock_quantity += int(sale_item.quantity or 0)
+        return [shared_barcode] if shared_barcode else []
+
     barcode_values = [value.strip() for value in (barcode_values or []) if str(value).strip()]
     if not barcode_values:
         return []

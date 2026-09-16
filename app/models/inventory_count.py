@@ -88,13 +88,7 @@ class InventoryCountLine(db.Model):
 
 class InventoryCountScan(db.Model):
     __tablename__ = "inventory_count_scans"
-    __table_args__ = (
-        db.UniqueConstraint(
-            "inventory_count_id",
-            "product_barcode_id",
-            name="uq_inventory_count_scans_count_barcode",
-        ),
-    )
+    __table_args__ = ()
 
     id = db.Column(db.Integer, primary_key=True)
     site_id = db.Column(
