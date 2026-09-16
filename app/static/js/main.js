@@ -479,6 +479,9 @@ function buildConfirmRecordsHtml(records = []) {
 }
 
 function syncProductSelectionState(section) {
+    if (!section) {
+        return;
+    }
     const rowCheckboxes = Array.from(section.querySelectorAll('[data-product-row-select]'));
     const visibleCheckboxes = rowCheckboxes.filter((input) => {
         const row = input.closest("tr");
