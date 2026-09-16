@@ -8,6 +8,7 @@ from app import create_app
 from app.extensions import db
 from app.models import (
     FinanceAccount,
+    FinanceActivation,
     FinanceApproval,
     FinanceCategory,
     FinanceMovement,
@@ -108,6 +109,30 @@ class FinanceModuleTests(unittest.TestCase):
         self.assertEqual(get_account_balance(cash), Decimal("320.00"))
         self.assertEqual(FinanceMovement.query.filter_by(source_type="sale").count(), 1)
         self.assertEqual(FinanceMovement.query.filter_by(movement_type="manual").count(), 1)
+
+    def test_first_sale_automatically_starts_finance_and_posts_revenue(self):
+        sale = Sale(
+            document_no=1,
+            site_id=self.site.id,
+            store_id=self.store.id,
+            sale_date=datetime.utcnow(),
+            total_amount=Decimal("425.00"),
+            payment_method="Nakit",
+        )
+        db.session.add(sale)
+
+        movement_id = sync_sale_finance(sale)
+        db.session.commit()
+
+        activation = FinanceActivation.query.filter_by(
+            site_id=self.site.id,
+            store_id=self.store.id,
+        ).one()
+        movement = db.session.get(FinanceMovement, movement_id)
+        self.assertIsNotNone(activation)
+        self.assertEqual(movement.movement_type, "sale")
+        self.assertEqual(movement.amount, Decimal("425.00"))
+        self.assertEqual(movement.source_id, sale.id)
 
     def test_staff_workflows_close_the_day_and_apply_approval_limit(self):
         activate_finance(self.site.id, self.store.id, opening_cash=Decimal("10000.00"))

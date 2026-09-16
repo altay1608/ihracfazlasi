@@ -17,6 +17,27 @@
         <article class="finance-balance-card finance-balance-total"><span>Açık Tedarikçi Borcu</span><strong>{{ open_payables|currency }}</strong><small>Ödenecek cari bakiye</small></article>
         <article class="finance-balance-card {% if pending_approvals %}finance-alert-card{% endif %}"><span>Bekleyen Onay</span><strong>{{ pending_approvals }}</strong><small><a href="{{ url_for('finance_ops.approvals') }}">Onay merkezine git</a></small></article>
     </div>
+    <section class="finance-tool">
+        <div class="section-heading">
+            <div><p class="eyebrow">OTOMATİK SATIŞ TAKİBİ</p><h2>Günlük ve Aylık Ciro</h2></div>
+            <form method="get" class="finance-filter-row">
+                <label>Ay
+                    <select name="month" onchange="this.form.submit()">
+                        {% for option in month_options %}<option value="{{ option.value }}" {% if option.value == selected_month.strftime('%Y-%m') %}selected{% endif %}>{{ option.label }}</option>{% endfor %}
+                    </select>
+                </label>
+            </form>
+        </div>
+        <div class="finance-balance-grid">
+            <article class="finance-balance-card"><span>Bugünkü Satış</span><strong>{{ daily_sales.total_sales }}</strong><small>{{ daily_sales.sold_units }} ürün</small></article>
+            <article class="finance-balance-card finance-balance-total"><span>Bugünkü Ciro</span><strong>{{ daily_sales.revenue|currency }}</strong><small>KDV dahil, iadeler düşülmüş</small></article>
+            <article class="finance-balance-card"><span>Bugünkü Brüt Kâr</span><strong>{{ daily_profit.profit|currency }}</strong><small>Ciro - ürün maliyeti</small></article>
+            <article class="finance-balance-card"><span>Aylık Satış</span><strong>{{ monthly_sales.total_sales }}</strong><small>{{ monthly_sales.sold_units }} ürün</small></article>
+            <article class="finance-balance-card finance-balance-total"><span>Aylık Ciro</span><strong>{{ monthly_sales.revenue|currency }}</strong><small>{{ selected_month.strftime('%m.%Y') }}</small></article>
+            <article class="finance-balance-card"><span>Aylık Brüt Kâr</span><strong>{{ monthly_profit.profit|currency }}</strong><small>Ciro - ürün maliyeti</small></article>
+        </div>
+        <p class="helper-text">Satış ekranında tamamlanan her satış finans defterine otomatik işlenir. Düzenleme ve iadeler ilgili dönem toplamlarına otomatik yansır.</p>
+    </section>
     <section class="finance-tool"><p class="eyebrow">VADE TAKİBİ</p><h2>Tedarikçi Borç Yaşlandırması</h2><div class="finance-summary-list"><span>Vadesi Geçen <strong class="money-out">{{ payable_aging.overdue|currency }}</strong></span><span>Önümüzdeki 7 Gün <strong>{{ payable_aging.next_7|currency }}</strong></span><span>8–30 Gün İçinde <strong>{{ payable_aging.next_30|currency }}</strong></span></div></section>
     <div class="finance-two-column">
         <section class="finance-tool"><p class="eyebrow">BUGÜN</p><h2>Kontrol Özeti</h2>

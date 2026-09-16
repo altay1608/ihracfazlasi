@@ -30,7 +30,9 @@ from app.services.finance_operations import (
     reopen_daily_closing,
     settle_personnel_advance,
 )
+from app.services.finance_reporting import month_bounds, month_choice_options
 from app.services.identity_access import get_active_site_id, get_active_store_id
+from app.services.reporting import get_daily_report, get_profit_report
 from app.utils import now_in_istanbul, quantize_amount
 
 
@@ -93,6 +95,15 @@ def _form_options(site_id, store_id):
 def dashboard():
     site_id, store_id = _scope()
     today = now_in_istanbul().date()
+    try:
+        selected_month = date.fromisoformat(f"{request.args.get('month')}-01")
+    except (TypeError, ValueError):
+        selected_month = today.replace(day=1)
+    month_start, month_end = month_bounds(selected_month)
+    daily_sales, _ = get_daily_report(today)
+    daily_profit = get_profit_report(today, today)
+    monthly_sales, _ = get_daily_report(month_start, month_end)
+    monthly_profit = get_profit_report(month_start, month_end)
     accounts = FinanceAccount.query.filter_by(site_id=site_id, store_id=store_id, is_active=True).all()
     balances = []
     from app.services.finance import get_account_balance
@@ -124,6 +135,9 @@ def dashboard():
         pending_approvals=pending_approvals, open_payables=open_payables,
         recent_expenses=recent_expenses, recent_closing=recent_closing,
         expectations=closing_expectations(site_id, store_id, today), payable_aging=payable_aging, today=today,
+        daily_sales=daily_sales, daily_profit=daily_profit,
+        monthly_sales=monthly_sales, monthly_profit=monthly_profit,
+        selected_month=month_start, month_options=month_choice_options(month_start),
     )
 
 

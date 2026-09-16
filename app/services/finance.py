@@ -244,7 +244,15 @@ def sync_sale_finance(sale):
     if sale.id is None:
         db.session.flush()
     activation = get_finance_activation(sale.site_id, sale.store_id)
-    if activation is None or _as_naive_utc(_sale_occurred_at(sale)) < _as_naive_utc(activation.activated_at):
+    if activation is None:
+        activation = activate_finance(
+            sale.site_id,
+            sale.store_id,
+            opening_cash=Decimal("0.00"),
+            activated_at=_sale_occurred_at(sale),
+        )
+        db.session.flush()
+    if _as_naive_utc(_sale_occurred_at(sale)) < _as_naive_utc(activation.activated_at):
         return None
     ensure_finance_period_open(sale.site_id, sale.store_id, _sale_occurred_at(sale))
 
