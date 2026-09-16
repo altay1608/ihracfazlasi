@@ -8,8 +8,8 @@ from app.extensions import db
 
 app = create_app()
 
-# Vercel'de yeni baglanan bos PostgreSQL veritabanini ilk istege hazirla.
-# create_all idempotenttir; mevcut tablolar ve veriler degistirilmez.
+# Vercel PostgreSQL veritabanini ilk istege hazirla ve teslim sifirlamasini
+# site bazinda, tek seferlik bir islem olarak uygula.
 database_url_is_configured = any(
     os.getenv(key, "").strip()
     for key in (
@@ -23,6 +23,12 @@ database_url_is_configured = any(
 if os.getenv("VERCEL") and database_url_is_configured:
     with app.app_context():
         db.create_all()
-        from app.services.deployment_bootstrap import ensure_deployment_store
+        from app.services.deployment_bootstrap import (
+            ensure_automatic_pos_schema,
+            ensure_deployment_store,
+            reset_customer_delivery_data_once,
+        )
 
-        ensure_deployment_store()
+        ensure_automatic_pos_schema()
+        customer_site, _customer_store = ensure_deployment_store()
+        reset_customer_delivery_data_once(customer_site.id)
