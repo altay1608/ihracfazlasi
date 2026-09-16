@@ -30,7 +30,12 @@ from app.services.finance_operations import (
     reopen_daily_closing,
     settle_personnel_advance,
 )
-from app.services.finance_reporting import month_bounds, month_choice_options
+from app.services.finance_reporting import (
+    build_finance_snapshot,
+    build_operating_profit_summary,
+    month_bounds,
+    month_choice_options,
+)
 from app.services.identity_access import get_active_site_id, get_active_store_id
 from app.services.reporting import get_daily_report, get_profit_report
 from app.utils import now_in_istanbul, quantize_amount
@@ -104,6 +109,24 @@ def dashboard():
     daily_profit = get_profit_report(today, today)
     monthly_sales, _ = get_daily_report(month_start, month_end)
     monthly_profit = get_profit_report(month_start, month_end)
+    today_snapshot = build_finance_snapshot(
+        site_id=site_id,
+        store_ids=[store_id],
+        selected_month=today,
+    )
+    selected_month_snapshot = build_finance_snapshot(
+        site_id=site_id,
+        store_ids=[store_id],
+        selected_month=month_start,
+    )
+    daily_operating = build_operating_profit_summary(
+        daily_profit,
+        today_snapshot["planned_daily_overhead"],
+    )
+    monthly_operating = build_operating_profit_summary(
+        monthly_profit,
+        selected_month_snapshot["overhead"],
+    )
     accounts = FinanceAccount.query.filter_by(site_id=site_id, store_id=store_id, is_active=True).all()
     balances = []
     from app.services.finance import get_account_balance
@@ -137,6 +160,8 @@ def dashboard():
         expectations=closing_expectations(site_id, store_id, today), payable_aging=payable_aging, today=today,
         daily_sales=daily_sales, daily_profit=daily_profit,
         monthly_sales=monthly_sales, monthly_profit=monthly_profit,
+        daily_operating=daily_operating, monthly_operating=monthly_operating,
+        today_snapshot=today_snapshot, selected_month_snapshot=selected_month_snapshot,
         selected_month=month_start, month_options=month_choice_options(month_start),
     )
 

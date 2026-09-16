@@ -24,6 +24,8 @@ TURKISH_MONTH_NAMES = (
     "Aralık",
 )
 
+PRODUCT_VAT_MULTIPLIER = Decimal("1.10")
+
 
 def month_choice_options(selected=None, months_back=11, months_forward=1):
     """Return localized month choices without relying on process locale."""
@@ -204,8 +206,9 @@ def _snapshot_result(
     actual_overhead = quantize_amount(actual_overhead)
     pos_commission_expense = quantize_amount(pos_commission_expense)
     actual_operating_expense = quantize_amount(actual_overhead + pos_commission_expense)
-    planned_daily_overhead = quantize_amount(overhead / Decimal("30"))
-    actual_daily_overhead = quantize_amount(actual_overhead / Decimal("30"))
+    calendar_day_count = Decimal(str((month_end - month_start).days + 1))
+    planned_daily_overhead = quantize_amount(overhead / calendar_day_count)
+    actual_daily_overhead = quantize_amount(actual_overhead / calendar_day_count)
     planned_operating_result = quantize_amount(net - overhead)
     actual_operating_result = quantize_amount(net - actual_operating_expense)
     planned_overhead_ratio = (
@@ -255,6 +258,72 @@ def _snapshot_result(
         "estimated_result": planned_operating_result,
         "overhead_ratio": planned_overhead_ratio,
         "estimated_margin": planned_operating_margin,
+    }
+
+
+def build_operating_profit_summary(profit_report, overhead_amount):
+    """Convert VAT-inclusive product profit into an overhead-allocated operating result."""
+    overhead_amount = quantize_amount(overhead_amount or Decimal("0.00"))
+    products = list(profit_report.get("products") or [])
+    net_sales = quantize_amount(
+        Decimal(profit_report.get("revenue_after_discount") or 0) / PRODUCT_VAT_MULTIPLIER
+    )
+    net_cost = quantize_amount(
+        Decimal(profit_report.get("cost") or 0) / PRODUCT_VAT_MULTIPLIER
+    )
+    gross_profit = quantize_amount(net_sales - net_cost)
+    product_rows = []
+    remaining_overhead = overhead_amount
+    product_net_sales_values = [
+        quantize_amount(Decimal(row.net_revenue or 0) / PRODUCT_VAT_MULTIPLIER)
+        for row in products
+    ]
+    positive_sale_indices = [
+        index for index, value in enumerate(product_net_sales_values) if value > 0
+    ]
+    last_positive_index = positive_sale_indices[-1] if positive_sale_indices else None
+    allocatable_sales = quantize_amount(
+        sum((max(value, Decimal("0.00")) for value in product_net_sales_values), Decimal("0.00"))
+    )
+
+    for index, row in enumerate(products):
+        product_net_sales = product_net_sales_values[index]
+        product_net_cost = quantize_amount(Decimal(row.cost or 0) / PRODUCT_VAT_MULTIPLIER)
+        product_gross_profit = quantize_amount(product_net_sales - product_net_cost)
+        if allocatable_sales > 0 and product_net_sales > 0:
+            if index == last_positive_index:
+                allocated_overhead = remaining_overhead
+            else:
+                weight = max(product_net_sales, Decimal("0.00")) / allocatable_sales
+                allocated_overhead = min(
+                    quantize_amount(overhead_amount * weight),
+                    remaining_overhead,
+                )
+        else:
+            allocated_overhead = Decimal("0.00")
+        remaining_overhead = quantize_amount(remaining_overhead - allocated_overhead)
+        product_rows.append(
+            {
+                "name": row.name,
+                "variant": row.variant,
+                "quantity": row.quantity,
+                "net_sales": product_net_sales,
+                "net_cost": product_net_cost,
+                "gross_profit": product_gross_profit,
+                "allocated_overhead": allocated_overhead,
+                "net_profit": quantize_amount(product_gross_profit - allocated_overhead),
+            }
+        )
+
+    net_operating_profit = quantize_amount(gross_profit - overhead_amount)
+    return {
+        "net_sales": net_sales,
+        "net_cost": net_cost,
+        "gross_profit": gross_profit,
+        "overhead": overhead_amount,
+        "net_operating_profit": net_operating_profit,
+        "break_even_remaining": max(quantize_amount(-net_operating_profit), Decimal("0.00")),
+        "product_rows": product_rows,
     }
 
 

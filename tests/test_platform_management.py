@@ -645,9 +645,9 @@ class PlatformManagementTests(unittest.TestCase):
         finance_dashboard = client.get("/finance/operations/")
         finance_html = finance_dashboard.get_data(as_text=True)
         self.assertEqual(finance_dashboard.status_code, 200)
-        self.assertIn("Günlük ve Aylık Ciro", finance_html)
-        self.assertIn("Bugünkü Brüt Kâr", finance_html)
-        self.assertIn("Aylık Ciro", finance_html)
+        self.assertIn("Günlük Gerçek Net Kâr", finance_html)
+        self.assertIn("Bugünkü Net Sonuç", finance_html)
+        self.assertIn("Aylık Planlanan Net Sonuç", finance_html)
 
     def test_reference_data_delete_uses_csrf_protected_ajax_confirmation(self):
         client = self.app.test_client()
