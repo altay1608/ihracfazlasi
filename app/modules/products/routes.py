@@ -639,11 +639,12 @@ def download_template():
         "Kategori",
         "Alış Fiyatı (₺)",
         "Perakende Çarpanı",
+        "Satış Fiyatı (₺, otomatik)",
         "Stok Miktarı (beden başına)",
         "Eklenecek Bedenler (virgülle)",
         "Ürün Bazlı KSS (opsiyonel)",
     ]
-    example_row = ["Örnek Erkek Gömlek", "Gömlek", "250.00", "Standart 1.80x", "10", "S, M, L", ""]
+    example_row = ["Örnek Erkek Gömlek", "Gömlek", "250.00", "Standart 1.80x", "450.00", "10", "S, M, L", ""]
 
     header_fill = PatternFill("solid", fgColor="C9A84C")
     header_font = Font(bold=True, color="2A1010")
@@ -748,14 +749,14 @@ def process_template_upload(uploaded_file):
     default_multiplier = get_default_retail_multiplier()
 
     for row_index, row in enumerate(worksheet.iter_rows(min_row=2, values_only=True), start=2):
-        values = [("" if value is None else str(value).strip()) for value in row[:7]]
+        values = [("" if value is None else str(value).strip()) for value in row[:8]]
         if not any(values):
             continue
-        if values == ["Örnek Erkek Gömlek", "Gömlek", "250.00", "Standart 1.80x", "10", "S, M, L", ""]:
+        if values == ["Örnek Erkek Gömlek", "Gömlek", "250.00", "Standart 1.80x", "450.00", "10", "S, M, L", ""]:
             result["skipped"] += 1
             continue
 
-        name, category_name, purchase_price, multiplier_name, stock_quantity, variants_value, critical_stock_level = values
+        name, category_name, purchase_price, multiplier_name, _sale_price_display, stock_quantity, variants_value, critical_stock_level = values
         if not all([name, purchase_price, stock_quantity]):
             result["skipped"] += 1
             result["errors"].append(f"Satır {row_index}: zorunlu alanlar eksik.")
