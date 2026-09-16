@@ -9,7 +9,7 @@ from app.extensions import db
 from app.models import FinanceActivation, Package, Site, Store, SystemSetting
 
 
-DELIVERY_RESET_VERSION = "customer_delivery_operational_reset_20260916_v1"
+DELIVERY_RESET_VERSION = "customer_delivery_operational_reset_20260916_v2"
 
 
 def ensure_automatic_pos_schema():
