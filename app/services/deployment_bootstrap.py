@@ -10,11 +10,15 @@ from app.models import FinanceActivation, Package, Site, Store, SystemSetting
 
 
 DELIVERY_RESET_VERSION = "customer_delivery_operational_reset_20260916_v2"
+AUTOMATIC_SCHEMA_VERSION = "automatic_schema_bootstrap_20260916_v2"
 
 
 def ensure_automatic_pos_schema():
     """Add automatic POS fields to an existing Vercel PostgreSQL database."""
     if db.engine.dialect.name != "postgresql":
+        return
+    marker_key = AUTOMATIC_SCHEMA_VERSION
+    if db.session.get(SystemSetting, marker_key) is not None:
         return
     statements = (
         "ALTER TABLE finance_activations ADD COLUMN IF NOT EXISTS pos_commission_rate NUMERIC(7,4) NOT NULL DEFAULT 2.5500",
@@ -40,6 +44,8 @@ def ensure_automatic_pos_schema():
     with db.engine.begin() as connection:
         for statement in statements:
             connection.execute(text(statement))
+    db.session.add(SystemSetting(key=marker_key, value="completed"))
+    db.session.commit()
 
 
 def reset_customer_delivery_data_once(site_id):

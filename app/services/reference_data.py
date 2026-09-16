@@ -1,3 +1,4 @@
+from flask import g, has_request_context
 from sqlalchemy.exc import OperationalError
 
 from app.extensions import db
@@ -49,6 +50,8 @@ DEFAULT_RETAIL_MULTIPLIERS = [
 
 
 def ensure_reference_data():
+    if has_request_context() and getattr(g, "_reference_data_ready", False):
+        return
     try:
         changed = False
 
@@ -112,6 +115,8 @@ def ensure_reference_data():
 
         if changed:
             db.session.commit()
+        if has_request_context():
+            g._reference_data_ready = True
     except OperationalError:
         db.session.rollback()
 
