@@ -5382,25 +5382,19 @@ th:hover .table-column-resize-handle::after,
     margin: 0 auto;
     background: #ffffff;
     color: #000000;
-    padding: 8px 8px 10px;
+    padding: 12px 11px 14px;
     box-shadow: 0 18px 30px rgba(33, 22, 14, 0.12);
     border-radius: 10px;
     box-sizing: border-box;
     overflow: hidden;
-    font-family: "Courier New", Courier, monospace;
-    font-size: 11.9px;
-    line-height: 1.3;
-    font-weight: 600;
-    letter-spacing: 0.01em;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 11.2px;
+    line-height: 1.35;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
     text-rendering: geometricPrecision;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
-}
-
-.thermal-slip div,
-.thermal-slip span {
-    color: #000000;
-    font-weight: 600;
 }
 
 .thermal-slip *,
@@ -5409,87 +5403,185 @@ th:hover .table-column-resize-handle::after,
     box-sizing: border-box;
 }
 
-.thermal-line,
-.thermal-brand,
-.thermal-policy-title,
-.thermal-thanks {
+.thermal-header {
+    padding-bottom: 9px;
+    border-bottom: 2px solid #000000;
     text-align: center;
 }
 
 .thermal-brand {
+    font-size: 16px;
+    font-weight: 900;
+    line-height: 1.15;
+    letter-spacing: 0.055em;
+}
+
+.thermal-document-type {
+    margin-top: 4px;
+    font-size: 9.5px;
     font-weight: 800;
-    letter-spacing: 0.08em;
-    font-size: 12.4px;
+    letter-spacing: 0.18em;
 }
 
-.thermal-block,
-.thermal-policy {
+.thermal-store-address {
+    margin-top: 6px;
+    font-size: 9.4px;
+    line-height: 1.3;
+}
+
+.thermal-meta-card {
     display: grid;
-    gap: 3px;
-    margin: 5px 0;
+    gap: 4px;
+    margin: 8px 0 9px;
+    padding: 7px 8px;
+    border: 1px solid #000000;
 }
 
-.thermal-justified,
+.thermal-meta-row,
 .thermal-total-row,
-.thermal-table-head {
+.thermal-payment-row,
+.thermal-product-meta,
+.thermal-section-heading {
     display: flex;
+    align-items: baseline;
     justify-content: space-between;
     gap: 8px;
 }
 
-.thermal-justified,
-.thermal-total-row {
-    align-items: flex-start;
+.thermal-meta-row > span {
+    color: #333333;
+    font-size: 9.7px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
 }
 
-.thermal-table-head {
-    font-weight: 800;
-    font-size: 12px;
-}
-
-.thermal-item-row {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 24px 32px 64px;
-    gap: 4px;
-    align-items: start;
-    margin: 5px 0;
-}
-
-.thermal-item-name {
-    min-width: 0;
-    word-break: break-word;
-    padding-right: 2px;
-}
-
-.thermal-item-qty,
-.thermal-item-vat {
-    text-align: center;
-}
-
-.thermal-item-total {
+.thermal-meta-row strong {
+    max-width: 72%;
     text-align: right;
+    font-size: 10.6px;
+    font-weight: 800;
+    overflow-wrap: anywhere;
+}
+
+.thermal-section {
+    margin-top: 9px;
+}
+
+.thermal-section-heading {
+    padding: 5px 1px;
+    border-top: 2px solid #000000;
+    border-bottom: 1px solid #000000;
+    font-size: 9.7px;
+    font-weight: 900;
+    letter-spacing: 0.075em;
+}
+
+.thermal-product-row {
+    padding: 7px 1px;
+    border-bottom: 1px dashed #666666;
+}
+
+.thermal-product-row:last-child {
+    border-bottom: 0;
+}
+
+.thermal-product-name {
+    margin-bottom: 5px;
+    font-size: 11.8px;
+    font-weight: 800;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+}
+
+.thermal-product-meta {
+    color: #333333;
+    font-size: 9.8px;
+    font-weight: 700;
+}
+
+.thermal-product-meta strong {
+    margin-left: auto;
+    color: #000000;
+    font-size: 11.2px;
+    font-weight: 900;
     white-space: nowrap;
 }
 
-.thermal-line {
-    overflow: hidden;
-    white-space: nowrap;
+.thermal-totals {
+    margin-top: 8px;
+    border-top: 2px solid #000000;
+    border-bottom: 2px solid #000000;
 }
 
 .thermal-total-row {
-    font-size: 12px;
+    padding: 5px 1px 0;
+    font-size: 10.5px;
 }
 
 .thermal-total-row strong,
-.thermal-grand-total strong {
+.thermal-payment-row strong {
+    font-weight: 800;
     text-align: right;
     white-space: nowrap;
-    font-weight: 800;
+}
+
+.thermal-vat-row {
+    padding-bottom: 5px;
 }
 
 .thermal-grand-total {
-    font-size: 12.8px;
-    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 7px 1px;
+    border-top: 1px solid #000000;
+    border-bottom: 1px solid #000000;
+    font-size: 13.4px;
+    font-weight: 900;
+}
+
+.thermal-grand-total strong {
+    font-size: 15px;
+    white-space: nowrap;
+}
+
+.thermal-payment-row {
+    padding: 6px 1px;
+    font-size: 10.5px;
+}
+
+.thermal-policy {
+    margin-top: 10px;
+}
+
+.thermal-policy-heading {
+    justify-content: center;
+    text-align: center;
+}
+
+.thermal-policy ul {
+    margin: 7px 0 0;
+    padding-left: 15px;
+    font-size: 9.5px;
+    line-height: 1.35;
+}
+
+.thermal-policy li + li {
+    margin-top: 3px;
+}
+
+.thermal-footer {
+    margin-top: 10px;
+    padding-top: 9px;
+    border-top: 2px solid #000000;
+}
+
+.thermal-thanks {
+    text-align: center;
+    font-size: 11.3px;
+    font-weight: 900;
 }
 
 .thermal-instagram,
@@ -5499,20 +5591,26 @@ th:hover .table-column-resize-handle::after,
     justify-content: center;
     gap: 5px;
     margin: 6px 0 4px;
-    font-size: 11.4px;
+    font-size: 10.4px;
     font-weight: 800;
     letter-spacing: 0;
     white-space: nowrap;
 }
 
 .thermal-notice {
-    margin: 7px 0 6px;
-    padding: 5px 4px;
+    margin: 8px 0;
+    padding: 6px 5px;
     border: 1px solid #000000;
     text-align: center;
-    font-size: 10.4px;
-    font-weight: 800;
+    font-size: 9.2px;
+    font-weight: 700;
     line-height: 1.3;
+}
+
+.thermal-social-row {
+    display: grid;
+    justify-items: center;
+    gap: 3px;
 }
 
 .thermal-instagram-icon {
@@ -5523,7 +5621,7 @@ th:hover .table-column-resize-handle::after,
 }
 
 .thermal-contact {
-    margin-top: 0;
+    margin: 0;
 }
 
 .thermal-contact-icon {
