@@ -12,6 +12,7 @@ from app.models import (
     FinanceApproval,
     FinanceCategory,
     FinanceMovement,
+    PosReconciliation,
     CurrentAccount,
     DailyCashClosing,
     ExpenseVoucher,
@@ -28,7 +29,9 @@ from app.services.finance import (
     activate_finance,
     create_manual_movement,
     get_account_balance,
+    settle_auto_pos_reconciliation,
     sync_sale_finance,
+    update_pos_settings,
 )
 from app.services.finance_operations import (
     create_daily_closing,
@@ -133,6 +136,111 @@ class FinanceModuleTests(unittest.TestCase):
         self.assertEqual(movement.movement_type, "sale")
         self.assertEqual(movement.amount, Decimal("425.00"))
         self.assertEqual(movement.source_id, sale.id)
+
+    def test_card_sale_deducts_commission_and_waits_for_next_day_bank_settlement(self):
+        sale_time = datetime(2026, 9, 16, 9, 0)
+        sale = Sale(
+            document_no=20,
+            site_id=self.site.id,
+            store_id=self.store.id,
+            sale_date=sale_time,
+            total_amount=Decimal("2000.00"),
+            payment_method="Kredi Kartı",
+        )
+        db.session.add(sale)
+
+        sync_sale_finance(sale)
+        db.session.commit()
+
+        pos = FinanceAccount.query.filter_by(site_id=self.site.id, store_id=self.store.id, code="POS").one()
+        bank = FinanceAccount.query.filter_by(site_id=self.site.id, store_id=self.store.id, code="BANK").one()
+        reconciliation = PosReconciliation.query.filter_by(sale_id=sale.id).one()
+        self.assertEqual(reconciliation.status, "pending")
+        self.assertTrue(reconciliation.auto_generated)
+        self.assertEqual(reconciliation.gross_amount, Decimal("2000.00"))
+        self.assertEqual(reconciliation.commission_amount, Decimal("51.00"))
+        self.assertEqual(reconciliation.net_amount, Decimal("1949.00"))
+        self.assertEqual(reconciliation.expected_settlement_date, date(2026, 9, 17))
+        self.assertEqual(get_account_balance(pos), Decimal("1949.00"))
+        self.assertEqual(get_account_balance(bank), Decimal("0.00"))
+
+        settle_auto_pos_reconciliation(
+            site_id=self.site.id,
+            store_id=self.store.id,
+            reconciliation_id=reconciliation.id,
+            settled_at=datetime(2026, 9, 17, 9, 0),
+        )
+        db.session.commit()
+
+        self.assertEqual(reconciliation.status, "settled")
+        self.assertEqual(get_account_balance(pos), Decimal("0.00"))
+        self.assertEqual(get_account_balance(bank), Decimal("1949.00"))
+        self.assertEqual(FinanceMovement.query.filter_by(movement_type="pos_commission").count(), 1)
+
+    def test_cash_sale_does_not_create_pos_commission_or_settlement(self):
+        sale = Sale(
+            document_no=21,
+            site_id=self.site.id,
+            store_id=self.store.id,
+            sale_date=datetime.utcnow(),
+            total_amount=Decimal("750.00"),
+            payment_method="Nakit",
+        )
+        db.session.add(sale)
+        sync_sale_finance(sale)
+        db.session.commit()
+
+        self.assertEqual(PosReconciliation.query.count(), 0)
+        self.assertEqual(FinanceMovement.query.filter_by(movement_type="pos_commission").count(), 0)
+
+    def test_pos_settings_change_future_commission_and_settlement_day(self):
+        activate_finance(
+            self.site.id,
+            self.store.id,
+            activated_at=datetime(2026, 9, 16, 8, 0),
+        )
+        db.session.flush()
+        bank = FinanceAccount.query.filter_by(site_id=self.site.id, store_id=self.store.id, code="BANK").one()
+        update_pos_settings(
+            site_id=self.site.id,
+            store_id=self.store.id,
+            commission_rate=Decimal("3.1000"),
+            settlement_days=2,
+            bank_account_id=bank.id,
+        )
+        sale = Sale(
+            document_no=22,
+            site_id=self.site.id,
+            store_id=self.store.id,
+            sale_date=datetime(2026, 9, 16, 9, 0),
+            total_amount=Decimal("2000.00"),
+            payment_method="Kredi Kartı",
+        )
+        db.session.add(sale)
+        sync_sale_finance(sale)
+        db.session.commit()
+
+        reconciliation = PosReconciliation.query.filter_by(sale_id=sale.id).one()
+        self.assertEqual(reconciliation.commission_amount, Decimal("62.00"))
+        self.assertEqual(reconciliation.net_amount, Decimal("1938.00"))
+        self.assertEqual(reconciliation.expected_settlement_date, date(2026, 9, 18))
+
+    def test_repeated_card_sale_sync_is_idempotent(self):
+        sale = Sale(
+            document_no=23,
+            site_id=self.site.id,
+            store_id=self.store.id,
+            sale_date=datetime.utcnow(),
+            total_amount=Decimal("1000.00"),
+            payment_method="Kredi Kartı",
+        )
+        db.session.add(sale)
+        sync_sale_finance(sale)
+        sync_sale_finance(sale)
+        db.session.commit()
+
+        self.assertEqual(PosReconciliation.query.filter_by(sale_id=sale.id).count(), 1)
+        self.assertEqual(FinanceMovement.query.filter_by(source_type="sale", source_id=sale.id).count(), 2)
 
     def test_staff_workflows_close_the_day_and_apply_approval_limit(self):
         activate_finance(self.site.id, self.store.id, opening_cash=Decimal("10000.00"))

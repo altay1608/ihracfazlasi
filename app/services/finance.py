@@ -102,6 +102,9 @@ DEFAULT_PAYMENT_ACCOUNT_CODES = {
     "Kredi Kartı": "POS",
 }
 
+DEFAULT_POS_COMMISSION_RATE = Decimal("2.5500")
+DEFAULT_POS_SETTLEMENT_DAYS = 1
+
 CURRENT_ACCOUNT_CATEGORIES = {
     "customer": {"label": "Müşteri", "prefix": "120", "sequence": "current_customer"},
     "supplier": {"label": "Tedarikçi", "prefix": "320", "sequence": "current_supplier"},
@@ -183,6 +186,9 @@ def activate_finance(site_id, store_id, opening_cash=Decimal("0.00"), activated_
         store_id=store_id,
         activated_at=activated_at,
         activated_by_user_id=actor_id,
+        pos_commission_rate=DEFAULT_POS_COMMISSION_RATE,
+        pos_settlement_days=DEFAULT_POS_SETTLEMENT_DAYS,
+        pos_bank_account_id=accounts["BANK"].id,
     )
     db.session.add(activation)
 
@@ -258,6 +264,20 @@ def sync_sale_finance(sale):
 
     account = _mapped_account(sale.site_id, sale.store_id, sale.payment_method)
     amount = _money(sale.total_amount)
+    is_pos_sale = account.account_type == "pos_receivable"
+    rate = _commission_rate(
+        activation.pos_commission_rate
+        if activation.pos_commission_rate is not None
+        else DEFAULT_POS_COMMISSION_RATE
+    )
+    settlement_days = int(
+        activation.pos_settlement_days
+        if activation.pos_settlement_days is not None
+        else DEFAULT_POS_SETTLEMENT_DAYS
+    )
+    bank_account = _configured_pos_bank_account(activation) if is_pos_sale else None
+    commission = _money((amount * rate) / Decimal("100")) if is_pos_sale else Decimal("0.00")
+    net = _money(amount - commission)
     fingerprint = _fingerprint(
         {
             "amount": str(amount),
@@ -265,8 +285,32 @@ def sync_sale_finance(sale):
             "account_id": account.id,
             "revision_no": int(sale.revision_no or 1),
             "order_status": sale.order_status,
+            "pos_commission_rate": str(rate) if is_pos_sale else None,
+            "pos_settlement_days": settlement_days if is_pos_sale else None,
+            "pos_bank_account_id": bank_account.id if bank_account is not None else None,
         }
     )
+    existing_state = FinanceSourceState.query.filter_by(
+        site_id=sale.site_id,
+        store_id=sale.store_id,
+        source_type="sale",
+        source_id=sale.id,
+    ).one_or_none()
+    automatic_settlement = PosReconciliation.query.filter_by(
+        site_id=sale.site_id,
+        store_id=sale.store_id,
+        sale_id=sale.id,
+        auto_generated=True,
+    ).one_or_none()
+    if (
+        automatic_settlement is not None
+        and automatic_settlement.status == "settled"
+        and existing_state is not None
+        and existing_state.fingerprint != fingerprint
+    ):
+        raise FinanceConfigurationError(
+            "Bankaya aktarılmış kart satışı değiştirilemez. Önce finans sorumlusu ile mutabakatı düzeltin."
+        )
     state, changed = _prepare_source_revision(
         sale.site_id,
         sale.store_id,
@@ -297,8 +341,77 @@ def sync_sale_finance(sale):
             source_key=f"sale:{sale.id}:v{state.version}:main",
             pair_key=f"sale:{sale.id}:v{state.version}",
         )
+        if is_pos_sale:
+            if net <= Decimal("0.00"):
+                raise FinanceConfigurationError("POS komisyonundan sonra banka net tutarı sıfırdan büyük olmalıdır.")
+            if commission > Decimal("0.00"):
+                _append_movement(
+                    site_id=sale.site_id,
+                    store_id=sale.store_id,
+                    account=account,
+                    category=_category(sale.site_id, "POS_COMMISSION"),
+                    occurred_at=_sale_occurred_at(sale),
+                    direction="out",
+                    amount=commission,
+                    movement_type="pos_commission",
+                    description=f"POS komisyonu (%{rate}): Satış #{sale.document_no or sale.id}",
+                    document_no=str(sale.document_no or sale.id),
+                    source_type="sale",
+                    source_id=sale.id,
+                    source_key=f"sale:{sale.id}:v{state.version}:commission",
+                    pair_key=f"sale:{sale.id}:v{state.version}",
+                    is_overhead=False,
+                )
+            expected_date = utc_to_istanbul(_as_naive_utc(_sale_occurred_at(sale))).date() + timedelta(
+                days=settlement_days
+            )
+            if automatic_settlement is None:
+                automatic_settlement = PosReconciliation(
+                    site_id=sale.site_id,
+                    store_id=sale.store_id,
+                    sale_id=sale.id,
+                    pair_key=f"auto-pos-sale:{sale.id}",
+                    auto_generated=True,
+                    created_by_user_id=_current_user_id(),
+                )
+                db.session.add(automatic_settlement)
+            automatic_settlement.pos_account_id = account.id
+            automatic_settlement.bank_account_id = bank_account.id
+            automatic_settlement.gross_amount = amount
+            automatic_settlement.commission_rate = rate
+            automatic_settlement.commission_amount = commission
+            automatic_settlement.net_amount = net
+            automatic_settlement.occurred_at = _as_naive_utc(_sale_occurred_at(sale))
+            automatic_settlement.expected_settlement_date = expected_date
+            automatic_settlement.status = "pending"
+            automatic_settlement.settled_at = None
+            automatic_settlement.reference = f"Satış #{sale.document_no or sale.id}"
+    if (not is_pos_sale or amount <= Decimal("0.00")) and automatic_settlement is not None:
+        if automatic_settlement.status == "pending":
+            automatic_settlement.status = "cancelled"
     state.last_movement_id = last_movement.id if last_movement else None
     return state.last_movement_id
+
+
+def update_pos_settings(*, site_id, store_id, commission_rate, settlement_days, bank_account_id):
+    """Update automatic card commission and settlement defaults for one store."""
+    activation = _require_activation(site_id, store_id)
+    rate = _commission_rate(commission_rate)
+    try:
+        days = int(settlement_days)
+    except (TypeError, ValueError) as exc:
+        raise FinanceConfigurationError("Banka aktarım günü geçerli değil.") from exc
+    bank_account = _account(site_id, store_id, bank_account_id)
+    if rate < Decimal("0.0000") or rate >= Decimal("100.0000"):
+        raise FinanceConfigurationError("Komisyon oranı %0 ile %100 arasında olmalıdır.")
+    if days < 0 or days > 365:
+        raise FinanceConfigurationError("Banka aktarım süresi 0 ile 365 gün arasında olmalıdır.")
+    if bank_account.account_type != "bank":
+        raise FinanceConfigurationError("POS tahsilatları için bir banka hesabı seçilmelidir.")
+    activation.pos_commission_rate = rate
+    activation.pos_settlement_days = days
+    activation.pos_bank_account_id = bank_account.id
+    return activation
 
 
 def sync_return_finance(return_record, refund_account_id=None):
@@ -1264,6 +1377,9 @@ def create_pos_reconciliation(
         reference=reference,
         pair_key=pair_key,
         created_by_user_id=_current_user_id(),
+        status="settled",
+        settled_at=_as_naive_utc(occurred_at),
+        auto_generated=False,
     )
     db.session.add(reconciliation)
     db.session.flush()
@@ -1287,6 +1403,64 @@ def create_pos_reconciliation(
             source_id=reconciliation.id, source_key=f"{pair_key}:commission", pair_key=pair_key,
             is_overhead=False,
         )
+    return reconciliation
+
+
+def settle_auto_pos_reconciliation(*, site_id, store_id, reconciliation_id, settled_at=None):
+    """Move one pending automatic POS net amount into its configured bank account."""
+    _require_activation(site_id, store_id)
+    reconciliation = (
+        PosReconciliation.query.filter_by(
+            id=reconciliation_id,
+            site_id=site_id,
+            store_id=store_id,
+            auto_generated=True,
+        )
+        .with_for_update()
+        .one_or_none()
+    )
+    if reconciliation is None:
+        raise FinanceConfigurationError("Bekleyen POS tahsilatı bulunamadı.")
+    if reconciliation.status != "pending":
+        raise FinanceConfigurationError("Bu POS tahsilatı daha önce sonuçlandırılmış.")
+
+    occurred_at = _as_naive_utc(settled_at or datetime.utcnow())
+    ensure_finance_period_open(site_id, store_id, occurred_at)
+    pos_account = _lock_finance_account(
+        _account(site_id, store_id, reconciliation.pos_account_id)
+    )
+    bank_account = _account(site_id, store_id, reconciliation.bank_account_id)
+    if pos_account.account_type != "pos_receivable" or bank_account.account_type != "bank":
+        raise FinanceConfigurationError("POS tahsilat hesapları geçerli değil.")
+    net = _money(reconciliation.net_amount)
+    if get_account_balance(pos_account) < net:
+        raise FinanceConfigurationError("POS alacağı bakiyesi banka aktarımı için yetersiz.")
+
+    pair_key = f"auto-pos-settlement:{reconciliation.id}"
+    category = _category(site_id, "POS_RECONCILIATION")
+    description = f"Banka aktarımı: {reconciliation.reference or reconciliation.id}"
+    for account, direction, suffix in (
+        (pos_account, "out", "pos"),
+        (bank_account, "in", "bank"),
+    ):
+        _append_movement(
+            site_id=site_id,
+            store_id=store_id,
+            account=account,
+            category=category,
+            occurred_at=occurred_at,
+            direction=direction,
+            amount=net,
+            movement_type="pos_reconciliation",
+            description=description,
+            document_no=str(reconciliation.id),
+            source_type="pos_reconciliation",
+            source_id=reconciliation.id,
+            source_key=f"{pair_key}:{suffix}",
+            pair_key=pair_key,
+        )
+    reconciliation.status = "settled"
+    reconciliation.settled_at = occurred_at
     return reconciliation
 
 
@@ -1444,6 +1618,23 @@ def _mapped_account(site_id, store_id, payment_method):
             f"'{payment_method or '-'}' ödeme yöntemi için aktif finans hesabı eşlemesi bulunamadı."
         )
     return mapping.account
+
+
+def _configured_pos_bank_account(activation):
+    if activation.pos_bank_account_id is not None:
+        account = _account(activation.site_id, activation.store_id, activation.pos_bank_account_id)
+    else:
+        account = FinanceAccount.query.filter_by(
+            site_id=activation.site_id,
+            store_id=activation.store_id,
+            code="BANK",
+            is_active=True,
+        ).one_or_none()
+        if account is None:
+            raise FinanceConfigurationError("POS tahsilatları için aktif banka hesabı bulunamadı.")
+    if account.account_type != "bank":
+        raise FinanceConfigurationError("POS tahsilatları için seçilen hesap banka hesabı değil.")
+    return account
 
 
 def _require_activation(site_id, store_id):

@@ -4962,9 +4962,9 @@ th:hover .table-column-resize-handle::after,
     width: 50mm;
     height: 50mm;
     min-height: 50mm;
-    padding: 2.2mm;
-    border-radius: 1.2mm;
-    border: 0.3mm solid #111111;
+    padding: 2mm;
+    border-radius: 1.1mm;
+    border: 0.35mm solid #111111;
     background: #ffffff;
     display: block;
     position: relative;
@@ -4980,83 +4980,110 @@ th:hover .table-column-resize-handle::after,
     align-items: center;
     justify-content: center;
     position: absolute;
-    top: 2.5mm;
-    left: 2.5mm;
-    right: 2.5mm;
-    height: 5mm;
-    padding-bottom: 1.2mm;
-    border-bottom: 0.25mm solid #111111;
+    top: 2.2mm;
+    left: 2.2mm;
+    right: 2.2mm;
+    height: 6.2mm;
+    border-bottom: 0.45mm solid #111111;
 }
 
 .compact-fashion-label-brand {
     font-family: Arial, Helvetica, sans-serif;
-    font-size: 3.05mm;
+    font-size: 3.15mm;
     line-height: 1;
     font-weight: 900;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.105em;
     color: #121212;
     text-align: center;
 }
 
-.compact-fashion-label-brand span {
-    display: block;
-    white-space: nowrap;
+.compact-fashion-label-product {
+    position: absolute;
+    top: 10.2mm;
+    left: 2.2mm;
+    right: 2.2mm;
+    height: 13.4mm;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 12.3mm;
+    gap: 1.6mm;
+    align-items: stretch;
+}
+
+.compact-fashion-label-product-copy {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.compact-fashion-label-kicker,
+.compact-fashion-label-size span {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 1.75mm;
+    line-height: 1;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    color: #555555;
 }
 
 .compact-fashion-label-name {
-    position: absolute;
-    top: 10.1mm;
-    left: 2.5mm;
-    right: 2.5mm;
-    font-size: 3.5mm;
-    line-height: 1.12;
+    margin-top: 0.8mm;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 3.35mm;
+    line-height: 1.05;
     font-weight: 900;
     color: #121212;
-    white-space: normal;
     overflow: hidden;
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
-    text-align: center;
+    text-align: left;
 }
 
-.compact-fashion-label-meta {
-    display: flex;
-    justify-content: space-between;
-    gap: 1.2mm;
-    align-items: center;
-    position: absolute;
-    top: 20.1mm;
-    left: 2.5mm;
-    right: 2.5mm;
-    font-size: 2.8mm;
-    color: #111111;
-    font-weight: 800;
-}
-
-.compact-fashion-label-chip {
-    min-width: 0;
-    padding: 0.75mm 1.1mm;
-    border: 0.2mm solid #111111;
-    border-radius: 0.8mm;
+.compact-fashion-label-category {
+    margin-top: 0.65mm;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 1.85mm;
+    line-height: 1;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: #555555;
+    text-transform: uppercase;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    font-weight: 800;
 }
 
 .compact-fashion-label-size {
-    flex: 0 1 auto;
-    font-size: 2.8mm;
+    border: 0.35mm solid #111111;
+    border-radius: 0.8mm;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: #ffffff;
+}
+
+.compact-fashion-label-size strong {
+    margin-top: 0.8mm;
+    max-width: 11mm;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 4.5mm;
+    line-height: 1;
+    font-weight: 900;
+    color: #111111;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .compact-fashion-label-code {
-    flex: 0 0 auto;
-    max-width: 62%;
-    font-size: 2.55mm;
+    font-family: "Courier New", monospace;
+    font-size: 2.25mm;
     font-weight: 900;
-    text-align: right;
-    letter-spacing: 0.01em;
+    line-height: 1;
+    letter-spacing: 0.12em;
+    text-align: center;
 }
 
 .compact-fashion-label-barcode-wrap {
@@ -5064,10 +5091,10 @@ th:hover .table-column-resize-handle::after,
     flex-direction: column;
     justify-content: flex-end;
     position: absolute;
-    left: 1.8mm;
-    right: 1.8mm;
-    top: 27.2mm;
-    bottom: 1.8mm;
+    left: 2.2mm;
+    right: 2.2mm;
+    top: 26mm;
+    bottom: 2.1mm;
     align-items: center;
     overflow: hidden;
 }
@@ -5081,19 +5108,19 @@ th:hover .table-column-resize-handle::after,
 
 .compact-fashion-label-barcode svg {
     width: 100%;
-    height: 19.5mm;
+    height: 16.8mm;
     display: block;
 }
 
 .compact-fashion-label .barcode-human {
-    font-size: 2.45mm;
-    line-height: 1.05;
-    letter-spacing: 0.01em;
+    font-size: 2.25mm;
+    line-height: 1;
+    letter-spacing: 0.12em;
     text-align: center;
     color: #111111;
     white-space: nowrap;
     font-weight: 800;
-    margin-bottom: 0.2mm;
+    margin: 0.5mm 0 0;
 }
 
 .label-sheet,

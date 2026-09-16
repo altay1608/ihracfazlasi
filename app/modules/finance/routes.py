@@ -42,11 +42,13 @@ from app.services.finance import (
     pay_short_term_obligation,
     resume_obligation_recurrence_plan,
     reverse_movement,
+    settle_auto_pos_reconciliation,
     set_payment_mapping,
     settle_current_entry,
     stop_obligation_recurrence_plan,
     sync_recurring_obligations,
     upsert_monthly_overhead_budget,
+    update_pos_settings,
     update_obligation_recurrence_plan,
     update_finance_category_overhead_default,
 )
@@ -422,8 +424,56 @@ def pos_reconciliations():
             "finance.pos_reconciliations",
         )
     context = _form_context(site_id, store_id)
-    context["reconciliations"] = PosReconciliation.query.filter_by(site_id=site_id, store_id=store_id).order_by(PosReconciliation.occurred_at.desc()).limit(100).all()
+    reconciliations = (
+        PosReconciliation.query.filter_by(site_id=site_id, store_id=store_id)
+        .order_by(PosReconciliation.expected_settlement_date.desc(), PosReconciliation.id.desc())
+        .limit(250)
+        .all()
+    )
+    pending = [row for row in reconciliations if row.auto_generated and row.status == "pending"]
+    context.update(
+        reconciliations=reconciliations,
+        pending_reconciliations=pending,
+        pending_total_gross=sum((row.gross_amount for row in pending), Decimal("0.00")),
+        pending_total_commission=sum((row.commission_amount for row in pending), Decimal("0.00")),
+        pending_total_net=sum((row.net_amount for row in pending), Decimal("0.00")),
+    )
     return render_template("finance/pos.html", **context)
+
+
+@bp.post("/pos-settings")
+@permission_required("finance.pos_reconcile.create")
+def pos_settings():
+    _require_csrf()
+    site_id, store_id = _active_scope()
+    return _commit_action(
+        lambda: update_pos_settings(
+            site_id=site_id,
+            store_id=store_id,
+            commission_rate=_parse_rate(request.form.get("commission_rate")),
+            settlement_days=_parse_int(request.form.get("settlement_days")),
+            bank_account_id=_parse_int(request.form.get("bank_account_id")),
+        ),
+        "Otomatik POS kesinti ve banka aktarım ayarları kaydedildi.",
+        "finance.pos_reconciliations",
+    )
+
+
+@bp.post("/pos-reconciliations/<int:reconciliation_id>/settle")
+@permission_required("finance.pos_reconcile.create")
+def settle_pos_reconciliation(reconciliation_id):
+    _require_csrf()
+    site_id, store_id = _active_scope()
+    return _commit_action(
+        lambda: settle_auto_pos_reconciliation(
+            site_id=site_id,
+            store_id=store_id,
+            reconciliation_id=reconciliation_id,
+            settled_at=_parse_datetime(request.form.get("settled_at")),
+        ),
+        "POS net tutarı banka hesabına aktarıldı.",
+        "finance.pos_reconciliations",
+    )
 
 
 @bp.get("/current-accounts")

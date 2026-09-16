@@ -134,6 +134,8 @@ def get_products_listing():
         products = [product for product in products if product.stock_quantity > product.effective_low_stock_threshold]
     elif stock_filter == "out":
         products = [product for product in products if product.stock_quantity <= 0]
+    elif stock_filter != "all":
+        products = [product for product in products if product.stock_quantity > 0]
     categories = [item.name for item in Category.query.order_by(Category.name.asc()).all()]
     return products, categories, threshold
 

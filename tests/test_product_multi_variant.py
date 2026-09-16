@@ -84,6 +84,8 @@ class ProductMultiVariantTests(unittest.TestCase):
         self.assertEqual(label_response.status_code, 200)
         self.assertEqual(label_html.count('class="label-card compact-fashion-label"'), 8)
         self.assertIn("İHRAÇ FAZLASI GİYİM", label_html)
+        self.assertIn("BEDEN", label_html)
+        self.assertIn("compact-fashion-label-code", label_html)
         self.assertNotIn("Atelier", label_html)
         self.assertNotIn("₺", label_html)
 

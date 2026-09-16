@@ -1,14 +1,60 @@
 {% extends "base.html" %}
-{% block title %}POS Mutabakatı{% endblock %}{% block page_title %}POS Mutabakatı{% endblock %}{% block topbar_actions %}{% endblock %}
-{% block content %}<section class="finance-page">{% include "finance/_nav.html" %}
-<form method="post" class="finance-tool finance-form-grid finance-form-wide" data-pos-reconciliation-form><input type="hidden" name="csrf_token" value="{{ session.get('auth_csrf_token', '') }}">
-<label>Tarih<input type="datetime-local" name="occurred_at" value="{{ now_value }}" required></label>
-<label>POS Alacağı<select name="pos_account_id" required>{% for account in accounts if account.account_type == 'pos_receivable' %}<option value="{{ account.id }}">{{ account.name }}</option>{% endfor %}</select></label>
-<label>Banka<select name="bank_account_id" required>{% for account in accounts if account.account_type == 'bank' %}<option value="{{ account.id }}">{{ account.name }}</option>{% endfor %}</select></label>
-<label>Brüt Tutar<input type="number" name="gross_amount" min="0.01" step="0.01" required data-pos-gross></label>
-<label>Komisyon Oranı (%)<input type="number" name="commission_rate" min="0" max="99.9999" step="0.0001" value="0" required data-pos-rate></label>
-<label>Hesaplanan Komisyon<input type="text" value="₺0,00" readonly tabindex="-1" data-pos-commission-preview></label>
-<label>Banka Net Tutarı<input type="text" value="₺0,00" readonly tabindex="-1" data-pos-net-preview></label>
-<label>Referans<input type="text" name="reference" maxlength="120"></label><button class="primary-button" type="submit">Mutabakatı Kaydet</button></form>
-<div class="finance-table-section panel"><div class="section-heading"><div><p class="eyebrow">Geçmiş</p><h2>POS Mutabakatları</h2></div></div><div class="table-wrap"><table id="posReconciliationsTable" data-enhanced-table data-table-key="finance-pos-v3" data-export-name="pos-mutabakatlari"><thead><tr><th>Tarih</th><th>Referans</th><th data-summary="currency">Brüt</th><th>Komisyon Oranı</th><th data-summary="currency">Komisyon Tutarı</th><th data-summary="currency">Net</th></tr></thead><tbody>{% for row in reconciliations %}<tr><td>{{ row.occurred_at|tr_datetime }}</td><td>{{ row.reference or '-' }}</td><td data-summary-value="{{ row.gross_amount }}">{{ row.gross_amount|currency }}</td><td>{{ row.commission_rate|percentage }}</td><td data-summary-value="{{ row.commission_amount }}">{{ row.commission_amount|currency }}</td><td data-summary-value="{{ row.net_amount }}">{{ row.net_amount|currency }}</td></tr>{% else %}<tr><td colspan="6" class="empty-state">Mutabakat kaydı yok.</td></tr>{% endfor %}</tbody></table></div></div>
-</section>{% endblock %}
+{% block title %}POS ve Banka Takibi{% endblock %}
+{% block page_title %}POS ve Banka Takibi{% endblock %}
+{% block topbar_actions %}{% endblock %}
+{% block content %}
+<section class="finance-page">
+    {% include "finance/_nav.html" %}
+    <div class="finance-table-section panel">
+        <div class="section-heading"><div><p class="eyebrow">OTOMATİK KART TAHSİLATI</p><h2>Komisyon ve banka aktarım ayarları</h2><p>Kart satışında komisyon anında düşülür; net tutar seçilen günde bankaya aktarılmayı bekler.</p></div></div>
+        <form method="post" action="{{ url_for('finance.pos_settings') }}" class="finance-tool finance-form-grid finance-form-wide">
+            <input type="hidden" name="csrf_token" value="{{ session.get('auth_csrf_token', '') }}">
+            <label>POS Komisyon Oranı (%)<input type="number" name="commission_rate" min="0" max="99.9999" step="0.0001" value="{{ activation.pos_commission_rate if activation else '2.5500' }}" required></label>
+            <label>Bankaya Geçiş Süresi (gün)<input type="number" name="settlement_days" min="0" max="365" step="1" value="{{ activation.pos_settlement_days if activation else 1 }}" required></label>
+            <label>Aktarılacak Banka Hesabı<select name="bank_account_id" required>{% for account in accounts if account.account_type == 'bank' %}<option value="{{ account.id }}" {% if activation and (activation.pos_bank_account_id == account.id or (not activation.pos_bank_account_id and account.code == 'BANK')) %}selected{% endif %}>{{ account.name }}</option>{% endfor %}</select></label>
+            <button class="primary-button" type="submit">Ayarları Kaydet</button>
+        </form>
+    </div>
+    <div class="finance-balance-grid">
+        <article class="finance-balance-card"><span>Bekleyen İşlem</span><strong>{{ pending_reconciliations|length }}</strong><small>Kart satışı</small></article>
+        <article class="finance-balance-card"><span>Brüt Kart Satışı</span><strong>{{ pending_total_gross|currency }}</strong><small>Komisyon öncesi</small></article>
+        <article class="finance-balance-card"><span>Kesilen Komisyon</span><strong>{{ pending_total_commission|currency }}</strong><small>Kârdan otomatik düşülür</small></article>
+        <article class="finance-balance-card"><span>Bankaya Geçecek Net</span><strong>{{ pending_total_net|currency }}</strong><small>Bekleyen banka tahsilatı</small></article>
+    </div>
+    <div class="finance-table-section panel">
+        <div class="section-heading"><div><p class="eyebrow">BEKLEYEN TAHSİLATLAR</p><h2>Bankaya geçecek kart satışları</h2></div></div>
+        <div class="table-wrap"><table id="pendingPosTable" data-enhanced-table data-table-key="finance-pos-pending-v1">
+            <thead><tr><th>Satış</th><th>Satış Tarihi</th><th>Beklenen Gün</th><th>Brüt</th><th>Oran</th><th>Komisyon</th><th>Net</th><th>Banka</th><th>İşlem</th></tr></thead>
+            <tbody>{% for row in pending_reconciliations %}<tr>
+                <td>{{ row.reference or ('Satış #' ~ row.sale_id) }}</td><td>{{ row.occurred_at|tr_datetime }}</td>
+                <td><span class="status-badge {% if row.expected_settlement_date and row.expected_settlement_date < today %}warning{% endif %}">{{ row.expected_settlement_date|tr_date }}</span></td>
+                <td>{{ row.gross_amount|currency }}</td><td>{{ row.commission_rate|percentage }}</td><td class="money-out">{{ row.commission_amount|currency }}</td><td class="money-in">{{ row.net_amount|currency }}</td><td>{{ row.bank_account.name }}</td>
+                <td><form method="post" action="{{ url_for('finance.settle_pos_reconciliation', reconciliation_id=row.id) }}" data-confirm-submit data-confirm-title="POS tahsilatını bankaya aktar" data-confirm-message="{{ row.net_amount|currency }} tutarının {{ row.bank_account.name }} hesabına geçtiğini onaylıyor musunuz?" data-confirm-submit-label="Evet, hesaba geçti"><input type="hidden" name="csrf_token" value="{{ session.get('auth_csrf_token', '') }}"><input type="hidden" name="settled_at" value="{{ now_value }}"><button class="primary-button" type="submit">Hesaba Geçti</button></form></td>
+            </tr>{% else %}<tr><td colspan="9" class="empty-state">Bankaya aktarılmayı bekleyen kart satışı yok.</td></tr>{% endfor %}</tbody>
+        </table></div>
+    </div>
+    <details class="finance-table-section panel">
+        <summary><strong>Geçmiş toplu POS mutabakatı ekle</strong></summary>
+        <form method="post" class="finance-tool finance-form-grid finance-form-wide" data-pos-reconciliation-form>
+            <input type="hidden" name="csrf_token" value="{{ session.get('auth_csrf_token', '') }}">
+            <label>Tarih<input type="datetime-local" name="occurred_at" value="{{ now_value }}" required></label>
+            <label>POS Alacağı<select name="pos_account_id" required>{% for account in accounts if account.account_type == 'pos_receivable' %}<option value="{{ account.id }}">{{ account.name }}</option>{% endfor %}</select></label>
+            <label>Banka<select name="bank_account_id" required>{% for account in accounts if account.account_type == 'bank' %}<option value="{{ account.id }}">{{ account.name }}</option>{% endfor %}</select></label>
+            <label>Brüt Tutar<input type="number" name="gross_amount" min="0.01" step="0.01" required data-pos-gross></label>
+            <label>Komisyon Oranı (%)<input type="number" name="commission_rate" min="0" max="99.9999" step="0.0001" value="{{ activation.pos_commission_rate if activation else '2.5500' }}" required data-pos-rate></label>
+            <label>Hesaplanan Komisyon<input type="text" value="₺0,00" readonly tabindex="-1" data-pos-commission-preview></label>
+            <label>Banka Net Tutarı<input type="text" value="₺0,00" readonly tabindex="-1" data-pos-net-preview></label>
+            <label>Referans<input type="text" name="reference" maxlength="120"></label><button class="primary-button" type="submit">Toplu Mutabakatı Kaydet</button>
+        </form>
+    </details>
+    <div class="finance-table-section panel">
+        <div class="section-heading"><div><p class="eyebrow">GEÇMİŞ</p><h2>POS hareketleri</h2></div></div>
+        <div class="table-wrap"><table id="posReconciliationsTable" data-enhanced-table data-table-key="finance-pos-v4" data-export-name="pos-mutabakatlari">
+            <thead><tr><th>Durum</th><th>Tarih</th><th>Referans</th><th>Tür</th><th data-summary="currency">Brüt</th><th>Komisyon Oranı</th><th data-summary="currency">Komisyon</th><th data-summary="currency">Net</th></tr></thead>
+            <tbody>{% for row in reconciliations %}<tr>
+                <td><span class="status-badge {{ 'success' if row.status == 'settled' else ('warning' if row.status == 'pending' else '') }}">{{ {'pending':'Bekliyor','settled':'Hesaba Geçti','cancelled':'İptal'}.get(row.status, row.status) }}</span></td><td>{{ (row.settled_at or row.occurred_at)|tr_datetime }}</td><td>{{ row.reference or '-' }}</td><td>{{ 'Otomatik' if row.auto_generated else 'Toplu/Manuel' }}</td><td data-summary-value="{{ row.gross_amount }}">{{ row.gross_amount|currency }}</td><td>{{ row.commission_rate|percentage }}</td><td data-summary-value="{{ row.commission_amount }}">{{ row.commission_amount|currency }}</td><td data-summary-value="{{ row.net_amount }}">{{ row.net_amount|currency }}</td>
+            </tr>{% else %}<tr><td colspan="8" class="empty-state">POS kaydı yok.</td></tr>{% endfor %}</tbody>
+        </table></div>
+    </div>
+</section>
+{% endblock %}

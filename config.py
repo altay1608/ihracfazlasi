@@ -33,7 +33,9 @@ def resolve_database_url():
 class BaseConfig:
     SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key-change-me")
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-    LOW_STOCK_THRESHOLD = 5
+    # This store normally carries one piece per size. One piece is healthy;
+    # only a zero balance is considered sold out.
+    LOW_STOCK_THRESHOLD = 0
     AUTH_ENABLED = os.getenv("AUTH_ENABLED", "1").lower() not in {"0", "false", "no", "off"}
     AUTH_USERNAME = os.getenv("AUTH_USERNAME", "admin")
     AUTH_PASSWORD = os.getenv("AUTH_PASSWORD", "")

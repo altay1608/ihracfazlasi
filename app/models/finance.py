@@ -19,14 +19,33 @@ def _store_id():
 
 class FinanceActivation(db.Model):
     __tablename__ = "finance_activations"
-    __table_args__ = (UniqueConstraint("site_id", "store_id", name="uq_finance_activation_scope"),)
+    __table_args__ = (
+        UniqueConstraint("site_id", "store_id", name="uq_finance_activation_scope"),
+        CheckConstraint(
+            "pos_commission_rate >= 0 AND pos_commission_rate < 100",
+            name="ck_finance_activation_pos_rate",
+        ),
+        CheckConstraint(
+            "pos_settlement_days >= 0 AND pos_settlement_days <= 365",
+            name="ck_finance_activation_pos_days",
+        ),
+    )
 
     id = db.Column(db.Integer, primary_key=True)
     site_id = db.Column(db.Integer, db.ForeignKey("sites.id"), nullable=False, default=_site_id, index=True)
     store_id = db.Column(db.Integer, db.ForeignKey("stores.id"), nullable=False, default=_store_id, index=True)
     activated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     activated_by_user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    pos_commission_rate = db.Column(
+        db.Numeric(7, 4), nullable=False, default=Decimal("2.5500")
+    )
+    pos_settlement_days = db.Column(db.Integer, nullable=False, default=1)
+    pos_bank_account_id = db.Column(
+        db.Integer, db.ForeignKey("finance_accounts.id", ondelete="RESTRICT"), nullable=True
+    )
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    pos_bank_account = db.relationship("FinanceAccount", foreign_keys=[pos_bank_account_id])
 
 
 class FinanceAccount(db.Model):
@@ -185,6 +204,11 @@ class PosReconciliation(db.Model):
         ),
         CheckConstraint("commission_amount >= 0", name="ck_pos_reconciliation_commission_nonnegative"),
         CheckConstraint("net_amount > 0", name="ck_pos_reconciliation_net_positive"),
+        CheckConstraint(
+            "status IN ('pending','settled','cancelled')",
+            name="ck_pos_reconciliation_status",
+        ),
+        UniqueConstraint("sale_id", name="uq_pos_reconciliation_sale"),
     )
 
     id = db.Column(db.Integer, primary_key=True)
@@ -192,15 +216,24 @@ class PosReconciliation(db.Model):
     store_id = db.Column(db.Integer, db.ForeignKey("stores.id"), nullable=False, default=_store_id, index=True)
     pos_account_id = db.Column(db.Integer, db.ForeignKey("finance_accounts.id"), nullable=False)
     bank_account_id = db.Column(db.Integer, db.ForeignKey("finance_accounts.id"), nullable=False)
+    sale_id = db.Column(db.Integer, db.ForeignKey("sales.id", ondelete="RESTRICT"), nullable=True)
     gross_amount = db.Column(db.Numeric(14, 2), nullable=False)
     commission_rate = db.Column(db.Numeric(7, 4), nullable=False, default=Decimal("0.0000"))
     commission_amount = db.Column(db.Numeric(14, 2), nullable=False, default=0)
     net_amount = db.Column(db.Numeric(14, 2), nullable=False)
     occurred_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    expected_settlement_date = db.Column(db.Date, nullable=True, index=True)
+    status = db.Column(db.String(20), nullable=False, default="settled", index=True)
+    settled_at = db.Column(db.DateTime, nullable=True)
+    auto_generated = db.Column(db.Boolean, nullable=False, default=False, index=True)
     reference = db.Column(db.String(120), nullable=True)
     pair_key = db.Column(db.String(80), nullable=False, unique=True)
     created_by_user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    sale = db.relationship("Sale")
+    pos_account = db.relationship("FinanceAccount", foreign_keys=[pos_account_id])
+    bank_account = db.relationship("FinanceAccount", foreign_keys=[bank_account_id])
 
 
 class CurrentAccount(db.Model):

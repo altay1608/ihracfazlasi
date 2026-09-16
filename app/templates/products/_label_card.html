@@ -3,20 +3,25 @@
 {% set product_code = (product.product_code or barcode_value or "")|trim %}
 {% set barcode_caption = (barcode_value or product_code)|trim %}
 <article class="label-card compact-fashion-label">
-    <div class="compact-fashion-label-topline">
-        <div class="compact-fashion-label-brand">
-            <span>İHRAÇ FAZLASI GİYİM</span>
+    <header class="compact-fashion-label-topline">
+        <div class="compact-fashion-label-brand">İHRAÇ FAZLASI GİYİM</div>
+    </header>
+    <div class="compact-fashion-label-product">
+        <div class="compact-fashion-label-product-copy">
+            <span class="compact-fashion-label-kicker">ÜRÜN</span>
+            <div class="compact-fashion-label-name" title="{{ product_name }}">{{ product_name }}</div>
+            <div class="compact-fashion-label-category">{{ product.category or 'Giyim' }}</div>
         </div>
-    </div>
-    <div class="compact-fashion-label-name" title="{{ product_name }}">{{ product_name }}</div>
-    <div class="compact-fashion-label-meta">
-        <div class="compact-fashion-label-chip compact-fashion-label-size">Beden {{ variant_value }}</div>
-        <div class="compact-fashion-label-chip compact-fashion-label-code">{{ barcode_caption }}</div>
+        <div class="compact-fashion-label-size">
+            <span>BEDEN</span>
+            <strong>{{ variant_value }}</strong>
+        </div>
     </div>
     <div class="compact-fashion-label-barcode-wrap">
         {% if barcode_svg %}
         <div class="barcode-visual compact-fashion-label-barcode">{{ barcode_svg|safe }}</div>
         {% endif %}
+        <div class="barcode-human compact-fashion-label-code">{{ barcode_caption }}</div>
     </div>
 </article>
 
