@@ -628,6 +628,18 @@
             return;
         }
 
+        // Tarayıcılar, sunucu yanıtından sonra açılan sekmeleri engelleyebilir.
+        // Bu nedenle fiş sekmesini doğrudan kullanıcı tıklaması sırasında hazırlıyoruz.
+        const shouldAutoPrintReceipt = Boolean(
+            window.posConfig.autoPrintReceipt && !window.posConfig.saleEditMode
+        );
+        const receiptWindow = shouldAutoPrintReceipt ? window.open("about:blank", "_blank") : null;
+        if (receiptWindow) {
+            receiptWindow.opener = null;
+            receiptWindow.document.title = "Bilgi fişi hazırlanıyor";
+            receiptWindow.document.body.innerHTML = "<p style=\"font-family: sans-serif; padding: 24px\">Bilgi fişi hazırlanıyor...</p>";
+        }
+
         const summary = getSummary();
         const items = Array.from(cart.values()).map((item) => ({
             product_id: item.product_id,
@@ -668,10 +680,20 @@
             renderCart();
             feedback.textContent = data.message;
             loadRecentCustomers();
+            if (shouldAutoPrintReceipt && data.receipt_url) {
+                if (receiptWindow && !receiptWindow.closed) {
+                    receiptWindow.location.replace(data.receipt_url);
+                } else {
+                    window.open(data.receipt_url, "_blank");
+                }
+            }
             if (data.redirect_url) {
                 window.location.href = data.redirect_url;
             }
         } catch (error) {
+            if (receiptWindow && !receiptWindow.closed) {
+                receiptWindow.close();
+            }
             feedback.textContent = error.message;
             showPosMessage("Satış Uyarısı", error.message);
         } finally {

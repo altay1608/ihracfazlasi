@@ -675,6 +675,7 @@ def complete():
             "sale_id": sale.id,
             "sale_no": sale.document_no,
             "redirect_url": url_for("sales.detail", sale_id=sale.id),
+            "receipt_url": url_for("sales.receipt", sale_id=sale.id),
             "summary": {
                 "subtotal_amount": float(subtotal_amount),
                 "line_discount_total": float(line_discount_total),
