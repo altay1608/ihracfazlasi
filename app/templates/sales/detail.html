@@ -23,6 +23,7 @@
     <article class="panel metric-card">
         <p class="metric-label">Ödeme</p>
         <h2>{{ payment_methods.get(sale.payment_method, sale.payment_method) }}</h2>
+        {% if sale.payment_due_date %}<p class="muted">Ödeme tarihi: {{ sale.payment_due_date|tr_date }}</p>{% endif %}
     </article>
     <article class="panel metric-card">
         <p class="metric-label">Sipariş Durumu</p>

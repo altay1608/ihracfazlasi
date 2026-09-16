@@ -134,6 +134,9 @@
                 <option value="{{ value }}" {% if value|lower == 'nakit' or label|lower == 'nakit' %}selected{% endif %}>{{ label }}</option>
                 {% endfor %}
             </select>
+            <label id="paymentDueDateRow" for="paymentDueDate" hidden>Veresiye Ödeme Tarihi
+                <input id="paymentDueDate" type="date" value="{{ sale.payment_due_date.isoformat() if sale_edit and sale.payment_due_date else '' }}" {% if line_edits_locked %}disabled{% endif %}>
+            </label>
             {% if (sale_edit and can('sales.action.edit')) or (not sale_edit and can('sales.action.complete')) %}
             <button id="completeSaleBtn" class="primary-button wide-button" type="button">
                 {{ 'Sipariş Bilgilerini Güncelle' if line_edits_locked else ('Siparişi Güncelle' if sale_edit else 'Satışı Tamamla') }}

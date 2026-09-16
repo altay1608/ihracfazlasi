@@ -203,6 +203,7 @@ class PosReconciliation(db.Model):
             name="ck_pos_reconciliation_rate_range",
         ),
         CheckConstraint("commission_amount >= 0", name="ck_pos_reconciliation_commission_nonnegative"),
+        CheckConstraint("commission_vat_amount >= 0", name="ck_pos_reconciliation_commission_vat_nonnegative"),
         CheckConstraint("net_amount > 0", name="ck_pos_reconciliation_net_positive"),
         CheckConstraint(
             "status IN ('pending','settled','cancelled')",
@@ -220,6 +221,8 @@ class PosReconciliation(db.Model):
     gross_amount = db.Column(db.Numeric(14, 2), nullable=False)
     commission_rate = db.Column(db.Numeric(7, 4), nullable=False, default=Decimal("0.0000"))
     commission_amount = db.Column(db.Numeric(14, 2), nullable=False, default=0)
+    commission_vat_rate = db.Column(db.Numeric(5, 2), nullable=False, default=Decimal("10.00"))
+    commission_vat_amount = db.Column(db.Numeric(14, 2), nullable=False, default=0)
     net_amount = db.Column(db.Numeric(14, 2), nullable=False)
     occurred_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     expected_settlement_date = db.Column(db.Date, nullable=True, index=True)

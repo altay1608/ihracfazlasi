@@ -16,6 +16,7 @@ from app.models import (
     FinanceApproval,
     FinanceCategory,
     PersonnelFinanceRecord,
+    Sale,
     Product,
     SupplierInvoice,
 )
@@ -151,6 +152,23 @@ def dashboard():
         "next_7": payable_sum(CurrentEntry.due_date >= today, CurrentEntry.due_date <= today + timedelta(days=7)),
         "next_30": payable_sum(CurrentEntry.due_date > today + timedelta(days=7), CurrentEntry.due_date <= today + timedelta(days=30)),
     }
+    credit_due_sales = (
+        Sale.query.filter(
+            Sale.site_id == site_id,
+            Sale.store_id == store_id,
+            Sale.payment_method == "Veresiye",
+            Sale.payment_status == "OPEN",
+            Sale.payment_due_date.isnot(None),
+        )
+        .order_by(Sale.payment_due_date.asc(), Sale.id.asc())
+        .limit(100)
+        .all()
+    )
+    credit_due_summary = {
+        "overdue": sum(1 for sale in credit_due_sales if sale.payment_due_date < today),
+        "today": sum(1 for sale in credit_due_sales if sale.payment_due_date == today),
+        "next_7": sum(1 for sale in credit_due_sales if today < sale.payment_due_date <= today + timedelta(days=7)),
+    }
     recent_expenses = ExpenseVoucher.query.filter_by(site_id=site_id, store_id=store_id).order_by(ExpenseVoucher.created_at.desc()).limit(5).all()
     recent_closing = DailyCashClosing.query.filter_by(site_id=site_id, store_id=store_id).order_by(DailyCashClosing.business_date.desc()).first()
     return render_template(
@@ -163,6 +181,8 @@ def dashboard():
         daily_operating=daily_operating, monthly_operating=monthly_operating,
         today_snapshot=today_snapshot, selected_month_snapshot=selected_month_snapshot,
         selected_month=month_start, month_options=month_choice_options(month_start),
+        credit_due_sales=credit_due_sales,
+        credit_due_summary=credit_due_summary,
     )
 
 

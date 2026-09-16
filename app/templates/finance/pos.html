@@ -28,7 +28,7 @@
             <tbody>{% for row in pending_reconciliations %}<tr>
                 <td>{{ row.reference or ('Satış #' ~ row.sale_id) }}</td><td>{{ row.occurred_at|tr_datetime }}</td>
                 <td><span class="status-badge {% if row.expected_settlement_date and row.expected_settlement_date < today %}warning{% endif %}">{{ row.expected_settlement_date|tr_date }}</span></td>
-                <td>{{ row.gross_amount|currency }}</td><td>{{ row.commission_rate|percentage }}</td><td class="money-out">{{ row.commission_amount|currency }}</td><td class="money-in">{{ row.net_amount|currency }}</td><td>{{ row.bank_account.name }}</td>
+                <td>{{ row.gross_amount|currency }}</td><td>{{ row.commission_rate|percentage }} + KDV %{{ row.commission_vat_rate }}</td><td class="money-out">{{ row.commission_amount|currency }}</td><td class="money-in">{{ row.net_amount|currency }}</td><td>{{ row.bank_account.name }}</td>
                 <td><form method="post" action="{{ url_for('finance.settle_pos_reconciliation', reconciliation_id=row.id) }}" data-confirm-submit data-confirm-title="POS tahsilatını bankaya aktar" data-confirm-message="{{ row.net_amount|currency }} tutarının {{ row.bank_account.name }} hesabına geçtiğini onaylıyor musunuz?" data-confirm-submit-label="Evet, hesaba geçti"><input type="hidden" name="csrf_token" value="{{ session.get('auth_csrf_token', '') }}"><input type="hidden" name="settled_at" value="{{ now_value }}"><button class="primary-button" type="submit">Hesaba Geçti</button></form></td>
             </tr>{% else %}<tr><td colspan="9" class="empty-state">Bankaya aktarılmayı bekleyen kart satışı yok.</td></tr>{% endfor %}</tbody>
         </table></div>

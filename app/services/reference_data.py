@@ -32,8 +32,7 @@ DEFAULT_PAYMENT_METHODS = [
     ("Nakit", True),
     ("Kredi Kartı", True),
     ("Havale/EFT", True),
-    ("Multinet", True),
-    ("Sodexo", False),
+    ("Veresiye", True),
 ]
 DEFAULT_RETURN_REASONS = [
     "Beden Uyumsuzluğu",
@@ -72,9 +71,19 @@ def ensure_reference_data():
                 variant.is_active = False
                 changed = True
 
-        if PaymentMethod.query.count() == 0:
-            for name, is_active in DEFAULT_PAYMENT_METHODS:
+        supported_payment_methods = {name: is_active for name, is_active in DEFAULT_PAYMENT_METHODS}
+        existing_payment_methods = {item.name: item for item in PaymentMethod.query.all()}
+        for name, is_active in DEFAULT_PAYMENT_METHODS:
+            method = existing_payment_methods.get(name)
+            if method is None:
                 db.session.add(PaymentMethod(name=name, is_active=is_active))
+                changed = True
+            elif method.is_active != is_active:
+                method.is_active = is_active
+                changed = True
+        for name, method in existing_payment_methods.items():
+            if name not in supported_payment_methods and method.is_active:
+                method.is_active = False
                 changed = True
 
         if ReturnReason.query.count() == 0:

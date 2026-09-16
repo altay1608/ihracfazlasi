@@ -179,6 +179,7 @@ def build_sale_receipt_context(sale):
         "vat_amount": breakdown["vat_amount"],
         "line_items": line_items,
         "print_time": now.strftime("%H:%M"),
+        "payment_due_date": sale.payment_due_date,
     }
 
 
@@ -212,6 +213,19 @@ def get_sale_edit_discount_amount(sale):
     return max(discount_amount, Decimal("0.00"))
 
 
+def parse_payment_due_date(payment_method, payload):
+    """Require a due date only for credit sales and clear it for other methods."""
+    if payment_method != "Veresiye":
+        return None
+    raw_value = str(payload.get("payment_due_date") or "").strip()
+    if not raw_value:
+        raise ValueError("Veresiye satış için ödeme tarihi seçin.")
+    try:
+        return date.fromisoformat(raw_value)
+    except ValueError as exc:
+        raise ValueError("Ödeme tarihi geçerli değil.") from exc
+
+
 def apply_sale_payload(sale, payload):
     payment_method = payload.get("payment_method")
     items = payload.get("items") or []
@@ -223,6 +237,8 @@ def apply_sale_payload(sale, payload):
         raise ValueError("Sepet boş.")
 
     sale.payment_method = payment_method
+    sale.payment_due_date = parse_payment_due_date(payment_method, payload)
+    sale.payment_status = "OPEN" if payment_method == "Veresiye" else "PAID"
     for key, value in build_customer_payload(payload).items():
         setattr(sale, key, value)
 
@@ -576,6 +592,8 @@ def complete():
     stock_movements = []
 
     try:
+        sale.payment_due_date = parse_payment_due_date(payment_method, payload)
+        sale.payment_status = "OPEN" if payment_method == "Veresiye" else "PAID"
         for item in items:
             product_id = int(item.get("product_id"))
             quantity = int(item.get("quantity"))

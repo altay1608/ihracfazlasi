@@ -2,6 +2,8 @@
     const barcodeInput = document.getElementById("barcodeInput");
     const cartTableBody = document.querySelector("#cartTable tbody");
     const paymentMethod = document.getElementById("paymentMethod");
+    const paymentDueDateRow = document.getElementById("paymentDueDateRow");
+    const paymentDueDate = document.getElementById("paymentDueDate");
     const completeButton = document.getElementById("completeSaleBtn");
     const feedback = document.getElementById("posFeedback");
     const manualDiscountInput = document.getElementById("manualDiscountInput");
@@ -43,6 +45,16 @@
             currency: "TRY",
             minimumFractionDigits: 2
         }).format(Number(value || 0));
+    }
+
+    function syncPaymentDueDate() {
+        const isCredit = String(paymentMethod?.value || "").trim() === "Veresiye";
+        if (paymentDueDateRow) {
+            paymentDueDateRow.hidden = !isCredit;
+        }
+        if (paymentDueDate) {
+            paymentDueDate.required = isCredit;
+        }
     }
 
     function formatPercent(value) {
@@ -502,6 +514,7 @@
         if (window.posConfig?.saleEditMode && manualDiscountInput) {
             manualDiscountInput.value = formatInputAmount(window.posConfig.initialDiscountAmount || 0);
         }
+        syncPaymentDueDate();
     }
 
     async function lookupProduct(barcode) {
@@ -656,6 +669,7 @@
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     payment_method: paymentMethod.value,
+                    payment_due_date: paymentDueDate?.value || "",
                     items,
                     footer_discount_amount: 0,
                     target_final_total: summary.grandTotal,
@@ -684,10 +698,9 @@
                 if (receiptWindow && !receiptWindow.closed) {
                     receiptWindow.location.replace(data.receipt_url);
                 } else {
-                    window.open(data.receipt_url, "_blank");
+                    window.location.href = data.receipt_url;
                 }
-            }
-            if (data.redirect_url) {
+            } else if (data.redirect_url) {
                 window.location.href = data.redirect_url;
             }
         } catch (error) {
@@ -711,4 +724,6 @@
     }
     renderCart();
     loadRecentCustomers();
+    paymentMethod?.addEventListener("change", syncPaymentDueDate);
+    syncPaymentDueDate();
 })();

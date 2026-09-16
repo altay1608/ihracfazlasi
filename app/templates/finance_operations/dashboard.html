@@ -59,6 +59,13 @@
         </div>
         <p class="helper-text">Satış, indirim, iade ve ürün maliyeti değişiklikleri hesaplara otomatik yansır. Günlük genel gider, o gün satılan ürünlere KDV hariç satış payları oranında dağıtılır.</p>
     </section>
+    <section class="finance-tool {% if credit_due_summary.overdue or credit_due_summary.today %}finance-alert-card{% endif %}">
+        <p class="eyebrow">VERESİYE HATIRLATMALARI</p><h2>Müşteri Ödeme Takibi</h2>
+        <div class="finance-summary-list"><span>Vadesi Geçen <strong class="money-out">{{ credit_due_summary.overdue }} kayıt</strong></span><span>Bugün <strong>{{ credit_due_summary.today }} kayıt</strong></span><span>Önümüzdeki 7 Gün <strong>{{ credit_due_summary.next_7 }} kayıt</strong></span></div>
+        {% if credit_due_sales %}
+        <div class="table-wrap"><table class="finance-table"><thead><tr><th>Fiş</th><th>Müşteri</th><th>Vade</th><th>Tutar</th><th>Durum</th></tr></thead><tbody>{% for sale in credit_due_sales %}<tr><td><a href="{{ url_for('sales.detail', sale_id=sale.id) }}">#{{ sale.document_no }}</a></td><td>{{ sale.customer_name or 'Müşteri adı girilmemiş' }}</td><td>{{ sale.payment_due_date|tr_date }}</td><td>{{ sale.total_amount|currency }}</td><td>{% if sale.payment_due_date < today %}<span class="status-badge danger">Vadesi geçti</span>{% elif sale.payment_due_date == today %}<span class="status-badge warning">Bugün</span>{% else %}<span class="status-badge success">Bekliyor</span>{% endif %}</td></tr>{% endfor %}</tbody></table></div>
+        {% else %}<p class="helper-text">Açık veresiye ödemesi bulunmuyor.</p>{% endif %}
+    </section>
     <section class="finance-tool"><p class="eyebrow">VADE TAKİBİ</p><h2>Tedarikçi Borç Yaşlandırması</h2><div class="finance-summary-list"><span>Vadesi Geçen <strong class="money-out">{{ payable_aging.overdue|currency }}</strong></span><span>Önümüzdeki 7 Gün <strong>{{ payable_aging.next_7|currency }}</strong></span><span>8–30 Gün İçinde <strong>{{ payable_aging.next_30|currency }}</strong></span></div></section>
     <div class="finance-two-column">
         <section class="finance-tool"><p class="eyebrow">BUGÜN</p><h2>Kontrol Özeti</h2>

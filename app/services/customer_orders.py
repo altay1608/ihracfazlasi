@@ -148,7 +148,7 @@ def prepare_customer_order(order):
         )
 
     order.order_status = ORDER_STATUS_DELIVERED
-    order.payment_status = PAYMENT_STATUS_PAID
+    order.payment_status = "OPEN" if order.payment_method == "Veresiye" else PAYMENT_STATUS_PAID
     order.currency_code = order.currency_code or "TRY"
     return order
 

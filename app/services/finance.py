@@ -79,6 +79,7 @@ DEFAULT_ACCOUNTS = (
     ("CASH", "02", "Nakit Kasa", "cash"),
     ("BANK", "01", "Banka/EFT", "bank"),
     ("POS", "03", "POS/Kart Alacağı", "pos_receivable"),
+    ("CREDIT", "04", "Veresiye Alacakları", "pos_receivable"),
 )
 
 DEFAULT_CATEGORIES = (
@@ -100,9 +101,11 @@ DEFAULT_PAYMENT_ACCOUNT_CODES = {
     "Nakit": "CASH",
     "Havale/EFT": "BANK",
     "Kredi Kartı": "POS",
+    "Veresiye": "CREDIT",
 }
 
 DEFAULT_POS_COMMISSION_RATE = Decimal("2.5500")
+DEFAULT_POS_COMMISSION_VAT_RATE = Decimal("10.00")
 DEFAULT_POS_SETTLEMENT_DAYS = 1
 
 CURRENT_ACCOUNT_CATEGORIES = {
@@ -264,7 +267,7 @@ def sync_sale_finance(sale):
 
     account = _mapped_account(sale.site_id, sale.store_id, sale.payment_method)
     amount = _money(sale.total_amount)
-    is_pos_sale = account.account_type == "pos_receivable"
+    is_pos_sale = sale.payment_method == "Kredi Kartı"
     rate = _commission_rate(
         activation.pos_commission_rate
         if activation.pos_commission_rate is not None
@@ -277,7 +280,9 @@ def sync_sale_finance(sale):
     )
     bank_account = _configured_pos_bank_account(activation) if is_pos_sale else None
     commission = _money((amount * rate) / Decimal("100")) if is_pos_sale else Decimal("0.00")
-    net = _money(amount - commission)
+    commission_vat = _money((commission * DEFAULT_POS_COMMISSION_VAT_RATE) / Decimal("100")) if is_pos_sale else Decimal("0.00")
+    total_commission = _money(commission + commission_vat)
+    net = _money(amount - total_commission)
     fingerprint = _fingerprint(
         {
             "amount": str(amount),
@@ -288,6 +293,7 @@ def sync_sale_finance(sale):
             "pos_commission_rate": str(rate) if is_pos_sale else None,
             "pos_settlement_days": settlement_days if is_pos_sale else None,
             "pos_bank_account_id": bank_account.id if bank_account is not None else None,
+            "pos_commission_vat_rate": str(DEFAULT_POS_COMMISSION_VAT_RATE) if is_pos_sale else None,
         }
     )
     existing_state = FinanceSourceState.query.filter_by(
@@ -344,7 +350,7 @@ def sync_sale_finance(sale):
         if is_pos_sale:
             if net <= Decimal("0.00"):
                 raise FinanceConfigurationError("POS komisyonundan sonra banka net tutarı sıfırdan büyük olmalıdır.")
-            if commission > Decimal("0.00"):
+            if total_commission > Decimal("0.00"):
                 _append_movement(
                     site_id=sale.site_id,
                     store_id=sale.store_id,
@@ -352,9 +358,9 @@ def sync_sale_finance(sale):
                     category=_category(sale.site_id, "POS_COMMISSION"),
                     occurred_at=_sale_occurred_at(sale),
                     direction="out",
-                    amount=commission,
+                    amount=total_commission,
                     movement_type="pos_commission",
-                    description=f"POS komisyonu (%{rate}): Satış #{sale.document_no or sale.id}",
+                    description=f"POS komisyonu (%{rate}) + KDV %{DEFAULT_POS_COMMISSION_VAT_RATE}: Satış #{sale.document_no or sale.id}",
                     document_no=str(sale.document_no or sale.id),
                     source_type="sale",
                     source_id=sale.id,
@@ -379,7 +385,9 @@ def sync_sale_finance(sale):
             automatic_settlement.bank_account_id = bank_account.id
             automatic_settlement.gross_amount = amount
             automatic_settlement.commission_rate = rate
-            automatic_settlement.commission_amount = commission
+            automatic_settlement.commission_amount = total_commission
+            automatic_settlement.commission_vat_rate = DEFAULT_POS_COMMISSION_VAT_RATE
+            automatic_settlement.commission_vat_amount = commission_vat
             automatic_settlement.net_amount = net
             automatic_settlement.occurred_at = _as_naive_utc(_sale_occurred_at(sale))
             automatic_settlement.expected_settlement_date = expected_date

@@ -66,7 +66,7 @@
                     <td>{{ item.gross_discount_amount|currency }}</td>
                     <td>{{ item.gross_amount|currency }}</td>
                     {% if can('sales.customer.view') %}<td>{{ sale.customer_name or "-" }}</td>{% endif %}
-                    <td>{{ payment_methods.get(sale.payment_method, sale.payment_method) }}</td>
+                    <td>{{ payment_methods.get(sale.payment_method, sale.payment_method) }}{% if sale.payment_due_date %}<br><small>Vade: {{ sale.payment_due_date|tr_date }}</small>{% endif %}</td>
                     <td>
                         <div class="inline-actions compact-actions">
                             {% if can('returns.action.create') and item.returned_quantity < item.delivered_quantity %}

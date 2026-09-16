@@ -191,7 +191,7 @@ class CustomerDeliveryResetTests(unittest.TestCase):
             FinanceCategory.query.filter_by(site_id=self.site.id, is_system=False).count(), 0
         )
         self.assertEqual(
-            FinancePaymentMapping.query.filter_by(site_id=self.site.id).count(), 3
+            FinancePaymentMapping.query.filter_by(site_id=self.site.id).count(), 4
         )
         self.assertEqual(get_next_product_code(self.site.id), str(MIN_PRODUCT_CODE))
         self.assertIsNotNone(db.session.get(Site, self.site.id))

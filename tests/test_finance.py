@@ -158,10 +158,11 @@ class FinanceModuleTests(unittest.TestCase):
         self.assertEqual(reconciliation.status, "pending")
         self.assertTrue(reconciliation.auto_generated)
         self.assertEqual(reconciliation.gross_amount, Decimal("2000.00"))
-        self.assertEqual(reconciliation.commission_amount, Decimal("51.00"))
-        self.assertEqual(reconciliation.net_amount, Decimal("1949.00"))
+        self.assertEqual(reconciliation.commission_amount, Decimal("56.10"))
+        self.assertEqual(reconciliation.commission_vat_amount, Decimal("5.10"))
+        self.assertEqual(reconciliation.net_amount, Decimal("1943.90"))
         self.assertEqual(reconciliation.expected_settlement_date, date(2026, 9, 17))
-        self.assertEqual(get_account_balance(pos), Decimal("1949.00"))
+        self.assertEqual(get_account_balance(pos), Decimal("1943.90"))
         self.assertEqual(get_account_balance(bank), Decimal("0.00"))
 
         settle_auto_pos_reconciliation(
@@ -174,7 +175,7 @@ class FinanceModuleTests(unittest.TestCase):
 
         self.assertEqual(reconciliation.status, "settled")
         self.assertEqual(get_account_balance(pos), Decimal("0.00"))
-        self.assertEqual(get_account_balance(bank), Decimal("1949.00"))
+        self.assertEqual(get_account_balance(bank), Decimal("1943.90"))
         self.assertEqual(FinanceMovement.query.filter_by(movement_type="pos_commission").count(), 1)
 
     def test_cash_sale_does_not_create_pos_commission_or_settlement(self):
@@ -221,8 +222,9 @@ class FinanceModuleTests(unittest.TestCase):
         db.session.commit()
 
         reconciliation = PosReconciliation.query.filter_by(sale_id=sale.id).one()
-        self.assertEqual(reconciliation.commission_amount, Decimal("62.00"))
-        self.assertEqual(reconciliation.net_amount, Decimal("1938.00"))
+        self.assertEqual(reconciliation.commission_amount, Decimal("68.20"))
+        self.assertEqual(reconciliation.commission_vat_amount, Decimal("6.20"))
+        self.assertEqual(reconciliation.net_amount, Decimal("1931.80"))
         self.assertEqual(reconciliation.expected_settlement_date, date(2026, 9, 18))
 
     def test_repeated_card_sale_sync_is_idempotent(self):

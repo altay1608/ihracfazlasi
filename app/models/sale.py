@@ -39,6 +39,7 @@ class Sale(db.Model):
     currency_code = db.Column(db.String(3), nullable=False, default="TRY")
     revision_no = db.Column(db.Integer, nullable=False, default=1)
     payment_method = db.Column(db.String(30), nullable=False)
+    payment_due_date = db.Column(db.Date, nullable=True, index=True)
     customer_name = db.Column(db.String(150), nullable=True)
     customer_phone = db.Column(db.String(40), nullable=True)
     customer_mobile = db.Column(db.String(40), nullable=True)
@@ -96,6 +97,7 @@ class Sale(db.Model):
     def payment_status_label(self):
         return {
             "PAID": "Ödendi",
+            "OPEN": "Veresiye Açık",
             "PARTIALLY_REFUNDED": "Kısmi Geri Ödeme",
             "REFUNDED": "Geri Ödendi",
             "VOIDED": "İptal Edildi",
