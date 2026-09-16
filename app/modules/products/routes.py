@@ -787,7 +787,7 @@ def process_template_upload(uploaded_file):
             continue
 
         name, category_name, purchase_price, multiplier_name, _sale_price_display, stock_quantity, variants_value, critical_stock_level, barcode_mode = values
-        if not all([name, purchase_price, stock_quantity]):
+        if not name or purchase_price == "" or stock_quantity == "":
             result["skipped"] += 1
             result["errors"].append(f"Satır {row_index}: zorunlu alanlar eksik.")
             continue
