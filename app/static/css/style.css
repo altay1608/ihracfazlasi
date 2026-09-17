@@ -5011,6 +5011,7 @@ th:hover .table-column-resize-handle::after,
 
 .compact-fashion-label-product-copy {
     min-width: 0;
+    overflow: hidden;
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -5033,11 +5034,27 @@ th:hover .table-column-resize-handle::after,
     line-height: 1.05;
     font-weight: 900;
     color: #121212;
+    display: block;
+    max-height: 7.1mm;
     overflow: hidden;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
+    overflow-wrap: anywhere;
+    word-break: break-word;
     text-align: left;
+}
+
+.compact-fashion-label-name.is-medium {
+    font-size: 3mm;
+    line-height: 1.08;
+}
+
+.compact-fashion-label-name.is-long {
+    font-size: 2.65mm;
+    line-height: 1.1;
+}
+
+.compact-fashion-label-name.is-extra-long {
+    font-size: 2.3mm;
+    line-height: 1.12;
 }
 
 .compact-fashion-label-category {
@@ -6268,6 +6285,8 @@ th:hover .table-column-resize-handle::after,
         height: 50mm;
         min-height: 50mm;
         margin: 0;
+        print-color-adjust: exact;
+        -webkit-print-color-adjust: exact;
     }
 
     .compact-label-print-page .label-sheet,
@@ -6306,6 +6325,17 @@ th:hover .table-column-resize-handle::after,
     .bulk-label-print-page .bulk-label-item:last-child {
         break-after: auto;
         page-break-after: auto;
+    }
+
+    /* Keep the physical page at 50x50 mm, but leave a 0.8 mm safety inset.
+       Thermal printer drivers commonly reserve a small non-printable edge. */
+    .compact-label-print-page .compact-fashion-label {
+        width: 48.4mm;
+        max-width: 48.4mm;
+        height: 48.4mm;
+        min-height: 48.4mm;
+        margin: 0.8mm auto;
+        border-radius: 0.8mm;
     }
 }
 

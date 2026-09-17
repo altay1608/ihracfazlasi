@@ -1,5 +1,6 @@
 {% set variant_value = (product.variant or "Standart")|trim %}
 {% set product_name = (product.name or "")|trim %}
+{% set product_name_length = product_name|length %}
 {% set product_code = (product.product_code or barcode_value or "")|trim %}
 {% set barcode_caption = (barcode_value or product_code)|trim %}
 <article class="label-card compact-fashion-label">
@@ -9,7 +10,7 @@
     <div class="compact-fashion-label-product">
         <div class="compact-fashion-label-product-copy">
             <span class="compact-fashion-label-kicker">ÜRÜN</span>
-            <div class="compact-fashion-label-name" title="{{ product_name }}">{{ product_name }}</div>
+            <div class="compact-fashion-label-name{% if product_name_length > 42 %} is-extra-long{% elif product_name_length > 28 %} is-long{% elif product_name_length > 18 %} is-medium{% endif %}" title="{{ product_name }}">{{ product_name }}</div>
             <div class="compact-fashion-label-category">{{ product.category or 'Giyim' }}</div>
         </div>
         <div class="compact-fashion-label-size">
