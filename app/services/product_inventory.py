@@ -16,13 +16,15 @@ def get_next_product_code(site_id=None):
     resolved_site_id = int(site_id or get_active_site_id())
     max_code = MIN_PRODUCT_CODE - 1
 
-    for (value,) in db.session.query(Product.product_code).filter(Product.site_id == resolved_site_id).all():
-        if value and str(value).isdigit():
-            max_code = max(max_code, int(value))
-
-    for (value,) in db.session.query(Product.barcode).filter(Product.site_id == resolved_site_id).all():
-        if value and str(value).isdigit():
-            max_code = max(max_code, int(value))
+    values = (
+        db.session.query(Product.product_code, Product.barcode)
+        .filter(Product.site_id == resolved_site_id)
+        .all()
+    )
+    for product_code, barcode in values:
+        for value in (product_code, barcode):
+            if value and str(value).isdigit():
+                max_code = max(max_code, int(value))
 
     return str(max(MIN_PRODUCT_CODE, max_code + 1))
 

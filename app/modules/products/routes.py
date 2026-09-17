@@ -299,6 +299,8 @@ def add():
             else:
                 created_products = []
                 next_product_code = product_code
+                used_product_codes = {product_code}
+                automatic_code = int(get_next_product_code()) if len(selected_variants) > 1 else None
                 for selected_variant in selected_variants:
                     variant_payload = dict(payload)
                     variant_payload.update(
@@ -320,7 +322,12 @@ def add():
                         source_reference=f"Ürün #{product.id}",
                     )
                     created_products.append(product)
-                    next_product_code = get_next_product_code()
+                    if automatic_code is not None:
+                        while str(automatic_code) in used_product_codes:
+                            automatic_code += 1
+                        next_product_code = str(automatic_code)
+                        used_product_codes.add(next_product_code)
+                        automatic_code += 1
 
                 db.session.commit()
                 created_product_ids = [product.id for product in created_products]
