@@ -413,15 +413,32 @@ function initializeProductForms(root = document) {
         const productNameInput = form.querySelector('input[name="name"]');
 
         if (productNameInput) {
-            const normalizeProductName = () => {
+            const normalizeProductName = (event) => {
+                if (event?.isComposing) {
+                    return;
+                }
                 const turkishUpper = { i: "İ", ı: "I" };
+                const selectionStart = productNameInput.selectionStart;
+                const selectionEnd = productNameInput.selectionEnd;
                 const normalized = productNameInput.value
-                    .split(/\s+/)
-                    .filter(Boolean)
-                    .map((word) => (turkishUpper[word[0]] || word[0].toUpperCase()) + word.slice(1).toLowerCase())
-                    .join(" ");
+                    .split(/(\s+)/)
+                    .map((part) => {
+                        if (!part || /^\s+$/.test(part)) {
+                            return part;
+                        }
+                        return (turkishUpper[part[0]] || part[0].toLocaleUpperCase("tr-TR"))
+                            + part.slice(1).toLocaleLowerCase("tr-TR");
+                    })
+                    .join("");
                 if (productNameInput.value !== normalized) {
                     productNameInput.value = normalized;
+                    if (
+                        document.activeElement === productNameInput
+                        && selectionStart !== null
+                        && selectionEnd !== null
+                    ) {
+                        productNameInput.setSelectionRange(selectionStart, selectionEnd);
+                    }
                 }
             };
             productNameInput.addEventListener("input", normalizeProductName);
