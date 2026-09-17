@@ -11,7 +11,7 @@ from app.services.product_inventory import (
     get_customer_gross_amount,
     round_signed_customer_price,
 )
-from app.utils import end_of_day, parse_iso_date, quantize_amount, start_of_day
+from app.utils import end_of_day, istanbul_day_start_utc, parse_iso_date, quantize_amount, start_of_day, utc_to_istanbul
 
 
 ZERO = Decimal("0.00")
@@ -476,20 +476,27 @@ def get_dashboard_metrics(today=None):
 
 def get_last_7_days_sales():
     today = date.today()
+    first_day = today - timedelta(days=6)
+    sales = (
+        Sale.query.with_entities(Sale.sale_date, Sale.total_amount)
+        .filter(
+            Sale.sale_date >= istanbul_day_start_utc(first_day),
+            Sale.sale_date < istanbul_day_start_utc(today + timedelta(days=1)),
+        )
+        .all()
+    )
+    daily_totals = {}
+    for sale_date, total_amount in sales:
+        business_day = utc_to_istanbul(sale_date).date()
+        daily_totals[business_day] = daily_totals.get(business_day, ZERO) + Decimal(total_amount or 0)
+
     rows = []
     for offset in range(6, -1, -1):
         current_day = today - timedelta(days=offset)
-        start = start_of_day(current_day)
-        end = end_of_day(current_day)
-        revenue = (
-            Sale.query.with_entities(func.coalesce(func.sum(Sale.total_amount), 0))
-            .filter(Sale.sale_date >= start, Sale.sale_date <= end)
-            .scalar()
-        )
         rows.append(
             {
                 "label": current_day.strftime("%d.%m"),
-                "value": float(quantize_amount(revenue or 0)),
+                "value": float(quantize_amount(daily_totals.get(current_day, ZERO))),
             }
         )
     return rows

@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 import os
 
-from flask import has_request_context, session
+from flask import g, has_request_context, session
 from sqlalchemy import func, inspect
 from sqlalchemy.exc import SQLAlchemyError
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -24,21 +24,32 @@ class AuthenticatedIdentity:
 
 
 def _users_table_exists():
+    if has_request_context() and hasattr(g, "_users_table_exists"):
+        return g._users_table_exists
     try:
-        return inspect(db.engine).has_table("users")
+        exists = inspect(db.engine).has_table("users")
     except SQLAlchemyError:
         db.session.rollback()
-        return False
+        exists = False
+    if has_request_context():
+        g._users_table_exists = exists
+    return exists
 
 
 def _database_has_users():
+    if has_request_context() and hasattr(g, "_database_has_users"):
+        return g._database_has_users
     if not _users_table_exists():
-        return False
-    try:
-        return db.session.query(User.id).limit(1).first() is not None
-    except SQLAlchemyError:
-        db.session.rollback()
-        return False
+        has_users = False
+    else:
+        try:
+            has_users = db.session.query(User.id).limit(1).first() is not None
+        except SQLAlchemyError:
+            db.session.rollback()
+            has_users = False
+    if has_request_context():
+        g._database_has_users = has_users
+    return has_users
 
 
 def database_authentication_active():
@@ -153,15 +164,25 @@ def apply_identity_session(identity):
 def get_current_user():
     if not has_request_context():
         return None
+    if hasattr(g, "_current_user_resolved"):
+        return g.current_user
     user_id = session.get("auth_user_id")
-    if not user_id or not _users_table_exists():
+    if not user_id:
+        g._current_user_resolved = True
+        g.current_user = None
         return None
     try:
         user = db.session.get(User, int(user_id))
     except (SQLAlchemyError, TypeError, ValueError):
         db.session.rollback()
-        return None
-    return user if user and user.is_active else None
+        user = None
+    resolved_user = user if user and user.is_active else None
+    g._current_user_resolved = True
+    g.current_user = resolved_user
+    if resolved_user is not None:
+        g._users_table_exists = True
+        g._database_has_users = True
+    return resolved_user
 
 
 def session_scope_is_valid(user):
@@ -183,6 +204,7 @@ def session_scope_is_valid(user):
     )
     if membership is None:
         return False
+    g.active_membership = membership
 
     site = db.session.get(Site, active_site_id)
     if site is None or int(session.get("site_session_revision") or 0) != int(site.session_revision or 1):
@@ -191,6 +213,8 @@ def session_scope_is_valid(user):
     store = db.session.get(Store, active_store_id)
     if store is None or not store.is_active or store.site_id != active_site_id:
         return False
+    g.active_site = site
+    g.active_store = store
     if membership.all_stores:
         return True
     return any(access.store_id == active_store_id for access in user.store_access)

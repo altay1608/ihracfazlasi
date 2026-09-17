@@ -144,9 +144,9 @@ def register_auth_guard(app):
         if request.endpoint is None:
             return None
         if session.get("auth_user"):
-            if not database_authentication_active():
-                return None
             current_user = get_current_user()
+            if current_user is None and not session.get("auth_user_id") and not database_authentication_active():
+                return None
             if current_user is not None and session_scope_is_valid(current_user):
                 g.current_user = current_user
                 if (
@@ -220,6 +220,13 @@ def register_security_headers(app):
         response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
         if request.endpoint and request.endpoint.startswith(("auth.", "audit.")):
             response.headers.setdefault("Cache-Control", "no-store")
+        elif request.endpoint == "static":
+            # Sürüm parametreli dosyalar içerik değiştiğinde yeni URL alır;
+            # tarayıcı bunları güvenle uzun süre yeniden indirmeden kullanabilir.
+            if request.args.get("v"):
+                response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+            else:
+                response.headers["Cache-Control"] = "public, max-age=86400"
         return response
 
 

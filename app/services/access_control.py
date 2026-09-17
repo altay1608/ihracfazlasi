@@ -82,12 +82,15 @@ LANDING_PAGES = (
 def _active_membership(user):
     if user is None:
         return None
+    cached_membership = getattr(g, "active_membership", None) if has_request_context() else None
+    if cached_membership is not None and cached_membership.user_id == user.id:
+        return cached_membership
     try:
         site_id = int(session.get("active_site_id"))
         role_id = int(session.get("active_role_id"))
     except (TypeError, ValueError):
         return None
-    return next(
+    membership = next(
         (
             membership
             for membership in user.memberships
@@ -99,6 +102,9 @@ def _active_membership(user):
         ),
         None,
     )
+    if membership is not None and has_request_context():
+        g.active_membership = membership
+    return membership
 
 
 def effective_permission_codes(user=None):
@@ -209,17 +215,20 @@ def register_permission_guard(app):
     @app.context_processor
     def permission_context():
         current_user = get_current_user()
-        active_site = None
-        active_store = None
+        active_site = getattr(g, "active_site", None)
+        active_store = getattr(g, "active_store", None)
         active_location_label = None
         active_location_title = None
-        if current_user is not None:
+        if current_user is not None and (active_site is None or active_store is None):
             try:
                 active_site = db.session.get(Site, int(session.get("active_site_id")))
                 active_store = db.session.get(Store, int(session.get("active_store_id")))
             except (TypeError, ValueError):
                 active_site = None
                 active_store = None
+            else:
+                g.active_site = active_site
+                g.active_store = active_store
 
         if active_site is not None and active_store is not None:
             membership = _active_membership(current_user)

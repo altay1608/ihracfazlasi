@@ -40,6 +40,7 @@ class ProductForm(FlaskForm):
     critical_stock_level = IntegerField("Ürün Bazlı KSS", validators=[Optional(), NumberRange(min=0)])
     barcode_mode = SelectField(
         "Barkod Tipi",
+        default="unit",
         choices=[
             ("unit", "Her adet için ayrı barkod (kıyafet)"),
             ("shared", "Tek ortak barkod (parfüm/aksesuar)"),

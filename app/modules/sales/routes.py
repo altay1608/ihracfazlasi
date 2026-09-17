@@ -179,7 +179,7 @@ def build_sale_receipt_context(sale):
         "vat_amount": breakdown["vat_amount"],
         "line_items": line_items,
         "print_time": now.strftime("%H:%M"),
-        "payment_due_date": sale.payment_due_date,
+        "payment_due_date": getattr(sale, "payment_due_date", None),
     }
 
 
