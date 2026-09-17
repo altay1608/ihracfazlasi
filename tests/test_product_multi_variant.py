@@ -44,6 +44,14 @@ class ProductMultiVariantTests(unittest.TestCase):
         self.assertNotIn('value="29"', form_html)
         self.assertNotIn('value="44"', form_html)
         self.assertNotIn('value="60"', form_html)
+        self.assertIn('<option selected value="Tişört">Tişört</option>', form_html)
+
+        with self.app.app_context():
+            preferred_multiplier = RetailMultiplier.query.filter_by(multiplier=3.25).one()
+            self.assertIn(
+                f'<option selected value="{preferred_multiplier.id}">Pro 3.25 (3.25x)</option>',
+                form_html,
+            )
 
         with self.app.app_context():
             multiplier_id = RetailMultiplier.query.filter_by(is_default=True).one().id

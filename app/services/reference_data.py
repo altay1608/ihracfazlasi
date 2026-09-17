@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from flask import g, has_request_context
 from sqlalchemy.exc import OperationalError
 
@@ -46,7 +48,9 @@ DEFAULT_RETAIL_MULTIPLIERS = [
     ("Standart 1.80x", 1.80, True),
     ("Premium 2.00x", 2.00, False),
     ("Luxury 2.25x", 2.25, False),
+    ("Pro 3.25", 3.25, False),
 ]
+PREFERRED_PRODUCT_MULTIPLIER = Decimal("3.25")
 
 
 def ensure_reference_data():
@@ -113,6 +117,23 @@ def ensure_reference_data():
                 first_multiplier.is_default = True
                 changed = True
 
+        preferred_multiplier = RetailMultiplier.query.filter(
+            RetailMultiplier.multiplier == PREFERRED_PRODUCT_MULTIPLIER
+        ).order_by(RetailMultiplier.id.asc()).first()
+        if preferred_multiplier is None:
+            db.session.add(
+                RetailMultiplier(
+                    name="Pro 3.25",
+                    multiplier=PREFERRED_PRODUCT_MULTIPLIER,
+                    is_active=True,
+                    is_default=False,
+                )
+            )
+            changed = True
+        elif not preferred_multiplier.is_active:
+            preferred_multiplier.is_active = True
+            changed = True
+
         if changed:
             db.session.commit()
         if has_request_context():
@@ -173,4 +194,18 @@ def get_default_retail_multiplier():
     return (
         RetailMultiplier.query.filter_by(is_default=True).order_by(RetailMultiplier.id.asc()).first()
         or RetailMultiplier.query.order_by(RetailMultiplier.multiplier.asc(), RetailMultiplier.id.asc()).first()
+    )
+
+
+def get_preferred_product_multiplier():
+    """Return the 3.25 product-entry multiplier, falling back safely."""
+    ensure_reference_data()
+    return (
+        RetailMultiplier.query.filter(
+            RetailMultiplier.multiplier == PREFERRED_PRODUCT_MULTIPLIER,
+            RetailMultiplier.is_active.is_(True),
+        )
+        .order_by(RetailMultiplier.id.asc())
+        .first()
+        or get_default_retail_multiplier()
     )

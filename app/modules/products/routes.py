@@ -40,6 +40,7 @@ from app.services.reference_data import (
     ensure_reference_data,
     get_category_choices,
     get_default_retail_multiplier,
+    get_preferred_product_multiplier,
     get_retail_multiplier_choices,
     get_variant_choices,
 )
@@ -163,7 +164,16 @@ def render_upload_modal(result=None, status_code=200):
 
 
 def populate_product_form_defaults(form, product=None):
-    default_multiplier = get_default_retail_multiplier()
+    default_multiplier = (
+        get_default_retail_multiplier()
+        if product is not None
+        else get_preferred_product_multiplier()
+    )
+
+    if product is None and not (form.category.data or "").strip():
+        category_values = {value for value, _label in form.category.choices}
+        if "Tişört" in category_values:
+            form.category.data = "Tişört"
 
     if not (form.product_code.data or "").strip():
         form.product_code.data = product.product_code if product else get_next_product_code()
