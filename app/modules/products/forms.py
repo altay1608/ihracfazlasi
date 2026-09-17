@@ -36,7 +36,7 @@ class ProductForm(FlaskForm):
         rounding=None,
         validators=[DataRequired(), NumberRange(min=0)],
     )
-    stock_quantity = IntegerField("Stok", validators=[DataRequired(), NumberRange(min=0)])
+    stock_quantity = IntegerField("Stok", default=1, validators=[DataRequired(), NumberRange(min=0)])
     critical_stock_level = IntegerField("Ürün Bazlı KSS", validators=[Optional(), NumberRange(min=0)])
     barcode_mode = SelectField(
         "Barkod Tipi",
