@@ -2,7 +2,7 @@ from datetime import date, timedelta
 from decimal import Decimal
 from types import SimpleNamespace
 
-from sqlalchemy import func
+from sqlalchemy import and_, func
 from sqlalchemy.orm import joinedload
 
 from app.models import Category, Product, Return, ReturnItem, Sale, SaleItem, StoreInventory
@@ -410,8 +410,21 @@ def get_return_records_for_sales(start, end, sale_ids):
 
 
 def get_low_stock_products(threshold):
+    effective_threshold = func.coalesce(
+        Product.critical_stock_level,
+        Category.critical_stock_level,
+        int(threshold),
+    )
     products = (
         Product.query.join(StoreInventory, StoreInventory.product_id == Product.id)
+        .outerjoin(
+            Category,
+            and_(
+                Category.site_id == Product.site_id,
+                Category.name == Product.category,
+            ),
+        )
+        .filter(StoreInventory.stock_quantity <= effective_threshold)
         .order_by(StoreInventory.stock_quantity.asc(), Product.name.asc())
         .all()
     )

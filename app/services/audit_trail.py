@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from time import monotonic
+
 from flask import current_app, has_request_context, request, session
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -9,6 +11,12 @@ from app.models import AuditLog, SystemSetting
 
 AUDIT_ENDPOINT_PAUSE_PREFIX = "audit_endpoint_paused:"
 EXCLUDED_ENDPOINTS = {"static", "service_worker", "health"}
+PAUSED_ENDPOINT_CACHE_SECONDS = 30
+_paused_endpoint_cache: dict[tuple[int, int], tuple[float, frozenset[str]]] = {}
+
+
+def _paused_cache_key(site_id: int) -> tuple[int, int]:
+    return id(current_app._get_current_object()), site_id
 
 
 def get_client_ip() -> str:
@@ -73,16 +81,22 @@ def get_paused_audit_endpoints(site_id: int | None = None) -> set[str]:
     resolved_site_id = _active_audit_site_id(site_id)
     if resolved_site_id is None:
         return set()
+    cache_key = _paused_cache_key(resolved_site_id)
+    cached = _paused_endpoint_cache.get(cache_key)
+    if cached is not None and monotonic() - cached[0] < PAUSED_ENDPOINT_CACHE_SECONDS:
+        return set(cached[1])
     setting_prefix = _site_pause_prefix(resolved_site_id)
     settings = SystemSetting.query.filter(
         SystemSetting.key.like(f"{setting_prefix}%"),
         SystemSetting.value == "1",
     ).all()
-    return {
+    paused = {
         setting.key[len(setting_prefix):]
         for setting in settings
         if setting.key[len(setting_prefix):]
     }
+    _paused_endpoint_cache[cache_key] = (monotonic(), frozenset(paused))
+    return paused
 
 
 def is_audit_endpoint_paused(endpoint: str | None) -> bool:
@@ -96,6 +110,7 @@ def set_audit_endpoint_paused(endpoint: str, paused: bool, site_id: int | None =
     resolved_site_id = _active_audit_site_id(site_id)
     if resolved_site_id is None:
         raise ValueError("Ekran kayıt tercihi için aktif site bulunamadı.")
+    _paused_endpoint_cache.pop(_paused_cache_key(resolved_site_id), None)
 
     setting_key = f"{_site_pause_prefix(resolved_site_id)}{endpoint}"
     setting = db.session.get(SystemSetting, setting_key)

@@ -4,6 +4,7 @@ import os
 from decimal import Decimal
 
 from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.extensions import db
 from app.models import FinanceActivation, Package, Site, Store, SystemSetting
@@ -11,6 +12,27 @@ from app.models import FinanceActivation, Package, Site, Store, SystemSetting
 
 DELIVERY_RESET_VERSION = "customer_delivery_operational_reset_20260916_v2"
 AUTOMATIC_SCHEMA_VERSION = "automatic_schema_bootstrap_20260917_v3"
+DEPLOYMENT_READY_VERSION = "deployment_ready_20260917_v1"
+
+
+def ensure_deployment_ready():
+    """Run managed-deployment setup once, with a one-query cold-start fast path."""
+    try:
+        if db.session.get(SystemSetting, DEPLOYMENT_READY_VERSION) is not None:
+            return False
+    except SQLAlchemyError:
+        # Brand-new databases do not have system_settings yet.
+        db.session.rollback()
+        db.create_all()
+
+    ensure_automatic_pos_schema()
+    customer_site, _customer_store = ensure_deployment_store()
+    reset_customer_delivery_data_once(customer_site.id)
+
+    if db.session.get(SystemSetting, DEPLOYMENT_READY_VERSION) is None:
+        db.session.add(SystemSetting(key=DEPLOYMENT_READY_VERSION, value="completed"))
+        db.session.commit()
+    return True
 
 
 def ensure_automatic_pos_schema():
@@ -57,7 +79,8 @@ def reset_customer_delivery_data_once(site_id):
         db.session.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": 16092026})
     existing_marker = db.session.get(SystemSetting, marker_key)
     if existing_marker is not None:
-        db.session.commit()
+        # Release the advisory transaction without an unnecessary write commit.
+        db.session.rollback()
         return False
 
     params = {"site_id": int(site_id)}
