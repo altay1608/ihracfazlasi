@@ -104,6 +104,7 @@ def prepare_customer_order(order):
     lines = _active_lines(order)
     for line_no, line in enumerate(lines, start=1):
         product = line.product
+        line.line_type = line.line_type or "sale"
         line.line_no = line_no
         line.release_no = line.release_no or 1
         line.line_status = LINE_STATUS_DELIVERED
@@ -116,9 +117,13 @@ def prepare_customer_order(order):
         line.product_category_snapshot = product.category
         line.unit_cost_snapshot = quantize_amount(product.purchase_price or 0)
         line.vat_rate = VAT_RATE * 100
+        if line.line_type != "sale":
+            line.discount_amount = Decimal("0.00")
+            line.header_discount_amount = Decimal("0.00")
+            line.rounding_adjustment_amount = Decimal("0.00")
 
     line_discount_total = sum(
-        (quantize_amount(line.discount_amount or 0) for line in lines),
+        (quantize_amount(line.discount_amount or 0) for line in lines if line.line_type == "sale"),
         Decimal("0.00"),
     )
     header_discount = max(
@@ -131,6 +136,7 @@ def prepare_customer_order(order):
             quantize_amount((line.unit_price * line.quantity) - (line.discount_amount or 0)),
         )
         for line in lines
+        if line.line_type == "sale"
     ]
     allocations = _allocate_amount(header_discount, weighted_lines)
 

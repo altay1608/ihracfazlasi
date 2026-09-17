@@ -64,13 +64,13 @@
                     {% for item in sale.items %}
                     <tr>
                         <td>{{ item.line_no }}.{{ item.release_no }}</td>
-                        <td>{{ item.status_label }}</td>
+                        <td>{{ item.status_label }}{% if item.line_type != 'sale' %}<br><span class="status-badge warning">{{ item.line_type_label }}</span>{% endif %}</td>
                         <td>{{ item.product_name_snapshot }}{% if item.product_variant_snapshot %} / {{ item.product_variant_snapshot }}{% endif %}</td>
                         <td>{{ item.quantity }}</td>
                         <td>{{ item.returned_quantity }}</td>
-                        <td>{{ item.unit_price|currency }}</td>
+                        <td>{% if item.line_type == 'sale' %}{{ item.unit_price|currency }}{% else %}-{% endif %}</td>
                         <td>{{ item.discount_amount|currency }}</td>
-                        <td>{{ item.gross_amount|currency }}</td>
+                        <td>{% if item.line_type == 'sale' %}{{ item.gross_amount|currency }}{% else %}{{ item.line_type_label }}{% endif %}</td>
                     </tr>
                     {% endfor %}
                 </tbody>

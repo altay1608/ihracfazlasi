@@ -29,6 +29,33 @@ class ProfitReportTests(unittest.TestCase):
         self.assertEqual(row.cost_profit_rate, Decimal("125.00"))
         self.assertEqual(row.sales_margin_rate, Decimal("55.56"))
 
+    def test_gift_line_reduces_profit_without_creating_revenue(self):
+        product = SimpleNamespace(
+            id=2,
+            name="Hediye Parfüm",
+            variant=None,
+            purchase_price=Decimal("50.00"),
+        )
+        sale = SimpleNamespace(
+            total_amount=Decimal("0.00"),
+            total_discount=Decimal("0.00"),
+            items=[
+                SimpleNamespace(
+                    product=product,
+                    quantity=1,
+                    unit_price=Decimal("100.00"),
+                    discount_amount=Decimal("0.00"),
+                    line_type="gift",
+                )
+            ],
+        )
+
+        row = build_profit_product_rows([sale])[0]
+
+        self.assertEqual(row.net_revenue, Decimal("0.00"))
+        self.assertEqual(row.cost, Decimal("55.00"))
+        self.assertEqual(row.profit, Decimal("-55.00"))
+
     def test_return_refunds_are_reported_as_customer_gross_amounts(self):
         return_items = [
             SimpleNamespace(refund_amount=Decimal("477.27")),

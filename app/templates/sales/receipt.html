@@ -51,8 +51,12 @@
                     <div class="thermal-product-name">{{ loop.index }}. {{ item.name }}</div>
                     <div class="thermal-product-meta">
                         <span>{{ item.quantity }} ADET</span>
+                        {% if item.line_type == 'sale' %}
                         <span>KDV %{{ item.vat_rate }}</span>
                         <strong>{{ item.gross_total|currency }}</strong>
+                        {% else %}
+                        <strong>{{ item.line_type_label|upper }}</strong>
+                        {% endif %}
                     </div>
                 </article>
                 {% endfor %}

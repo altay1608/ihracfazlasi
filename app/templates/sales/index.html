@@ -54,6 +54,7 @@
                     </td>
                     <td>
                         <strong>{{ item.product_name_snapshot }}</strong>
+                        {% if item.line_type != 'sale' %}<span class="status-badge warning">{{ item.line_type_label }}</span>{% endif %}
                         {% if item.product_variant_snapshot %}<div class="muted-text">{{ item.product_variant_snapshot }}</div>{% endif %}
                         <div class="muted-text">{{ item.product_code_snapshot }}</div>
                     </td>

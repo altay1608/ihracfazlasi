@@ -396,12 +396,16 @@ def resolve_replacement_barcodes(lookup_value, quantity):
 
 
 def get_sale_item_net_total(sale_item):
+    if getattr(sale_item, "line_type", "sale") != "sale":
+        return Decimal("0.00")
     gross_line = quantize_amount(sale_item.unit_price * sale_item.quantity)
     line_discount = quantize_amount(sale_item.discount_amount or 0)
     return quantize_amount(gross_line - line_discount)
 
 
 def calculate_return_item_net_refund(sale, sale_item, quantity):
+    if getattr(sale_item, "line_type", "sale") != "sale":
+        return Decimal("0.00")
     base_refund = quantize_amount(sale_item.unit_price * quantity)
     line_discount_share = quantize_amount(
         (sale_item.discount_amount / sale_item.quantity) * quantity if sale_item.quantity else 0

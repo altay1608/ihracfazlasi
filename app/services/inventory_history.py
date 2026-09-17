@@ -16,6 +16,8 @@ TRANSACTION_TYPES = {
     "manual_out": ("MANUAL-REM", "Manuel Stok Azalışı"),
     "import_opening": ("IMPORT-REC", "Excel Açılış Stok Girişi"),
     "sale_out": ("SALE-OUT", "Satış Çıkışı"),
+    "gift_out": ("GIFT-OUT", "Müşteri Hediyesi / Promosyon"),
+    "personal_out": ("PERSONAL-OUT", "Şahsi Kullanım Çıkışı"),
     "sale_update_in": ("SALE-REV", "Satış Düzenleme Girişi"),
     "sale_update_out": ("SALE-ADJ", "Satış Düzenleme Çıkışı"),
     "return_in": ("RETURN-REC", "İade Stok Girişi"),

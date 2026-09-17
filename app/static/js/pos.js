@@ -332,7 +332,9 @@
     function getSummary() {
         let subtotal = 0;
         cart.forEach((item) => {
-            subtotal += Number(item.unit_price) * Number(item.quantity);
+            if ((item.line_type || "sale") === "sale") {
+                subtotal += Number(item.unit_price) * Number(item.quantity);
+            }
         });
 
         subtotal = roundAmount(subtotal);
@@ -391,7 +393,11 @@
         }
 
         cart.forEach((item) => {
-            const lineTotal = roundAmount(Number(item.unit_price) * Number(item.quantity));
+            const lineType = item.line_type || "sale";
+            const isPaidLine = lineType === "sale";
+            const lineTotal = isPaidLine
+                ? roundAmount(Number(item.unit_price) * Number(item.quantity))
+                : 0;
             const scannedPairs = (item.scanned_barcodes || []).map((barcodeValue, index) => {
                 const barcodeId = item.scanned_barcode_ids?.[index];
                 if (!barcodeId) {
@@ -419,20 +425,37 @@
             const removeButton = lineEditsLocked
                 ? ""
                 : '<button type="button" class="ghost-button" data-action="remove">Sil</button>';
+            const lineTypeEditor = lineEditsLocked
+                ? `<div class="muted">${lineType === "gift" ? "Hediye" : (lineType === "personal" ? "Şahsi Kullanım" : "Normal Satış")}</div>`
+                : `
+                    <label class="cart-line-type-label">
+                        İşlem Türü
+                        <select data-action="line-type" aria-label="${item.name} işlem türü">
+                            <option value="sale" ${lineType === "sale" ? "selected" : ""}>Normal Satış</option>
+                            <option value="gift" ${lineType === "gift" ? "selected" : ""}>Hediye</option>
+                            <option value="personal" ${lineType === "personal" ? "selected" : ""}>Şahsi Kullanım</option>
+                        </select>
+                    </label>
+                `;
             row.innerHTML = `
                 <td>
                     <strong>${item.name}</strong>
                     <div class="muted">${item.variant || ""}</div>
                     <div class="muted">Malzeme Kodu: ${item.product_code || "-"}</div>
                     ${scannedMarkup}
+                    ${lineTypeEditor}
                 </td>
                 <td>${quantityEditor}</td>
-                <td>${formatCurrency(item.unit_price)}</td>
-                <td>${formatCurrency(lineTotal)}</td>
+                <td>${isPaidLine ? formatCurrency(item.unit_price) : "-"}</td>
+                <td>${isPaidLine ? formatCurrency(lineTotal) : `<strong>${lineType === "gift" ? "HEDİYE" : "ŞAHSİ KULLANIM"}</strong>`}</td>
                 <td>${removeButton}</td>
             `;
 
             row.querySelector('[data-action="decrease"]')?.addEventListener("click", () => mutateQuantity(item.id, item.quantity - 1));
+            row.querySelector('[data-action="line-type"]')?.addEventListener("change", (event) => {
+                item.line_type = event.target.value || "sale";
+                renderCart();
+            });
             row.querySelector('[data-action="remove"]')?.addEventListener("click", () => {
                 cart.delete(item.id);
                 renderCart();
@@ -477,6 +500,7 @@
                 quantity: 1,
                 unit_price: Number(product.sale_price),
                 product_code: product.product_code || "",
+                line_type: "sale",
                 max_quantity: Number(product.stock_quantity || 0),
                 scanned_barcodes: product.barcode ? [product.barcode] : [],
                 scanned_barcode_ids: product.barcode_id ? [product.barcode_id] : []
@@ -496,6 +520,7 @@
                 quantity: Number(item.quantity || 1),
                 unit_price: Number(item.unit_price || 0),
                 product_code: item.product_code || "",
+                line_type: item.line_type || "sale",
                 max_quantity: Number(item.max_quantity || item.quantity || 1),
                 scanned_barcodes: item.scanned_barcodes || [],
                 scanned_barcode_ids: item.scanned_barcode_ids || []
@@ -659,6 +684,7 @@
             quantity: Number(item.quantity),
             unit_price: Number(item.unit_price),
             discount_amount: 0,
+            line_type: item.line_type || "sale",
             scanned_barcodes: item.scanned_barcodes || []
         }));
 

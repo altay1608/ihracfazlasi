@@ -19,6 +19,7 @@ from app.modules.sales.routes import (
     get_sale_edit_discount_amount,
 )
 from app.services.product_inventory import reserve_barcodes_for_sale, sync_product_barcodes
+from app.services.customer_orders import prepare_customer_order
 from config import BaseConfig
 
 
@@ -108,6 +109,84 @@ class SalesVatTests(unittest.TestCase):
             receipt = build_sale_receipt_context(sale)
 
         self.assertEqual(receipt["print_time"], "14:37")
+
+    def test_gift_and_personal_lines_are_free_on_same_receipt(self):
+        paid_product = SimpleNamespace(name="Tişört", variant="M")
+        gift_product = SimpleNamespace(name="Parfüm", variant=None)
+        personal_product = SimpleNamespace(name="Gömlek", variant="L")
+        sale = SimpleNamespace(
+            id=9,
+            document_no=9,
+            site=SimpleNamespace(code="TEST"),
+            sale_date=datetime(2026, 9, 17, 9, 0),
+            created_at=datetime(2026, 9, 17, 9, 0),
+            total_amount=Decimal("110.00"),
+            total_discount=Decimal("0.00"),
+            items=[
+                SimpleNamespace(
+                    quantity=1,
+                    line_total=Decimal("100.00"),
+                    discount_amount=Decimal("0.00"),
+                    gross_amount=Decimal("110.00"),
+                    line_type="sale",
+                    product=paid_product,
+                ),
+                SimpleNamespace(
+                    quantity=1,
+                    line_total=Decimal("0.00"),
+                    discount_amount=Decimal("0.00"),
+                    gross_amount=Decimal("0.00"),
+                    line_type="gift",
+                    product=gift_product,
+                ),
+                SimpleNamespace(
+                    quantity=1,
+                    line_total=Decimal("0.00"),
+                    discount_amount=Decimal("0.00"),
+                    gross_amount=Decimal("0.00"),
+                    line_type="personal",
+                    product=personal_product,
+                ),
+            ],
+        )
+
+        with self.app.test_request_context("/sales/9/receipt"):
+            receipt = build_sale_receipt_context(sale)
+
+        self.assertEqual(receipt["net_subtotal"], Decimal("100.00"))
+        self.assertEqual(receipt["vat_amount"], Decimal("10.00"))
+        self.assertEqual([row["line_type_label"] for row in receipt["line_items"]], [
+            "Normal Satış",
+            "Hediye",
+            "Şahsi Kullanım",
+        ])
+        self.assertEqual(receipt["line_items"][1]["gross_total"], Decimal("0.00"))
+
+    def test_mixed_order_allocates_money_only_to_paid_lines(self):
+        paid_product = Product(
+            product_code="PAID", barcode="990000000101", name="Ücretli Ürün", variant="M", category="Test",
+            purchase_price=Decimal("40.00"), sale_price=Decimal("100.00"),
+        )
+        gift_product = Product(
+            product_code="GIFT", barcode="990000000102", name="Hediye Ürün", variant=None, category="Test",
+            purchase_price=Decimal("25.00"), sale_price=Decimal("50.00"),
+        )
+        order = Sale(total_amount=Decimal("110.00"), total_discount=Decimal("0.00"), payment_method="Nakit")
+        paid_line = SaleItem(
+            product=paid_product, quantity=1, unit_price=Decimal("100.00"),
+            discount_amount=Decimal("0.00"), line_type="sale",
+        )
+        gift_line = SaleItem(
+            product=gift_product, quantity=1, unit_price=Decimal("50.00"),
+            discount_amount=Decimal("0.00"), line_type="gift",
+        )
+        order.items.extend([paid_line, gift_line])
+
+        prepare_customer_order(order)
+
+        self.assertEqual(paid_line.gross_amount, Decimal("110.00"))
+        self.assertEqual(gift_line.line_total, Decimal("0.00"))
+        self.assertEqual(gift_line.gross_amount, Decimal("0.00"))
 
     def test_pos_page_shows_ten_percent_vat_label(self):
         response = self.app.test_client().get("/sales/pos")

@@ -15,6 +15,14 @@ class PosReceiptAutoPrintTests(unittest.TestCase):
         self.assertIn("receiptWindow.location.replace(data.receipt_url)", source)
         self.assertIn("receiptWindow.close()", source)
 
+    def test_pos_supports_gift_and_personal_line_types(self):
+        source = (Path(__file__).resolve().parents[1] / "app/static/js/pos.js").read_text(encoding="utf-8")
+
+        self.assertIn('<option value="gift"', source)
+        self.assertIn('<option value="personal"', source)
+        self.assertIn('line_type: item.line_type || "sale"', source)
+        self.assertIn('(item.line_type || "sale") === "sale"', source)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -10,7 +10,7 @@ from app.models import FinanceActivation, Package, Site, Store, SystemSetting
 
 
 DELIVERY_RESET_VERSION = "customer_delivery_operational_reset_20260916_v2"
-AUTOMATIC_SCHEMA_VERSION = "automatic_schema_bootstrap_20260916_v2"
+AUTOMATIC_SCHEMA_VERSION = "automatic_schema_bootstrap_20260917_v3"
 
 
 def ensure_automatic_pos_schema():
@@ -25,6 +25,8 @@ def ensure_automatic_pos_schema():
         "ALTER TABLE finance_activations ADD COLUMN IF NOT EXISTS pos_settlement_days INTEGER NOT NULL DEFAULT 1",
         "ALTER TABLE finance_activations ADD COLUMN IF NOT EXISTS pos_bank_account_id INTEGER NULL",
         "ALTER TABLE sales ADD COLUMN IF NOT EXISTS payment_due_date DATE NULL",
+        "ALTER TABLE sale_items ADD COLUMN IF NOT EXISTS line_type VARCHAR(20) NOT NULL DEFAULT 'sale'",
+        "CREATE INDEX IF NOT EXISTS ix_sale_items_line_type ON sale_items (line_type)",
         "ALTER TABLE products ADD COLUMN IF NOT EXISTS barcode_mode VARCHAR(20) NOT NULL DEFAULT 'unit'",
         "ALTER TABLE inventory_count_scans DROP CONSTRAINT IF EXISTS uq_inventory_count_scans_count_barcode",
         "CREATE INDEX IF NOT EXISTS ix_sales_payment_due_date ON sales (payment_due_date)",

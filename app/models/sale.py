@@ -147,6 +147,7 @@ class SaleItem(db.Model):
     product_name_snapshot = db.Column(db.String(150), nullable=False)
     product_variant_snapshot = db.Column(db.String(120), nullable=True)
     product_category_snapshot = db.Column(db.String(100), nullable=False)
+    line_type = db.Column(db.String(20), nullable=False, default="sale", index=True)
 
     sale = db.relationship("Sale", back_populates="items")
     product = db.relationship("Product", back_populates="sale_items")
@@ -155,7 +156,17 @@ class SaleItem(db.Model):
 
     @property
     def line_total(self):
+        if (self.line_type or "sale") != "sale":
+            return Decimal("0.00")
         return (self.unit_price * self.quantity) - self.discount_amount
+
+    @property
+    def line_type_label(self):
+        return {
+            "sale": "Normal Satış",
+            "gift": "Hediye",
+            "personal": "Şahsi Kullanım",
+        }.get(self.line_type or "sale", self.line_type or "Normal Satış")
 
     @property
     def ordered_quantity(self):
@@ -172,6 +183,8 @@ class SaleItem(db.Model):
 
     @property
     def net_amount(self):
+        if (self.line_type or "sale") != "sale":
+            return Decimal("0.00")
         return (
             (self.unit_price * self.quantity)
             - self.discount_amount
@@ -180,12 +193,16 @@ class SaleItem(db.Model):
 
     @property
     def gross_amount(self):
+        if (self.line_type or "sale") != "sale":
+            return Decimal("0.00")
         return quantize_amount(
             self.net_amount * (Decimal("1.00") + (self.vat_rate / Decimal("100")))
         ) + self.rounding_adjustment_amount
 
     @property
     def gross_discount_amount(self):
+        if (self.line_type or "sale") != "sale":
+            return Decimal("0.00")
         net_discount = self.discount_amount + self.header_discount_amount
         return quantize_amount(
             net_discount * (Decimal("1.00") + (self.vat_rate / Decimal("100")))
@@ -220,6 +237,7 @@ def fill_customer_order_line_defaults(_mapper, connection, line):
     )
     line.returned_quantity = int(line.returned_quantity or 0)
     line.cancelled_quantity = int(line.cancelled_quantity or 0)
+    line.line_type = line.line_type if line.line_type in {"sale", "gift", "personal"} else "sale"
 
     product = line.product
     if product is not None:

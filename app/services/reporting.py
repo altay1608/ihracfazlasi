@@ -134,10 +134,24 @@ def build_profit_product_rows(sales, return_items=None):
     for sale in sales:
         sale_items = list(sale.items)
         sale_base_net = quantize_amount(
-            sum((item.unit_price * item.quantity for item in sale_items), ZERO)
+            sum(
+                (
+                    item.unit_price * item.quantity
+                    for item in sale_items
+                    if getattr(item, "line_type", "sale") == "sale"
+                ),
+                ZERO,
+            )
         )
         sale_line_discount = quantize_amount(
-            sum((item.discount_amount for item in sale_items), ZERO)
+            sum(
+                (
+                    item.discount_amount
+                    for item in sale_items
+                    if getattr(item, "line_type", "sale") == "sale"
+                ),
+                ZERO,
+            )
         )
         sale_total_discount = quantize_amount(sale.total_discount or 0)
         sale_footer_discount = quantize_amount(max(sale_total_discount - sale_line_discount, ZERO))
@@ -149,8 +163,9 @@ def build_profit_product_rows(sales, return_items=None):
 
         item_discount_weights = []
         for item in sale_items:
-            item_base_net = quantize_amount(item.unit_price * item.quantity)
-            item_line_discount = quantize_amount(item.discount_amount or 0)
+            is_paid_line = getattr(item, "line_type", "sale") == "sale"
+            item_base_net = quantize_amount(item.unit_price * item.quantity) if is_paid_line else ZERO
+            item_line_discount = quantize_amount(item.discount_amount or 0) if is_paid_line else ZERO
             item_discountable_base = quantize_amount(max(item_base_net - item_line_discount, ZERO))
             footer_share = (
                 quantize_amount(sale_footer_discount * item_discountable_base / sale_discountable_base)
@@ -319,6 +334,8 @@ def build_daily_distribution_rows(sales, return_items=None):
             allocated_net_revenues,
             allocated_gross_revenues,
         ):
+            if getattr(item, "line_type", "sale") != "sale":
+                continue
             item_name = getattr(item, "product_name_snapshot", None) or item.product.name
             item_variant = (
                 item.product_variant_snapshot
@@ -513,6 +530,7 @@ def get_top_products(limit=5):
             ),
         )
         .join(Product, Product.id == SaleItem.product_id)
+        .filter(SaleItem.line_type == "sale")
         .group_by(Product.id, Product.name, Product.variant)
         .order_by(func.sum(SaleItem.quantity).desc(), Product.name.asc())
         .limit(limit)
@@ -593,7 +611,14 @@ def get_profit_report(start_date, end_date):
             continue
 
         sale_base_net = quantize_amount(
-            sum((item.unit_price * item.quantity for item in sale.items), ZERO)
+            sum(
+                (
+                    item.unit_price * item.quantity
+                    for item in sale.items
+                    if getattr(item, "line_type", "sale") == "sale"
+                ),
+                ZERO,
+            )
         )
         sale_gross_before_discount = round_report_money(sale_base_net * PRODUCT_VAT_MULTIPLIER)
         sale_revenue_after_discount = quantize_amount(sale.total_amount or 0)
@@ -602,7 +627,15 @@ def get_profit_report(start_date, end_date):
         gross_before_discount += sale_gross_before_discount
         revenue_after_discount += sale_revenue_after_discount
         line_discount_total += round_report_money(
-            sum((item.discount_amount for item in sale.items), ZERO) * PRODUCT_VAT_MULTIPLIER
+            sum(
+                (
+                    item.discount_amount
+                    for item in sale.items
+                    if getattr(item, "line_type", "sale") == "sale"
+                ),
+                ZERO,
+            )
+            * PRODUCT_VAT_MULTIPLIER
         )
         if sale_discount_amount:
             sale_discount_amounts.append(sale_discount_amount)

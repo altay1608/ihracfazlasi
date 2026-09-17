@@ -29,6 +29,18 @@ STORE_INFO = {
     "instagram": os.getenv("STORE_INSTAGRAM", ""),
     "cashier": os.getenv("STORE_CASHIER_LABEL", "Mağaza Yetkilisi"),
 }
+LINE_TYPES = {
+    "sale": "Normal Satış",
+    "gift": "Hediye",
+    "personal": "Şahsi Kullanım",
+}
+
+
+def normalize_line_type(value):
+    line_type = str(value or "sale").strip().lower()
+    if line_type not in LINE_TYPES:
+        raise ValueError("Geçerli bir ürün işlem türü seçin.")
+    return line_type
 
 
 def clean_optional_text(value, limit):
@@ -169,6 +181,10 @@ def build_sale_receipt_context(sale):
                 "quantity": item.quantity,
                 "vat_rate": int(VAT_RATE * 100),
                 "gross_total": item_gross,
+                "line_type": getattr(item, "line_type", "sale"),
+                "line_type_label": LINE_TYPES.get(
+                    getattr(item, "line_type", "sale"), "Normal Satış"
+                ),
             }
         )
     return {
@@ -197,6 +213,7 @@ def serialize_sale_for_edit(sale):
                 "unit_price": float(item.unit_price),
                 "product_code": item.product_code_snapshot,
                 "max_quantity": item.product.stock_quantity + item.quantity,
+                "line_type": getattr(item, "line_type", "sale"),
                 "scanned_barcodes": [barcode.barcode for barcode in barcode_records],
                 "scanned_barcode_ids": [barcode.id for barcode in barcode_records],
             }
@@ -206,7 +223,14 @@ def serialize_sale_for_edit(sale):
 
 def get_sale_edit_discount_amount(sale):
     line_subtotal = quantize_amount(
-        sum((item.unit_price * item.quantity for item in sale.items), Decimal("0.00"))
+        sum(
+            (
+                item.unit_price * item.quantity
+                for item in sale.items
+                if getattr(item, "line_type", "sale") == "sale"
+            ),
+            Decimal("0.00"),
+        )
     )
     gross_before_discount = round_customer_price(line_subtotal * VAT_MULTIPLIER)
     discount_amount = quantize_amount(gross_before_discount - (sale.total_amount or Decimal("0.00")))
@@ -248,7 +272,12 @@ def apply_sale_payload(sale, payload):
     for item in items:
         product_id = int(item.get("product_id"))
         quantity = int(item.get("quantity"))
-        discount_amount = quantize_amount(item.get("discount_amount", 0))
+        line_type = normalize_line_type(item.get("line_type"))
+        discount_amount = (
+            quantize_amount(item.get("discount_amount", 0))
+            if line_type == "sale"
+            else Decimal("0.00")
+        )
         scanned_barcodes = [value for value in (item.get("scanned_barcodes") or []) if str(value).strip()]
 
         if quantity <= 0:
@@ -270,11 +299,13 @@ def apply_sale_payload(sale, payload):
             quantity=quantity,
             unit_price=unit_price,
             discount_amount=discount_amount,
+            line_type=line_type,
         )
         sale.items.append(sale_item)
         reserve_barcodes_for_sale(product, sale_item, quantity, scanned_barcodes)
-        subtotal_amount += gross_line_total
-        line_discount_total += discount_amount
+        if line_type == "sale":
+            subtotal_amount += gross_line_total
+            line_discount_total += discount_amount
 
     discountable_base = quantize_amount(subtotal_amount - line_discount_total)
     requested_target_total = payload.get("target_final_total")
@@ -597,7 +628,12 @@ def complete():
         for item in items:
             product_id = int(item.get("product_id"))
             quantity = int(item.get("quantity"))
-            discount_amount = quantize_amount(item.get("discount_amount", 0))
+            line_type = normalize_line_type(item.get("line_type"))
+            discount_amount = (
+                quantize_amount(item.get("discount_amount", 0))
+                if line_type == "sale"
+                else Decimal("0.00")
+            )
             scanned_barcodes = [value for value in (item.get("scanned_barcodes") or []) if str(value).strip()]
 
             if quantity <= 0:
@@ -619,6 +655,7 @@ def complete():
                 quantity=quantity,
                 unit_price=unit_price,
                 discount_amount=discount_amount,
+                line_type=line_type,
             )
             sale.items.append(sale_item)
             quantity_before = product.stock_quantity
@@ -629,10 +666,12 @@ def complete():
                     "quantity_before": quantity_before,
                     "quantity_after": product.stock_quantity,
                     "barcode_values": [barcode.barcode for barcode in allocated_barcodes],
+                    "line_type": line_type,
                 }
             )
-            subtotal_amount += gross_line_total
-            line_discount_total += discount_amount
+            if line_type == "sale":
+                subtotal_amount += gross_line_total
+                line_discount_total += discount_amount
 
         discountable_base = quantize_amount(subtotal_amount - line_discount_total)
         requested_target_total = payload.get("target_final_total")
@@ -664,15 +703,20 @@ def complete():
         db.session.add(sale)
         db.session.flush()
         for movement in stock_movements:
+            transaction_type = {
+                "gift": "gift_out",
+                "personal": "personal_out",
+            }.get(movement["line_type"], "sale_out")
             record_inventory_movement(
                 movement["product"],
-                transaction_type="sale_out",
+                transaction_type=transaction_type,
                 quantity_before=movement["quantity_before"],
                 quantity_after=movement["quantity_after"],
                 source_type="sale",
                 source_id=sale.id,
                 source_reference=f"Satış #{sale.document_no}",
                 barcode_values=movement["barcode_values"],
+                note=LINE_TYPES[movement["line_type"]],
             )
         sync_sale_finance(sale)
         db.session.commit()
