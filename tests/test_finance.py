@@ -12,6 +12,7 @@ from app.models import (
     FinanceApproval,
     FinanceCategory,
     FinanceMovement,
+    FinancePaymentMapping,
     PosReconciliation,
     CurrentAccount,
     DailyCashClosing,
@@ -191,6 +192,49 @@ class FinanceModuleTests(unittest.TestCase):
         sync_sale_finance(sale)
         db.session.commit()
 
+        self.assertEqual(PosReconciliation.query.count(), 0)
+        self.assertEqual(FinanceMovement.query.filter_by(movement_type="pos_commission").count(), 0)
+
+    def test_bank_transfer_sale_never_creates_commission_and_repairs_legacy_pos_mapping(self):
+        activate_finance(
+            self.site.id,
+            self.store.id,
+            activated_at=datetime.utcnow() - timedelta(minutes=1),
+        )
+        db.session.flush()
+        bank = FinanceAccount.query.filter_by(
+            site_id=self.site.id,
+            store_id=self.store.id,
+            code="BANK",
+        ).one()
+        pos = FinanceAccount.query.filter_by(
+            site_id=self.site.id,
+            store_id=self.store.id,
+            code="POS",
+        ).one()
+        transfer_mapping = FinancePaymentMapping.query.filter_by(
+            site_id=self.site.id,
+            store_id=self.store.id,
+            payment_method="Havale/EFT",
+        ).one()
+        transfer_mapping.account_id = pos.id
+        db.session.flush()
+
+        sale = Sale(
+            document_no=24,
+            site_id=self.site.id,
+            store_id=self.store.id,
+            sale_date=datetime.utcnow(),
+            total_amount=Decimal("2000.00"),
+            payment_method="Havale/EFT",
+        )
+        db.session.add(sale)
+        sync_sale_finance(sale)
+        db.session.commit()
+
+        self.assertEqual(transfer_mapping.account_id, bank.id)
+        self.assertEqual(get_account_balance(bank), Decimal("2000.00"))
+        self.assertEqual(get_account_balance(pos), Decimal("0.00"))
         self.assertEqual(PosReconciliation.query.count(), 0)
         self.assertEqual(FinanceMovement.query.filter_by(movement_type="pos_commission").count(), 0)
 

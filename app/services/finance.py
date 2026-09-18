@@ -103,6 +103,12 @@ DEFAULT_PAYMENT_ACCOUNT_CODES = {
     "Kredi Kartı": "POS",
     "Veresiye": "CREDIT",
 }
+PAYMENT_ACCOUNT_TYPES = {
+    "Nakit": "cash",
+    "Havale/EFT": "bank",
+    "Kredi Kartı": "pos_receivable",
+    "Veresiye": "pos_receivable",
+}
 
 DEFAULT_POS_COMMISSION_RATE = Decimal("2.5500")
 DEFAULT_POS_COMMISSION_VAT_RATE = Decimal("10.00")
@@ -640,6 +646,16 @@ def set_payment_mapping(*, site_id, store_id, payment_method, account_id):
     if not normalized_method:
         raise FinanceConfigurationError("Ödeme yöntemi zorunludur.")
     account = _account(site_id, store_id, account_id)
+    expected_type = PAYMENT_ACCOUNT_TYPES.get(normalized_method)
+    if expected_type is not None and account.account_type != expected_type:
+        expected_label = {
+            "cash": "nakit kasa",
+            "bank": "banka",
+            "pos_receivable": "POS/alacak",
+        }[expected_type]
+        raise FinanceConfigurationError(
+            f"{normalized_method} ödeme yöntemi yalnızca {expected_label} hesabına bağlanabilir."
+        )
     mapping = FinancePaymentMapping.query.filter_by(
         site_id=site_id,
         store_id=store_id,
@@ -1616,16 +1632,34 @@ def _append_movement(
 
 
 def _mapped_account(site_id, store_id, payment_method):
+    normalized_method = (payment_method or "").strip()
     mapping = FinancePaymentMapping.query.filter_by(
         site_id=site_id,
         store_id=store_id,
-        payment_method=(payment_method or "").strip(),
+        payment_method=normalized_method,
     ).one_or_none()
     if mapping is None or mapping.account is None or not mapping.account.is_active:
         raise FinanceConfigurationError(
             f"'{payment_method or '-'}' ödeme yöntemi için aktif finans hesabı eşlemesi bulunamadı."
         )
-    return mapping.account
+    account = mapping.account
+    expected_type = PAYMENT_ACCOUNT_TYPES.get(normalized_method)
+    if expected_type is not None and account.account_type != expected_type:
+        # Repair legacy mappings that sent EFT receipts into the POS account.
+        default_code = DEFAULT_PAYMENT_ACCOUNT_CODES[normalized_method]
+        default_account = FinanceAccount.query.filter_by(
+            site_id=site_id,
+            store_id=store_id,
+            code=default_code,
+            is_active=True,
+        ).one_or_none()
+        if default_account is None or default_account.account_type != expected_type:
+            raise FinanceConfigurationError(
+                f"'{normalized_method}' ödeme yöntemi yanlış hesap türüne bağlı. Finans hesap eşlemesini düzeltin."
+            )
+        mapping.account = default_account
+        account = default_account
+    return account
 
 
 def _configured_pos_bank_account(activation):
