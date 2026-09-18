@@ -4,11 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Satış Siparişi Fişi #{{ sale.document_no }}</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20260916-receipt-redesign-v4') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20260918-receipt-auto-height-v1') }}">
+    <style id="receiptDynamicPageSize" media="print"></style>
 </head>
 <body class="print-page thermal-receipt-page">
     <div class="print-actions no-print">
-        <button type="button" class="primary-button" onclick="window.print()">Yazdır</button>
+        <button type="button" class="primary-button" onclick="printReceiptPage()">Yazdır</button>
         <button type="button" class="ghost-button" onclick="closeReceiptPage()">Kapat</button>
     </div>
 
@@ -124,6 +125,24 @@
     </section>
 
     <script>
+    function prepareReceiptPrintSize() {
+        const slip = document.querySelector(".thermal-slip");
+        const pageStyle = document.getElementById("receiptDynamicPageSize");
+        if (!slip || !pageStyle) {
+            return;
+        }
+        const pixelsToMillimeters = 25.4 / 96;
+        const contentHeight = slip.getBoundingClientRect().height * pixelsToMillimeters;
+        const pageHeight = Math.ceil((contentHeight + 1.5) * 10) / 10;
+        document.documentElement.style.setProperty("--receipt-print-height", `${pageHeight}mm`);
+        pageStyle.textContent = `@page thermal-receipt-roll { size: 80mm ${pageHeight}mm; margin: 0; }`;
+    }
+
+    function printReceiptPage() {
+        prepareReceiptPrintSize();
+        window.requestAnimationFrame(() => window.print());
+    }
+
     function closeReceiptPage() {
         window.close();
         window.setTimeout(() => {
@@ -133,9 +152,12 @@
         }, 150);
     }
 
+    window.addEventListener("beforeprint", prepareReceiptPrintSize);
+    window.addEventListener("load", prepareReceiptPrintSize);
+
     {% if auto_print %}
     window.addEventListener("load", () => {
-        window.setTimeout(() => window.print(), 250);
+        window.setTimeout(printReceiptPage, 250);
     });
     {% endif %}
     </script>
