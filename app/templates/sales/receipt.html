@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Satış Siparişi Fişi #{{ sale.document_no }}</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20260918-receipt-paper-size-v2') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20260918-receipt-exact-cut-v1') }}">
     <style id="receiptDynamicPageSize" media="print"></style>
 </head>
 <body class="print-page thermal-receipt-page">
@@ -138,9 +138,13 @@
         if (!slip || !pageStyle) {
             return;
         }
+        const slipStyle = window.getComputedStyle(slip);
+        const verticalPadding =
+            (Number.parseFloat(slipStyle.paddingTop) || 0) +
+            (Number.parseFloat(slipStyle.paddingBottom) || 0);
         const pixelsToMillimeters = 25.4 / 96;
-        const contentHeight = slip.getBoundingClientRect().height * pixelsToMillimeters;
-        const pageHeight = Math.ceil((contentHeight + 1.5) * 10) / 10;
+        const contentHeight = Math.max(1, slip.scrollHeight - verticalPadding) * pixelsToMillimeters;
+        const pageHeight = Math.ceil(contentHeight * 10) / 10;
         document.documentElement.style.setProperty("--receipt-print-height", `${pageHeight}mm`);
         pageStyle.textContent = `
             @page { size: 80mm ${pageHeight}mm; margin: 0; }

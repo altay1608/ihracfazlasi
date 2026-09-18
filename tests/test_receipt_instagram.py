@@ -29,6 +29,7 @@ class ReceiptInstagramTests(unittest.TestCase):
         self.assertIn("closeReceiptPage()", template)
         self.assertIn("window.location.replace", template)
         self.assertIn("prepareReceiptPrintSize", template)
+        self.assertIn("slip.scrollHeight - verticalPadding", template)
         self.assertIn("printReceiptPage()", template)
         self.assertIn("receiptDynamicPageSize", template)
         self.assertIn("@page { size: 80mm ${pageHeight}mm; margin: 0; }", template)
