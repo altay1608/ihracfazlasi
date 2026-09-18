@@ -14,6 +14,7 @@ class PosReceiptAutoPrintTests(unittest.TestCase):
         self.assertIn('window.open("about:blank", "_blank")', source)
         self.assertIn("receiptWindow.location.replace(data.receipt_url)", source)
         self.assertIn("receiptWindow.close()", source)
+        self.assertNotIn("receiptWindow.opener = null", source)
 
     def test_pos_supports_gift_and_personal_line_types(self):
         source = (Path(__file__).resolve().parents[1] / "app/static/js/pos.js").read_text(encoding="utf-8")

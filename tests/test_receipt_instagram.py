@@ -23,6 +23,8 @@ class ReceiptInstagramTests(unittest.TestCase):
         self.assertNotIn("İŞLEM SORGULAMA QR", template)
         self.assertNotIn("receipt.qr_url", template)
         self.assertNotIn("receipt.lookup_id", template)
+        self.assertIn("closeReceiptPage()", template)
+        self.assertIn("window.location.replace", template)
         self.assertIn("Bu belge yalnızca bilgilendirme amaçlıdır", template)
         self.assertIn("mali belge niteliği taşımaz", template)
         self.assertIn('class="thermal-document-type"', template)

@@ -673,7 +673,6 @@
         );
         const receiptWindow = shouldAutoPrintReceipt ? window.open("about:blank", "_blank") : null;
         if (receiptWindow) {
-            receiptWindow.opener = null;
             receiptWindow.document.title = "Bilgi fişi hazırlanıyor";
             receiptWindow.document.body.innerHTML = "<p style=\"font-family: sans-serif; padding: 24px\">Bilgi fişi hazırlanıyor...</p>";
         }

@@ -9,7 +9,7 @@
 <body class="print-page thermal-receipt-page">
     <div class="print-actions no-print">
         <button type="button" class="primary-button" onclick="window.print()">Yazdır</button>
-        <button type="button" class="ghost-button" onclick="window.close()">Kapat</button>
+        <button type="button" class="ghost-button" onclick="closeReceiptPage()">Kapat</button>
     </div>
 
     <section class="thermal-slip">
@@ -123,12 +123,21 @@
         </footer>
     </section>
 
-    {% if auto_print %}
     <script>
+    function closeReceiptPage() {
+        window.close();
+        window.setTimeout(() => {
+            if (!window.closed) {
+                window.location.replace({{ url_for('sales.index')|tojson }});
+            }
+        }, 150);
+    }
+
+    {% if auto_print %}
     window.addEventListener("load", () => {
         window.setTimeout(() => window.print(), 250);
     });
-    </script>
     {% endif %}
+    </script>
 </body>
 </html>
