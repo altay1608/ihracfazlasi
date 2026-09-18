@@ -98,6 +98,43 @@ class ProductMultiVariantTests(unittest.TestCase):
         self.assertNotIn("Atelier", label_html)
         self.assertNotIn("₺", label_html)
 
+    def test_sized_trouser_with_22_stock_creates_22_separate_labels(self):
+        with self.app.app_context():
+            multiplier_id = RetailMultiplier.query.filter_by(is_default=True).one().id
+
+        response = self.client.post(
+            "/products/add",
+            data={
+                "name": "Klasik Pantolon",
+                "category": "Pantolon",
+                "product_code": "100000000050",
+                "purchase_price": "500.00",
+                "retail_multiplier_id": str(multiplier_id),
+                "sale_price": "900.00",
+                "stock_quantity": "22",
+                "variants": ["31"],
+                # Bedenli üründe yanlış seçim sunucu tarafından güvenli moda çevrilir.
+                "barcode_mode": "shared",
+            },
+            headers={"X-Requested-With": "XMLHttpRequest"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        result = response.get_json()
+        self.assertTrue(result["success"])
+
+        with self.app.app_context():
+            product = Product.query.filter_by(product_code="100000000050").one()
+            self.assertEqual(product.variant, "31")
+            self.assertEqual(product.stock_quantity, 22)
+            self.assertEqual(product.barcode_mode, "unit")
+            self.assertEqual(len(product.product_barcodes), 22)
+
+        label_response = self.client.get(result["print_url"])
+        label_html = label_response.get_data(as_text=True)
+        self.assertEqual(label_response.status_code, 200)
+        self.assertEqual(label_html.count('class="label-card compact-fashion-label"'), 22)
+
 
 if __name__ == "__main__":
     unittest.main()

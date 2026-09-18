@@ -318,6 +318,11 @@ def add():
                         product_code=next_product_code,
                         variant=selected_variant,
                     )
+                    # Bedenli giyim ürünleri stok sayımı ve satışta birim bazında
+                    # izlenir. Yanlışlıkla ortak barkod seçilse bile her adet için
+                    # ayrı barkod ve etiket üretimini koru.
+                    if selected_variant:
+                        variant_payload["barcode_mode"] = "unit"
                     product = Product(**variant_payload)
                     db.session.add(product)
                     db.session.flush()
