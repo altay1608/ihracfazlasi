@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Satış Siparişi Fişi #{{ sale.document_no }}</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20260918-receipt-website-v1') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20260918-receipt-paper-size-v2') }}">
     <style id="receiptDynamicPageSize" media="print"></style>
 </head>
 <body class="print-page thermal-receipt-page">
@@ -142,7 +142,10 @@
         const contentHeight = slip.getBoundingClientRect().height * pixelsToMillimeters;
         const pageHeight = Math.ceil((contentHeight + 1.5) * 10) / 10;
         document.documentElement.style.setProperty("--receipt-print-height", `${pageHeight}mm`);
-        pageStyle.textContent = `@page thermal-receipt-roll { size: 80mm ${pageHeight}mm; margin: 0; }`;
+        pageStyle.textContent = `
+            @page { size: 80mm ${pageHeight}mm; margin: 0; }
+            @page thermal-receipt-roll { size: 80mm ${pageHeight}mm; margin: 0; }
+        `;
     }
 
     function printReceiptPage() {
