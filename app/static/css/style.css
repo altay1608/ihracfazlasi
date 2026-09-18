@@ -5629,7 +5629,8 @@ th:hover .table-column-resize-handle::after,
 }
 
 .thermal-instagram,
-.thermal-contact {
+.thermal-contact,
+.thermal-website {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -5668,7 +5669,20 @@ th:hover .table-column-resize-handle::after,
     margin: 0;
 }
 
+.thermal-website {
+    margin: 0;
+    color: #000000;
+    text-decoration: none;
+}
+
 .thermal-contact-icon {
+    width: 14px;
+    height: 14px;
+    flex: 0 0 14px;
+    color: #000000;
+}
+
+.thermal-website-icon {
     width: 14px;
     height: 14px;
     flex: 0 0 14px;

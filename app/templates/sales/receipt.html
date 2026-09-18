@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Satış Siparişi Fişi #{{ sale.document_no }}</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20260918-receipt-auto-height-v1') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20260918-receipt-website-v1') }}">
     <style id="receiptDynamicPageSize" media="print"></style>
 </head>
 <body class="print-page thermal-receipt-page">
@@ -120,6 +120,13 @@
                     </svg>
                     <span>0538 479 36 96</span>
                 </div>
+                <a class="thermal-website" href="https://ihracfazlasigiyim.com/" aria-label="Web sitesi: ihracfazlasigiyim.com">
+                    <svg class="thermal-website-icon" viewBox="0 0 24 24" aria-hidden="true">
+                        <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"></circle>
+                        <path d="M3.5 12h17M12 3c2.4 2.5 3.7 5.5 3.7 9S14.4 18.5 12 21M12 3C9.6 5.5 8.3 8.5 8.3 12S9.6 18.5 12 21" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path>
+                    </svg>
+                    <span>ihracfazlasigiyim.com</span>
+                </a>
             </div>
         </footer>
     </section>
