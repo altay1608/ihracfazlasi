@@ -77,16 +77,18 @@
                 <span>GENEL TOPLAM</span>
                 <strong>{{ sale.total_amount|currency }}</strong>
             </div>
+            {% for payment in receipt.payments %}
             <div class="thermal-payment-row">
-                <span>Ödeme Yöntemi</span>
-                <strong>{{ payment_methods.get(sale.payment_method, sale.payment_method)|upper }}</strong>
+                <span>{{ payment_methods.get(payment.payment_method, payment.payment_method) }}</span>
+                <strong>{{ payment.amount|currency }}</strong>
             </div>
-            {% if receipt.payment_due_date %}
+            {% if payment.due_date %}
             <div class="thermal-payment-row">
-                <span>Ödeme Tarihi</span>
-                <strong>{{ receipt.payment_due_date.strftime('%d.%m.%Y') }}</strong>
+                <span>Vade Tarihi</span>
+                <strong>{{ payment.due_date.strftime('%d.%m.%Y') }}</strong>
             </div>
             {% endif %}
+            {% endfor %}
         </section>
 
         <section class="thermal-policy">

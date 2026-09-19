@@ -133,10 +133,27 @@
                 {% for value, label in payment_methods.items() %}
                 <option value="{{ value }}" {% if value|lower == 'nakit' or label|lower == 'nakit' %}selected{% endif %}>{{ label }}</option>
                 {% endfor %}
+                <option value="__split__">Parçalı Ödeme</option>
             </select>
             <label id="paymentDueDateRow" for="paymentDueDate" hidden>Veresiye Ödeme Tarihi
                 <input id="paymentDueDate" type="date" value="{{ sale.payment_due_date.isoformat() if sale_edit and sale.payment_due_date else '' }}" {% if line_edits_locked %}disabled{% endif %}>
             </label>
+            <div id="splitPaymentPanel" class="split-payment-panel" hidden>
+                <p class="input-hint">Tutarları ödeme yöntemlerine dağıtın. Toplam, satış tutarına eşit olmalıdır.</p>
+                {% for method in ['Nakit', 'Kredi Kartı', 'Havale/EFT', 'Veresiye'] %}
+                <label class="split-payment-row">
+                    <span>{{ method }}</span>
+                    <input type="text" inputmode="decimal" value="0,00" data-split-payment="{{ method }}" {% if line_edits_locked %}readonly{% endif %}>
+                </label>
+                {% endfor %}
+                <label id="splitPaymentDueDateRow" for="splitPaymentDueDate" hidden>Veresiye Ödeme Tarihi
+                    <input id="splitPaymentDueDate" type="date" {% if line_edits_locked %}disabled{% endif %}>
+                </label>
+                <div class="split-payment-summary">
+                    <span>Dağıtılan: <strong id="splitPaymentAllocated">₺0,00</strong></span>
+                    <span>Kalan: <strong id="splitPaymentRemaining">₺0,00</strong></span>
+                </div>
+            </div>
             {% if (sale_edit and can('sales.action.edit')) or (not sale_edit and can('sales.action.complete')) %}
             <button id="completeSaleBtn" class="primary-button wide-button" type="button">
                 {{ 'Sipariş Bilgilerini Güncelle' if line_edits_locked else ('Siparişi Güncelle' if sale_edit else 'Satışı Tamamla') }}
@@ -164,9 +181,10 @@ window.posConfig = {
     initialCart: {{ (initial_cart or [])|tojson }},
     initialCustomer: {{ (initial_customer or none)|tojson }},
     initialDiscountAmount: {{ (initial_discount_amount or 0)|float|tojson }},
-    initialPaymentMethod: {{ (sale.payment_method if sale_edit else "")|tojson }}
+    initialPaymentMethod: {{ (('__split__' if sale.payment_method == 'Parçalı Ödeme' else sale.payment_method) if sale_edit else "")|tojson }},
+    initialPayments: {{ (initial_payments or [])|tojson }}
 };
 </script>
-<script src="{{ url_for('static', filename='js/pos.js', v='20260917-line-types-v1') }}"></script>
+<script src="{{ url_for('static', filename='js/pos.js', v='20260919-split-payments-v1') }}"></script>
 {% endblock %}
 

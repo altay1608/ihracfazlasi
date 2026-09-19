@@ -43,7 +43,7 @@ from .identity import (
 from .product import Product, ProductBarcode, StoreInventory
 from .reference import Category, PaymentMethod, RetailMultiplier, ReturnReason, Variant
 from .return_ import Return, ReturnItem
-from .sale import CustomerOrder, CustomerOrderLine, Sale, SaleItem
+from .sale import CustomerOrder, CustomerOrderLine, Sale, SaleItem, SalePayment
 
 __all__ = [
     "AuthThrottle",
@@ -90,6 +90,7 @@ __all__ = [
     "ReturnReason",
     "Sale",
     "SaleItem",
+    "SalePayment",
     "SystemSetting",
     "Site",
     "SiteDocumentSequence",

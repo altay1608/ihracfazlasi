@@ -258,6 +258,8 @@ def sync_sale_finance(sale):
     """Post or revise one completed sale in the activated store ledger."""
     if sale.id is None:
         db.session.flush()
+    if getattr(sale, "payments", None):
+        return _sync_allocated_sale_finance(sale)
     activation = get_finance_activation(sale.site_id, sale.store_id)
     if activation is None:
         activation = activate_finance(
@@ -403,6 +405,159 @@ def sync_sale_finance(sale):
     if (not is_pos_sale or amount <= Decimal("0.00")) and automatic_settlement is not None:
         if automatic_settlement.status == "pending":
             automatic_settlement.status = "cancelled"
+    state.last_movement_id = last_movement.id if last_movement else None
+    return state.last_movement_id
+
+
+def _sync_allocated_sale_finance(sale):
+    """Post each split-payment share to its own mapped finance account."""
+    activation = get_finance_activation(sale.site_id, sale.store_id)
+    if activation is None:
+        activation = activate_finance(
+            sale.site_id,
+            sale.store_id,
+            opening_cash=Decimal("0.00"),
+            activated_at=_sale_occurred_at(sale),
+        )
+        db.session.flush()
+    if _as_naive_utc(_sale_occurred_at(sale)) < _as_naive_utc(activation.activated_at):
+        return None
+    ensure_finance_period_open(sale.site_id, sale.store_id, _sale_occurred_at(sale))
+
+    allocations = [
+        (payment.payment_method, _money(payment.amount))
+        for payment in sale.payments
+        if _money(payment.amount) > Decimal("0.00")
+    ]
+    rate = _commission_rate(
+        activation.pos_commission_rate
+        if activation.pos_commission_rate is not None
+        else DEFAULT_POS_COMMISSION_RATE
+    )
+    settlement_days = int(
+        activation.pos_settlement_days
+        if activation.pos_settlement_days is not None
+        else DEFAULT_POS_SETTLEMENT_DAYS
+    )
+    card_amount = _money(sum((amount for method, amount in allocations if method == "Kredi Kartı"), Decimal("0.00")))
+    bank_account = _configured_pos_bank_account(activation) if card_amount > 0 else None
+    commission = _money((card_amount * rate) / Decimal("100")) if card_amount > 0 else Decimal("0.00")
+    commission_vat = _money((commission * DEFAULT_POS_COMMISSION_VAT_RATE) / Decimal("100")) if card_amount > 0 else Decimal("0.00")
+    total_commission = _money(commission + commission_vat)
+    card_net = _money(card_amount - total_commission)
+
+    fingerprint = _fingerprint({
+        "payments": [(method, str(amount)) for method, amount in allocations],
+        "revision_no": int(sale.revision_no or 1),
+        "order_status": sale.order_status,
+        "pos_commission_rate": str(rate) if card_amount > 0 else None,
+        "pos_settlement_days": settlement_days if card_amount > 0 else None,
+        "pos_bank_account_id": bank_account.id if bank_account is not None else None,
+        "pos_commission_vat_rate": str(DEFAULT_POS_COMMISSION_VAT_RATE) if card_amount > 0 else None,
+    })
+    existing_state = FinanceSourceState.query.filter_by(
+        site_id=sale.site_id,
+        store_id=sale.store_id,
+        source_type="sale",
+        source_id=sale.id,
+    ).one_or_none()
+    automatic_settlement = PosReconciliation.query.filter_by(
+        site_id=sale.site_id,
+        store_id=sale.store_id,
+        sale_id=sale.id,
+        auto_generated=True,
+    ).one_or_none()
+    if (
+        automatic_settlement is not None
+        and automatic_settlement.status == "settled"
+        and existing_state is not None
+        and existing_state.fingerprint != fingerprint
+    ):
+        raise FinanceConfigurationError(
+            "Bankaya aktarılmış kart satışı değiştirilemez. Önce finans sorumlusu ile mutabakatı düzeltin."
+        )
+    state, changed = _prepare_source_revision(
+        sale.site_id,
+        sale.store_id,
+        "sale",
+        sale.id,
+        fingerprint,
+        _sale_occurred_at(sale),
+    )
+    if not changed:
+        return state.last_movement_id
+
+    last_movement = None
+    category = _category(sale.site_id, "SALE")
+    pair_key = f"sale:{sale.id}:v{state.version}"
+    for index, (method, amount) in enumerate(allocations, start=1):
+        account = _mapped_account(sale.site_id, sale.store_id, method)
+        last_movement = _append_movement(
+            site_id=sale.site_id,
+            store_id=sale.store_id,
+            account=account,
+            category=category,
+            occurred_at=_sale_occurred_at(sale),
+            direction="in",
+            amount=amount,
+            movement_type="sale",
+            description=f"Satış #{sale.document_no or sale.id} - {method}",
+            document_no=str(sale.document_no or sale.id),
+            source_type="sale",
+            source_id=sale.id,
+            source_key=f"{pair_key}:payment:{index}",
+            pair_key=pair_key,
+        )
+
+    if card_amount > Decimal("0.00"):
+        if card_net <= Decimal("0.00"):
+            raise FinanceConfigurationError("POS komisyonundan sonra banka net tutarı sıfırdan büyük olmalıdır.")
+        pos_account = _mapped_account(sale.site_id, sale.store_id, "Kredi Kartı")
+        if total_commission > Decimal("0.00"):
+            _append_movement(
+                site_id=sale.site_id,
+                store_id=sale.store_id,
+                account=pos_account,
+                category=_category(sale.site_id, "POS_COMMISSION"),
+                occurred_at=_sale_occurred_at(sale),
+                direction="out",
+                amount=total_commission,
+                movement_type="pos_commission",
+                description=f"POS komisyonu (%{rate}) + KDV %{DEFAULT_POS_COMMISSION_VAT_RATE}: Satış #{sale.document_no or sale.id}",
+                document_no=str(sale.document_no or sale.id),
+                source_type="sale",
+                source_id=sale.id,
+                source_key=f"{pair_key}:commission",
+                pair_key=pair_key,
+                is_overhead=False,
+            )
+        expected_date = utc_to_istanbul(_as_naive_utc(_sale_occurred_at(sale))).date() + timedelta(days=settlement_days)
+        if automatic_settlement is None:
+            automatic_settlement = PosReconciliation(
+                site_id=sale.site_id,
+                store_id=sale.store_id,
+                sale_id=sale.id,
+                pair_key=f"auto-pos-sale:{sale.id}",
+                auto_generated=True,
+                created_by_user_id=_current_user_id(),
+            )
+            db.session.add(automatic_settlement)
+        automatic_settlement.pos_account_id = pos_account.id
+        automatic_settlement.bank_account_id = bank_account.id
+        automatic_settlement.gross_amount = card_amount
+        automatic_settlement.commission_rate = rate
+        automatic_settlement.commission_amount = total_commission
+        automatic_settlement.commission_vat_rate = DEFAULT_POS_COMMISSION_VAT_RATE
+        automatic_settlement.commission_vat_amount = commission_vat
+        automatic_settlement.net_amount = card_net
+        automatic_settlement.occurred_at = _as_naive_utc(_sale_occurred_at(sale))
+        automatic_settlement.expected_settlement_date = expected_date
+        automatic_settlement.status = "pending"
+        automatic_settlement.settled_at = None
+        automatic_settlement.reference = f"Satış #{sale.document_no or sale.id}"
+    elif automatic_settlement is not None and automatic_settlement.status == "pending":
+        automatic_settlement.status = "cancelled"
+
     state.last_movement_id = last_movement.id if last_movement else None
     return state.last_movement_id
 

@@ -8,7 +8,7 @@ from sqlalchemy.orm import joinedload
 
 from app.data import TR_LOCATIONS
 from app.extensions import db
-from app.models import Product, Sale, SaleItem
+from app.models import Product, Sale, SaleItem, SalePayment
 from app.services.customer_orders import prepare_customer_order
 from app.services.finance import sync_sale_finance
 from app.services.inventory_history import record_inventory_movement
@@ -34,6 +34,8 @@ LINE_TYPES = {
     "gift": "Hediye",
     "personal": "Şahsi Kullanım",
 }
+SPLIT_PAYMENT_VALUE = "__split__"
+SPLIT_PAYMENT_LABEL = "Parçalı Ödeme"
 
 
 def normalize_line_type(value):
@@ -187,6 +189,20 @@ def build_sale_receipt_context(sale):
                 ),
             }
         )
+    payment_rows = [
+        {
+            "payment_method": payment.payment_method,
+            "amount": payment.amount,
+            "due_date": payment.due_date,
+        }
+        for payment in getattr(sale, "payments", [])
+    ]
+    if not payment_rows:
+        payment_rows = [{
+            "payment_method": getattr(sale, "payment_method", "Nakit"),
+            "amount": getattr(sale, "total_amount", breakdown["gross_total"]),
+            "due_date": getattr(sale, "payment_due_date", None),
+        }]
     return {
         "tx_code": build_sale_transaction_code(sale),
         "cashier_name": STORE_INFO["cashier"],
@@ -196,6 +212,7 @@ def build_sale_receipt_context(sale):
         "line_items": line_items,
         "print_time": now.strftime("%H:%M"),
         "payment_due_date": getattr(sale, "payment_due_date", None),
+        "payments": payment_rows,
     }
 
 
@@ -219,6 +236,23 @@ def serialize_sale_for_edit(sale):
             }
         )
     return items
+
+
+def serialize_sale_payments(sale):
+    if getattr(sale, "payments", None):
+        return [
+            {
+                "payment_method": payment.payment_method,
+                "amount": float(payment.amount),
+                "due_date": payment.due_date.isoformat() if payment.due_date else "",
+            }
+            for payment in sale.payments
+        ]
+    return [{
+        "payment_method": sale.payment_method,
+        "amount": float(sale.total_amount or 0),
+        "due_date": sale.payment_due_date.isoformat() if sale.payment_due_date else "",
+    }]
 
 
 def get_sale_edit_discount_amount(sale):
@@ -250,19 +284,75 @@ def parse_payment_due_date(payment_method, payload):
         raise ValueError("Ödeme tarihi geçerli değil.") from exc
 
 
+def apply_sale_payments(sale, payload, total_amount):
+    """Validate and store one or more payment allocations for a sale."""
+    available_methods = dict(get_payment_method_choices(active_only=True))
+    selected_method = str(payload.get("payment_method") or "").strip()
+    raw_payments = payload.get("payments") if selected_method == SPLIT_PAYMENT_VALUE else None
+    if raw_payments is None:
+        if selected_method not in available_methods:
+            raise ValueError("Geçerli bir ödeme yöntemi seçin.")
+        raw_payments = [{
+            "payment_method": selected_method,
+            "amount": total_amount,
+            "due_date": payload.get("payment_due_date"),
+        }]
+    if not isinstance(raw_payments, list):
+        raise ValueError("Parçalı ödeme bilgileri geçerli değil.")
+
+    allocations = []
+    seen_methods = set()
+    for row in raw_payments:
+        method = str((row or {}).get("payment_method") or "").strip()
+        amount = quantize_amount((row or {}).get("amount") or 0)
+        if amount <= 0:
+            continue
+        if method not in available_methods or method in seen_methods:
+            raise ValueError("Parçalı ödemede geçersiz veya tekrarlanan ödeme yöntemi var.")
+        seen_methods.add(method)
+        due_date = None
+        if method == "Veresiye":
+            due_date = parse_payment_due_date(
+                method,
+                {"payment_due_date": (row or {}).get("due_date") or payload.get("payment_due_date")},
+            )
+            customer = payload.get("customer") or {}
+            if not str(customer.get("customer_name") or "").strip() and not str(customer.get("customer_mobile") or "").strip():
+                raise ValueError("Veresiye kısmı için müşteri adı veya cep telefonu girin.")
+        allocations.append((method, amount, due_date))
+
+    if not allocations:
+        raise ValueError("En az bir ödeme tutarı girin.")
+    allocated_total = quantize_amount(sum((row[1] for row in allocations), Decimal("0.00")))
+    if allocated_total != quantize_amount(total_amount):
+        difference = quantize_amount(total_amount - allocated_total)
+        raise ValueError(f"Ödeme dağılımı satış toplamına eşit olmalı. Kalan fark: {difference} TL")
+
+    sale.payments.clear()
+    for method, amount, due_date in allocations:
+        sale.payments.append(SalePayment(
+            payment_method=method,
+            amount=amount,
+            due_date=due_date,
+            status="OPEN" if method == "Veresiye" else "PAID",
+        ))
+    sale.payment_method = allocations[0][0] if len(allocations) == 1 else SPLIT_PAYMENT_LABEL
+    credit_dates = [row[2] for row in allocations if row[0] == "Veresiye"]
+    sale.payment_due_date = min(credit_dates) if credit_dates else None
+    sale.payment_status = "OPEN" if credit_dates else "PAID"
+    return allocations
+
+
 def apply_sale_payload(sale, payload):
     payment_method = payload.get("payment_method")
     items = payload.get("items") or []
     payment_methods = dict(get_payment_method_choices(active_only=True))
 
-    if payment_method not in payment_methods:
+    if payment_method not in payment_methods and payment_method != SPLIT_PAYMENT_VALUE:
         raise ValueError("Geçerli bir ödeme yöntemi seçin.")
     if not items:
         raise ValueError("Sepet boş.")
 
-    sale.payment_method = payment_method
-    sale.payment_due_date = parse_payment_due_date(payment_method, payload)
-    sale.payment_status = "OPEN" if payment_method == "Veresiye" else "PAID"
     for key, value in build_customer_payload(payload).items():
         setattr(sale, key, value)
 
@@ -330,6 +420,7 @@ def apply_sale_payload(sale, payload):
 
     sale.total_amount = total_amount
     sale.total_discount = total_discount
+    apply_sale_payments(sale, payload, total_amount)
 
     return {
         "subtotal_amount": subtotal_amount,
@@ -403,6 +494,7 @@ def edit(sale_id):
         initial_cart=serialize_sale_for_edit(sale),
         initial_customer=serialize_sale_customer(sale),
         initial_discount_amount=get_sale_edit_discount_amount(sale),
+        initial_payments=serialize_sale_payments(sale),
         line_edits_locked=line_edits_locked,
         payment_methods=dict(get_payment_method_choices(active_only=True)),
         city_map=TR_LOCATIONS,
@@ -612,19 +704,17 @@ def complete():
     items = payload.get("items") or []
     payment_methods = dict(get_payment_method_choices(active_only=True))
 
-    if payment_method not in payment_methods:
+    if payment_method not in payment_methods and payment_method != SPLIT_PAYMENT_VALUE:
         return jsonify({"success": False, "message": "Geçerli bir ödeme yöntemi seçin."}), 400
     if not items:
         return jsonify({"success": False, "message": "Sepet boş."}), 400
 
-    sale = Sale(payment_method=payment_method, **build_customer_payload(payload))
+    sale = Sale(payment_method=payment_method or "Nakit", **build_customer_payload(payload))
     subtotal_amount = Decimal("0.00")
     line_discount_total = Decimal("0.00")
     stock_movements = []
 
     try:
-        sale.payment_due_date = parse_payment_due_date(payment_method, payload)
-        sale.payment_status = "OPEN" if payment_method == "Veresiye" else "PAID"
         for item in items:
             product_id = int(item.get("product_id"))
             quantity = int(item.get("quantity"))
@@ -696,6 +786,7 @@ def complete():
 
         sale.total_amount = total_amount
         sale.total_discount = total_discount
+        apply_sale_payments(sale, payload, total_amount)
         sale.completed_at = datetime.utcnow()
         sale.updated_at = sale.completed_at
         prepare_customer_order(sale)

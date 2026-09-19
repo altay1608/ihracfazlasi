@@ -21,6 +21,7 @@ from app.models import (
     PersonnelAdvanceSettlement,
     Product,
     Sale,
+    SalePayment,
     Site,
     Store,
     StoreInventory,
@@ -194,6 +195,34 @@ class FinanceModuleTests(unittest.TestCase):
 
         self.assertEqual(PosReconciliation.query.count(), 0)
         self.assertEqual(FinanceMovement.query.filter_by(movement_type="pos_commission").count(), 0)
+
+    def test_split_sale_posts_each_share_and_commission_only_on_card_amount(self):
+        sale = Sale(
+            document_no=25,
+            site_id=self.site.id,
+            store_id=self.store.id,
+            sale_date=datetime(2026, 9, 16, 9, 0),
+            total_amount=Decimal("2000.00"),
+            payment_method="Parçalı Ödeme",
+            payments=[
+                SalePayment(payment_method="Kredi Kartı", amount=Decimal("1500.00")),
+                SalePayment(payment_method="Nakit", amount=Decimal("500.00")),
+            ],
+        )
+        db.session.add(sale)
+
+        sync_sale_finance(sale)
+        db.session.commit()
+
+        cash = FinanceAccount.query.filter_by(site_id=self.site.id, store_id=self.store.id, code="CASH").one()
+        pos = FinanceAccount.query.filter_by(site_id=self.site.id, store_id=self.store.id, code="POS").one()
+        reconciliation = PosReconciliation.query.filter_by(sale_id=sale.id).one()
+        self.assertEqual(get_account_balance(cash), Decimal("500.00"))
+        self.assertEqual(get_account_balance(pos), Decimal("1457.92"))
+        self.assertEqual(reconciliation.gross_amount, Decimal("1500.00"))
+        self.assertEqual(reconciliation.commission_amount, Decimal("42.08"))
+        self.assertEqual(reconciliation.commission_vat_amount, Decimal("3.83"))
+        self.assertEqual(reconciliation.net_amount, Decimal("1457.92"))
 
     def test_bank_transfer_sale_never_creates_commission_and_repairs_legacy_pos_mapping(self):
         activate_finance(

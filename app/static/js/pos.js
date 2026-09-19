@@ -4,6 +4,12 @@
     const paymentMethod = document.getElementById("paymentMethod");
     const paymentDueDateRow = document.getElementById("paymentDueDateRow");
     const paymentDueDate = document.getElementById("paymentDueDate");
+    const splitPaymentPanel = document.getElementById("splitPaymentPanel");
+    const splitPaymentInputs = Array.from(document.querySelectorAll("[data-split-payment]"));
+    const splitPaymentDueDateRow = document.getElementById("splitPaymentDueDateRow");
+    const splitPaymentDueDate = document.getElementById("splitPaymentDueDate");
+    const splitPaymentAllocated = document.getElementById("splitPaymentAllocated");
+    const splitPaymentRemaining = document.getElementById("splitPaymentRemaining");
     const completeButton = document.getElementById("completeSaleBtn");
     const feedback = document.getElementById("posFeedback");
     const manualDiscountInput = document.getElementById("manualDiscountInput");
@@ -27,6 +33,7 @@
     const vatRate = Number(window.posConfig?.vatRate || 0.10);
     const cart = new Map();
     let searchTimer = null;
+    let splitPaymentInitialized = false;
 
     if (paymentMethod) {
         const defaultCashOption = Array.from(paymentMethod.options).find((option) => {
@@ -49,12 +56,53 @@
 
     function syncPaymentDueDate() {
         const isCredit = String(paymentMethod?.value || "").trim() === "Veresiye";
+        const isSplit = String(paymentMethod?.value || "").trim() === "__split__";
         if (paymentDueDateRow) {
             paymentDueDateRow.hidden = !isCredit;
         }
         if (paymentDueDate) {
             paymentDueDate.required = isCredit;
         }
+        if (splitPaymentPanel) {
+            splitPaymentPanel.hidden = !isSplit;
+        }
+        if (isSplit && !splitPaymentInitialized && !window.posConfig?.initialPayments?.length) {
+            const cashInput = splitPaymentInputs.find((input) => input.dataset.splitPayment === "Nakit");
+            if (cashInput) {
+                cashInput.value = formatInputAmount(getSummary().grandTotal);
+            }
+            splitPaymentInitialized = true;
+        }
+        updateSplitPaymentSummary();
+    }
+
+    function collectSplitPayments() {
+        return splitPaymentInputs.map((input) => ({
+            payment_method: input.dataset.splitPayment,
+            amount: roundAmount(parseLocaleNumber(input.value)),
+            due_date: input.dataset.splitPayment === "Veresiye" ? (splitPaymentDueDate?.value || "") : ""
+        })).filter((payment) => payment.amount > 0);
+    }
+
+    function updateSplitPaymentSummary() {
+        const payments = collectSplitPayments();
+        const allocated = roundAmount(payments.reduce((sum, payment) => sum + payment.amount, 0));
+        const remaining = roundAmount(getSummary().grandTotal - allocated);
+        if (splitPaymentAllocated) {
+            splitPaymentAllocated.textContent = formatCurrency(allocated);
+        }
+        if (splitPaymentRemaining) {
+            splitPaymentRemaining.textContent = formatCurrency(remaining);
+            splitPaymentRemaining.classList.toggle("is-error", Math.abs(remaining) > 0.009);
+        }
+        const creditAmount = payments.find((payment) => payment.payment_method === "Veresiye")?.amount || 0;
+        if (splitPaymentDueDateRow) {
+            splitPaymentDueDateRow.hidden = creditAmount <= 0;
+        }
+        if (splitPaymentDueDate) {
+            splitPaymentDueDate.required = creditAmount > 0;
+        }
+        return { payments, allocated, remaining };
     }
 
     function formatPercent(value) {
@@ -356,6 +404,9 @@
         if (discountRateInput) {
             discountRateInput.value = formatPercent(summary.discountRate);
         }
+        if (String(paymentMethod?.value || "") === "__split__") {
+            updateSplitPaymentSummary();
+        }
     }
 
     function mutateQuantity(productId, quantity) {
@@ -533,6 +584,18 @@
         if (window.posConfig?.initialPaymentMethod && paymentMethod) {
             paymentMethod.value = window.posConfig.initialPaymentMethod;
         }
+        (window.posConfig?.initialPayments || []).forEach((payment) => {
+            const input = splitPaymentInputs.find((item) => item.dataset.splitPayment === payment.payment_method);
+            if (input) {
+                input.value = formatInputAmount(payment.amount || 0);
+            }
+            if (payment.payment_method === "Veresiye" && splitPaymentDueDate) {
+                splitPaymentDueDate.value = payment.due_date || "";
+            }
+        });
+        if ((window.posConfig?.initialPayments || []).length) {
+            splitPaymentInitialized = true;
+        }
         if (window.posConfig?.saleEditMode && completeButton && !lineEditsLocked) {
             completeButton.textContent = "Siparişi Güncelle";
         }
@@ -666,6 +729,22 @@
             return;
         }
 
+        const summary = getSummary();
+        const isSplitPayment = String(paymentMethod?.value || "") === "__split__";
+        const splitSummary = isSplitPayment ? updateSplitPaymentSummary() : null;
+        if (splitSummary && Math.abs(splitSummary.remaining) > 0.009) {
+            const message = "Parçalı ödeme toplamı satış tutarına eşit olmalıdır.";
+            feedback.textContent = message;
+            showPosMessage("Ödeme Uyarısı", message);
+            return;
+        }
+        if (splitSummary?.payments.some((payment) => payment.payment_method === "Veresiye") && !splitPaymentDueDate?.value) {
+            const message = "Veresiye tutarı için ödeme tarihi seçin.";
+            feedback.textContent = message;
+            showPosMessage("Ödeme Uyarısı", message);
+            return;
+        }
+
         // Tarayıcılar, sunucu yanıtından sonra açılan sekmeleri engelleyebilir.
         // Bu nedenle fiş sekmesini doğrudan kullanıcı tıklaması sırasında hazırlıyoruz.
         const shouldAutoPrintReceipt = Boolean(
@@ -677,7 +756,6 @@
             receiptWindow.document.body.innerHTML = "<p style=\"font-family: sans-serif; padding: 24px\">Bilgi fişi hazırlanıyor...</p>";
         }
 
-        const summary = getSummary();
         const items = Array.from(cart.values()).map((item) => ({
             product_id: item.product_id,
             quantity: Number(item.quantity),
@@ -695,6 +773,7 @@
                 body: JSON.stringify({
                     payment_method: paymentMethod.value,
                     payment_due_date: paymentDueDate?.value || "",
+                    payments: splitSummary?.payments || null,
                     items,
                     footer_discount_amount: 0,
                     target_final_total: summary.grandTotal,
@@ -750,5 +829,6 @@
     renderCart();
     loadRecentCustomers();
     paymentMethod?.addEventListener("change", syncPaymentDueDate);
+    splitPaymentInputs.forEach((input) => input.addEventListener("input", updateSplitPaymentSummary));
     syncPaymentDueDate();
 })();

@@ -65,6 +65,13 @@ class Sale(db.Model):
         lazy="selectin",
         order_by="SaleItem.line_no.asc()",
     )
+    payments = db.relationship(
+        "SalePayment",
+        back_populates="sale",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+        order_by="SalePayment.id.asc()",
+    )
     site = db.relationship("Site")
     store = db.relationship("Store")
 
@@ -105,6 +112,23 @@ class Sale(db.Model):
 
     def __repr__(self):
         return f"<Sale {self.document_no}>"
+
+
+class SalePayment(db.Model):
+    __tablename__ = "sale_payments"
+    __table_args__ = (
+        db.CheckConstraint("amount > 0", name="ck_sale_payment_amount_positive"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    sale_id = db.Column(db.Integer, db.ForeignKey("sales.id", ondelete="CASCADE"), nullable=False, index=True)
+    payment_method = db.Column(db.String(30), nullable=False, index=True)
+    amount = db.Column(db.Numeric(10, 2), nullable=False)
+    due_date = db.Column(db.Date, nullable=True, index=True)
+    status = db.Column(db.String(20), nullable=False, default="PAID", index=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    sale = db.relationship("Sale", back_populates="payments")
 
 
 class SaleItem(db.Model):
