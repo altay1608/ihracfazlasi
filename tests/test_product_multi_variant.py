@@ -99,6 +99,12 @@ class ProductMultiVariantTests(unittest.TestCase):
         self.assertNotIn("Atelier", label_html)
         self.assertNotIn("₺", label_html)
 
+        javascript = (
+            Path(__file__).resolve().parents[1] / "app/static/js/main.js"
+        ).read_text(encoding="utf-8")
+        self.assertIn("window.location.href = printUrl;", javascript)
+        self.assertNotIn('window.open(printUrl, "_blank", "noopener")', javascript)
+
     def test_sized_trouser_with_22_stock_creates_22_separate_labels(self):
         with self.app.app_context():
             multiplier_id = RetailMultiplier.query.filter_by(is_default=True).one().id

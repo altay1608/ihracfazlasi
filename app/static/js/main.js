@@ -2611,6 +2611,18 @@ async function submitAjaxForm(form) {
             const nextRefreshUrl = data.refresh_url || refreshUrl;
             const printUrl = data.print_url || null;
 
+            // Etiket sayfasını yeni sekmede açmak, kayıt isteği tamamlanana kadar
+            // geçen süreden dolayı tarayıcının açılır pencere engeline takılabiliyor.
+            // Ürün kaydı başarılıysa aynı sekmede doğrudan baskı ekranına geç.
+            if (printUrl) {
+                closeModal();
+                if (data.message) {
+                    storePendingToast(data.message, "success");
+                }
+                window.location.href = printUrl;
+                return;
+            }
+
             if (data.keep_open) {
                 if (data.html) {
                     globalModalBody.innerHTML = data.html;
@@ -2620,27 +2632,16 @@ async function submitAjaxForm(form) {
                 if (nextRefreshTarget) {
                     await window.refreshTarget(nextRefreshTarget, nextRefreshUrl);
                 }
-                if (printUrl) {
-                    window.open(printUrl, "_blank", "noopener");
-                }
             } else {
                 closeModal();
                 showToast(data.message || "İşlem tamamlandı.", "success");
                 if (nextRefreshTarget) {
                     await window.refreshTarget(nextRefreshTarget, nextRefreshUrl);
-                    if (printUrl) {
-                        window.open(printUrl, "_blank", "noopener");
-                    }
                 } else if (data.redirect_url) {
-                    if (printUrl) {
-                        window.open(printUrl, "_blank", "noopener");
-                    }
                     if (data.persist_message_after_redirect && data.message) {
                         storePendingToast(data.message, "success");
                     }
                     window.location.href = data.redirect_url;
-                } else if (printUrl) {
-                    window.open(printUrl, "_blank", "noopener");
                 } else {
                     window.location.reload();
                 }
