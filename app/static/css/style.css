@@ -6377,16 +6377,14 @@ th:hover .table-column-resize-handle::after,
         width: 50mm;
         height: 50mm;
         min-height: 50mm;
-        display: block;
-        break-after: page;
-        page-break-after: always;
-        break-inside: avoid;
-        page-break-inside: avoid;
-    }
-
-    .bulk-label-print-page .bulk-label-item:last-child {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
         break-after: auto;
         page-break-after: auto;
+        break-inside: avoid;
+        page-break-inside: avoid;
     }
 
     /* Keep the physical page at 50x50 mm, but leave a 0.8 mm safety inset.
@@ -6396,7 +6394,7 @@ th:hover .table-column-resize-handle::after,
         max-width: 48.4mm;
         height: 48.4mm;
         min-height: 48.4mm;
-        margin: 0.8mm auto;
+        margin: 0;
         border-radius: 0.8mm;
     }
 }

@@ -143,6 +143,10 @@ class ProductMultiVariantTests(unittest.TestCase):
         self.assertEqual(reprint_response.status_code, 200)
         self.assertEqual(reprint_html.count('class="bulk-label-item"'), 22)
 
+        stylesheet = (Path(__file__).resolve().parents[1] / "app/static/css/style.css").read_text(encoding="utf-8")
+        self.assertIn(".bulk-label-print-page .bulk-label-item", stylesheet)
+        self.assertNotIn("page-break-after: always", stylesheet)
+
 
 if __name__ == "__main__":
     unittest.main()
