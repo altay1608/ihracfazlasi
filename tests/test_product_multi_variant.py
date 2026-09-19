@@ -75,17 +75,18 @@ class ProductMultiVariantTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         result = response.get_json()
         self.assertTrue(result["success"])
-        self.assertIn("4 beden", result["message"])
+        self.assertIn("8 ürün birim olarak", result["message"])
         product_ids = [int(value) for value in parse_qs(urlparse(result["print_url"]).query)["product_ids"]]
 
         with self.app.app_context():
             products = Product.query.order_by(Product.product_code.asc()).all()
-            self.assertEqual([product.variant for product in products], ["S", "M", "L", "XL"])
+            self.assertEqual([product.variant for product in products], ["S", "S", "M", "M", "L", "L", "XL", "XL"])
             self.assertEqual([product.product_code for product in products], [
                 "100000000001", "100000000002", "100000000003", "100000000004",
+                "100000000005", "100000000006", "100000000007", "100000000008",
             ])
-            self.assertTrue(all(product.stock_quantity == 2 for product in products))
-            self.assertTrue(all(len(product.product_barcodes) == 2 for product in products))
+            self.assertTrue(all(product.stock_quantity == 1 for product in products))
+            self.assertTrue(all(len(product.product_barcodes) == 1 for product in products))
             self.assertEqual(product_ids, [product.id for product in products])
 
         label_response = self.client.get(result["print_url"])
@@ -124,12 +125,13 @@ class ProductMultiVariantTests(unittest.TestCase):
         self.assertTrue(result["success"])
 
         with self.app.app_context():
-            product = Product.query.filter_by(product_code="100000000050").one()
-            product_id = product.id
-            self.assertEqual(product.variant, "31")
-            self.assertEqual(product.stock_quantity, 22)
-            self.assertEqual(product.barcode_mode, "unit")
-            self.assertEqual(len(product.product_barcodes), 22)
+            products = Product.query.filter_by(name="Klasik Pantolon").order_by(Product.product_code.asc()).all()
+            product_id = products[0].id
+            self.assertEqual(len(products), 22)
+            self.assertTrue(all(product.variant == "31" for product in products))
+            self.assertTrue(all(product.stock_quantity == 1 for product in products))
+            self.assertTrue(all(product.barcode_mode == "unit" for product in products))
+            self.assertTrue(all(len(product.product_barcodes) == 1 for product in products))
 
         label_response = self.client.get(result["print_url"])
         label_html = label_response.get_data(as_text=True)
@@ -141,11 +143,38 @@ class ProductMultiVariantTests(unittest.TestCase):
         reprint_response = self.client.get(f"/products/{product_id}/label")
         reprint_html = reprint_response.get_data(as_text=True)
         self.assertEqual(reprint_response.status_code, 200)
-        self.assertEqual(reprint_html.count('class="bulk-label-item"'), 22)
+        self.assertEqual(reprint_html.count('class="bulk-label-item"'), 1)
 
         stylesheet = (Path(__file__).resolve().parents[1] / "app/static/css/style.css").read_text(encoding="utf-8")
         self.assertIn(".bulk-label-print-page .bulk-label-item", stylesheet)
         self.assertNotIn("page-break-after: always", stylesheet)
+
+    def test_shared_barcode_product_stays_in_one_inventory_row(self):
+        with self.app.app_context():
+            multiplier_id = RetailMultiplier.query.filter_by(is_default=True).one().id
+
+        response = self.client.post(
+            "/products/add",
+            data={
+                "name": "Ortak Barkodlu Parfüm",
+                "category": "Tişört",
+                "product_code": "100000000200",
+                "purchase_price": "100.00",
+                "retail_multiplier_id": str(multiplier_id),
+                "sale_price": "200.00",
+                "stock_quantity": "10",
+                "variants": ["__none__"],
+                "barcode_mode": "shared",
+            },
+            headers={"X-Requested-With": "XMLHttpRequest"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        with self.app.app_context():
+            products = Product.query.filter_by(name="Ortak Barkodlu Parfüm").all()
+            self.assertEqual(len(products), 1)
+            self.assertEqual(products[0].stock_quantity, 10)
+            self.assertEqual(len(products[0].product_barcodes), 1)
 
 
 if __name__ == "__main__":

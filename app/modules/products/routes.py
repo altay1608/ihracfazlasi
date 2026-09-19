@@ -310,45 +310,62 @@ def add():
                 created_products = []
                 next_product_code = product_code
                 used_product_codes = {product_code}
-                automatic_code = int(get_next_product_code()) if len(selected_variants) > 1 else None
+                requested_quantity = max(int(payload.get("stock_quantity") or 0), 0)
+                record_count = sum(
+                    max(requested_quantity, 1)
+                    if selected_variant or payload.get("barcode_mode") == "unit"
+                    else 1
+                    for selected_variant in selected_variants
+                )
+                automatic_code = None
+                if record_count > 1:
+                    automatic_code = int(get_next_product_code())
+                    if product_code.isdigit():
+                        automatic_code = max(automatic_code, int(product_code) + 1)
                 for selected_variant in selected_variants:
-                    variant_payload = dict(payload)
-                    variant_payload.update(
-                        barcode=next_product_code,
-                        product_code=next_product_code,
-                        variant=selected_variant,
-                    )
                     # Bedenli giyim ürünleri stok sayımı ve satışta birim bazında
-                    # izlenir. Yanlışlıkla ortak barkod seçilse bile her adet için
-                    # ayrı barkod ve etiket üretimini koru.
-                    if selected_variant:
-                        variant_payload["barcode_mode"] = "unit"
-                    product = Product(**variant_payload)
-                    db.session.add(product)
-                    db.session.flush()
-                    sync_product_barcodes(product, product.stock_quantity, product.barcode_mode)
-                    record_inventory_movement(
-                        product,
-                        transaction_type="product_opening",
-                        quantity_before=0,
-                        quantity_after=product.stock_quantity,
-                        source_type="product",
-                        source_id=product.id,
-                        source_reference=f"Ürün #{product.id}",
-                    )
-                    created_products.append(product)
-                    if automatic_code is not None:
-                        while str(automatic_code) in used_product_codes:
+                    # izlenir. Birim barkod modunda girilen adet, her biri stok 1
+                    # olan ayrı ürün kayıtlarına dönüştürülür. Ortak barkodlu
+                    # parfüm vb. ürünler ise tek satırda adetli kalır.
+                    barcode_mode = "unit" if selected_variant else payload.get("barcode_mode", "unit")
+                    copies = max(requested_quantity, 1) if barcode_mode == "unit" else 1
+                    for _copy_index in range(copies):
+                        variant_payload = dict(payload)
+                        variant_payload.update(
+                            barcode=next_product_code,
+                            product_code=next_product_code,
+                            variant=selected_variant,
+                            barcode_mode=barcode_mode,
+                            stock_quantity=(1 if requested_quantity > 0 else 0)
+                            if barcode_mode == "unit"
+                            else requested_quantity,
+                        )
+                        product = Product(**variant_payload)
+                        db.session.add(product)
+                        db.session.flush()
+                        sync_product_barcodes(product, product.stock_quantity, product.barcode_mode)
+                        record_inventory_movement(
+                            product,
+                            transaction_type="product_opening",
+                            quantity_before=0,
+                            quantity_after=product.stock_quantity,
+                            source_type="product",
+                            source_id=product.id,
+                            source_reference=f"Ürün #{product.id}",
+                        )
+                        created_products.append(product)
+                        if automatic_code is not None:
+                            while str(automatic_code) in used_product_codes:
+                                automatic_code += 1
+                            next_product_code = str(automatic_code)
+                            used_product_codes.add(next_product_code)
                             automatic_code += 1
-                        next_product_code = str(automatic_code)
-                        used_product_codes.add(next_product_code)
-                        automatic_code += 1
 
                 db.session.commit()
                 created_product_ids = [product.id for product in created_products]
                 print_url = url_for("products.bulk_labels", product_ids=created_product_ids)
                 message = (
-                    f"{len(created_products)} beden başarıyla stoğa eklendi. Etiketler hazırlandı."
+                    f"{len(created_products)} ürün birim olarak stoğa eklendi. Etiketler hazırlandı."
                     if len(created_products) > 1
                     else "Ürün başarıyla eklendi. Etiketi hazırlandı."
                 )
