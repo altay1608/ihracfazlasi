@@ -80,6 +80,15 @@ class DeploymentBootstrapTests(unittest.TestCase):
             with self.subTest(path=path):
                 self.assertEqual(self.client.get(path).status_code, 200)
 
+    def test_managed_postgres_bootstrap_contains_split_payment_schema(self):
+        bootstrap_source = (
+            Path(__file__).resolve().parents[1] / "app/services/deployment_bootstrap.py"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("CREATE TABLE IF NOT EXISTS sale_payments", bootstrap_source)
+        self.assertIn("ix_sale_payments_sale_id", bootstrap_source)
+        self.assertIn("deployment_ready_20260919_v2", bootstrap_source)
+
 
 if __name__ == "__main__":
     unittest.main()

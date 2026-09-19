@@ -11,8 +11,8 @@ from app.models import FinanceActivation, Package, Site, Store, SystemSetting
 
 
 DELIVERY_RESET_VERSION = "customer_delivery_operational_reset_20260916_v2"
-AUTOMATIC_SCHEMA_VERSION = "automatic_schema_bootstrap_20260917_v3"
-DEPLOYMENT_READY_VERSION = "deployment_ready_20260917_v1"
+AUTOMATIC_SCHEMA_VERSION = "automatic_schema_bootstrap_20260919_v4"
+DEPLOYMENT_READY_VERSION = "deployment_ready_20260919_v2"
 
 
 def ensure_deployment_ready():
@@ -47,6 +47,20 @@ def ensure_automatic_pos_schema():
         "ALTER TABLE finance_activations ADD COLUMN IF NOT EXISTS pos_settlement_days INTEGER NOT NULL DEFAULT 1",
         "ALTER TABLE finance_activations ADD COLUMN IF NOT EXISTS pos_bank_account_id INTEGER NULL",
         "ALTER TABLE sales ADD COLUMN IF NOT EXISTS payment_due_date DATE NULL",
+        """CREATE TABLE IF NOT EXISTS sale_payments (
+            id SERIAL PRIMARY KEY,
+            sale_id INTEGER NOT NULL REFERENCES sales(id) ON DELETE CASCADE,
+            payment_method VARCHAR(30) NOT NULL,
+            amount NUMERIC(10,2) NOT NULL,
+            due_date DATE NULL,
+            status VARCHAR(20) NOT NULL DEFAULT 'PAID',
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            CONSTRAINT ck_sale_payment_amount_positive CHECK (amount > 0)
+        )""",
+        "CREATE INDEX IF NOT EXISTS ix_sale_payments_sale_id ON sale_payments (sale_id)",
+        "CREATE INDEX IF NOT EXISTS ix_sale_payments_payment_method ON sale_payments (payment_method)",
+        "CREATE INDEX IF NOT EXISTS ix_sale_payments_due_date ON sale_payments (due_date)",
+        "CREATE INDEX IF NOT EXISTS ix_sale_payments_status ON sale_payments (status)",
         "ALTER TABLE sale_items ADD COLUMN IF NOT EXISTS line_type VARCHAR(20) NOT NULL DEFAULT 'sale'",
         "CREATE INDEX IF NOT EXISTS ix_sale_items_line_type ON sale_items (line_type)",
         "ALTER TABLE products ADD COLUMN IF NOT EXISTS barcode_mode VARCHAR(20) NOT NULL DEFAULT 'unit'",
