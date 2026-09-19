@@ -6244,7 +6244,7 @@ th:hover .table-column-resize-handle::after,
         margin: 0;
     }
 
-    html:has(.compact-label-print-page),
+    html:has(body.compact-label-print-page:not(.bulk-label-print-page)),
     body.compact-label-print-page:not(.bulk-label-print-page) {
         width: 50mm;
         height: 50mm;
@@ -6322,9 +6322,22 @@ th:hover .table-column-resize-handle::after,
 
     .bulk-label-print-page .bulk-label-sheet {
         width: 50mm;
+        height: auto;
+        min-height: 0;
         display: block;
         justify-content: start;
         gap: 0;
+        overflow: visible;
+    }
+
+    html:has(body.bulk-label-print-page),
+    body.bulk-label-print-page {
+        width: 50mm;
+        height: auto;
+        min-height: 0;
+        margin: 0 !important;
+        padding: 0 !important;
+        overflow: visible !important;
     }
 
     .bulk-label-print-page .bulk-label-item {

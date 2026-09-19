@@ -125,6 +125,7 @@ class ProductMultiVariantTests(unittest.TestCase):
 
         with self.app.app_context():
             product = Product.query.filter_by(product_code="100000000050").one()
+            product_id = product.id
             self.assertEqual(product.variant, "31")
             self.assertEqual(product.stock_quantity, 22)
             self.assertEqual(product.barcode_mode, "unit")
@@ -134,6 +135,13 @@ class ProductMultiVariantTests(unittest.TestCase):
         label_html = label_response.get_data(as_text=True)
         self.assertEqual(label_response.status_code, 200)
         self.assertEqual(label_html.count('class="label-card compact-fashion-label"'), 22)
+        self.assertEqual(label_html.count('class="bulk-label-item"'), 22)
+        self.assertIn("@page { size: 50mm 50mm; margin: 0; }", label_html)
+
+        reprint_response = self.client.get(f"/products/{product_id}/label")
+        reprint_html = reprint_response.get_data(as_text=True)
+        self.assertEqual(reprint_response.status_code, 200)
+        self.assertEqual(reprint_html.count('class="bulk-label-item"'), 22)
 
 
 if __name__ == "__main__":

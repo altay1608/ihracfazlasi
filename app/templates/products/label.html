@@ -4,20 +4,23 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Etiket | {{ product.name }}</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20260917-label-50x50-v5') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20260918-label-pagination-v6') }}">
+    <style media="print">@page { size: 50mm 50mm; margin: 0; }</style>
 </head>
-<body class="print-page compact-label-print-page">
+<body class="print-page compact-label-print-page bulk-label-print-page">
     <div class="print-actions no-print">
         <button type="button" class="primary-button" onclick="window.print()">Yazdır</button>
         <button type="button" class="ghost-button" onclick="window.close()">Kapat</button>
     </div>
 
-    <section class="label-sheet compact-fashion-label-sheet">
+    <section class="bulk-label-sheet">
         {% for item in labels %}
-        {% set product = item.product %}
-        {% set barcode_svg = item.barcode_svg %}
-        {% set barcode_value = item.barcode_value %}
-        {% include "products/_label_card.html" %}
+        <div class="bulk-label-item">
+            {% set product = item.product %}
+            {% set barcode_svg = item.barcode_svg %}
+            {% set barcode_value = item.barcode_value %}
+            {% include "products/_label_card.html" %}
+        </div>
         {% endfor %}
     </section>
 
