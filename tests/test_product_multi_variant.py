@@ -104,6 +104,18 @@ class ProductMultiVariantTests(unittest.TestCase):
         ).read_text(encoding="utf-8")
         self.assertIn("window.location.href = printUrl;", javascript)
         self.assertNotIn('window.open(printUrl, "_blank", "noopener")', javascript)
+        self.assertIn("window.location.href = url.toString();", javascript)
+        self.assertNotIn('window.open(url.toString(), "_blank", "noopener")', javascript)
+
+        base_template = (
+            Path(__file__).resolve().parents[1] / "app/templates/base.html"
+        ).read_text(encoding="utf-8")
+        self.assertIn("20260920-label-navigation-v4", base_template)
+
+        table_template = (
+            Path(__file__).resolve().parents[1] / "app/templates/products/_table_section.html"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn('target="_blank"', table_template)
 
     def test_sized_trouser_with_22_stock_creates_22_separate_labels(self):
         with self.app.app_context():

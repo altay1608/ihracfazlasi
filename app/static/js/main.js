@@ -582,7 +582,7 @@ async function executeBulkProductAction(trigger, forcedAction = "") {
     if (action === "labels") {
         const url = new URL(section?.dataset.bulkLabelsUrl || trigger.dataset.bulkLabelsUrl || trigger.dataset.bulkUrl, window.location.origin);
         selectedIds.forEach((id) => url.searchParams.append("product_ids", id));
-        window.open(url.toString(), "_blank", "noopener");
+        window.location.href = url.toString();
         return;
     }
 

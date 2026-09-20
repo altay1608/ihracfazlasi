@@ -10,7 +10,7 @@
 <body class="print-page compact-label-print-page bulk-label-print-page">
     <div class="print-actions no-print">
         <button type="button" class="primary-button" onclick="window.print()">Yazdır</button>
-        <button type="button" class="ghost-button" onclick="window.close()">Kapat</button>
+        <button type="button" class="ghost-button" onclick="returnToProducts()">Kapat</button>
     </div>
 
     <section class="bulk-label-sheet">
@@ -25,6 +25,18 @@
     </section>
 
     <script>
+    function returnToProducts() {
+        if (window.opener && !window.opener.closed) {
+            window.close();
+            return;
+        }
+        if (window.history.length > 1) {
+            window.history.back();
+            return;
+        }
+        window.location.href = "{{ url_for('products.index') }}";
+    }
+
     window.addEventListener("load", () => {
         window.setTimeout(() => window.print(), 250);
     });
