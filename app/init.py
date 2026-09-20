@@ -218,6 +218,12 @@ def register_security_headers(app):
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
         response.headers.setdefault("Referrer-Policy", "same-origin")
         response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+        response.headers.setdefault(
+            "Content-Security-Policy",
+            "base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'",
+        )
+        if app.config.get("SESSION_COOKIE_SECURE"):
+            response.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
         if request.endpoint and request.endpoint.startswith(("auth.", "audit.")):
             response.headers.setdefault("Cache-Control", "no-store")
         elif request.endpoint == "static":

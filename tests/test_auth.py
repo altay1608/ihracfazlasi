@@ -58,6 +58,13 @@ class AuthTests(unittest.TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertIn("/login", response.headers["Location"])
 
+    def test_security_headers_are_present(self):
+        response = self.client.get("/login")
+
+        self.assertEqual(response.headers["X-Frame-Options"], "DENY")
+        self.assertEqual(response.headers["X-Content-Type-Options"], "nosniff")
+        self.assertIn("frame-ancestors 'none'", response.headers["Content-Security-Policy"])
+
     def test_login_lists_store_features_without_package_prices(self):
         response = self.client.get("/login")
 

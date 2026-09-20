@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { validateApiKey } from "@/lib/api-auth";
+import { validateApiKeyOrAdminSession } from "@/lib/api-auth";
 
 // GET /api/v1/reports/financial - Finansal rapor
 export async function GET(request: NextRequest) {
-  const authResult = await validateApiKey(request);
+  const authResult = await validateApiKeyOrAdminSession(request);
   if (!authResult.success) return authResult.error;
 
   try {

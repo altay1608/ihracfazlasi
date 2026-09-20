@@ -1,9 +1,12 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { successResponse, errorResponse } from "@/lib/api-auth";
+import { validateApiKeyOrAdminSession, successResponse, errorResponse } from "@/lib/api-auth";
 
 // GET /api/v1/reports/weekly?start_date=2026-01-20
 export async function GET(request: NextRequest) {
+  const auth = await validateApiKeyOrAdminSession(request);
+  if (!auth.success) return auth.error;
+
   try {
     const { searchParams } = new URL(request.url);
     const startDateStr = searchParams.get("start_date");

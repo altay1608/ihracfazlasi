@@ -35,6 +35,30 @@
     let searchTimer = null;
     let splitPaymentInitialized = false;
 
+    function escapeHtml(value) {
+        return String(value ?? "")
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#39;");
+    }
+
+    function createCustomerButton(item, className, fallbackName, fallbackDetail) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = className;
+        button.dataset.customer = JSON.stringify(item);
+
+        const name = document.createElement("strong");
+        name.textContent = item.name || fallbackName;
+        const detail = document.createElement("span");
+        detail.textContent = item.mobile || item.email || item.tax_number || item.city || fallbackDetail;
+
+        button.append(name, detail);
+        return button;
+    }
+
     if (paymentMethod) {
         const defaultCashOption = Array.from(paymentMethod.options).find((option) => {
             const value = String(option.value || "").trim().toLocaleLowerCase("tr");
@@ -320,12 +344,14 @@
             return;
         }
 
-        customerSearchResults.innerHTML = results.map((item) => `
-            <button type="button" class="customer-search-item" data-customer='${JSON.stringify(item).replace(/'/g, "&apos;")}'>
-                <strong>${item.name || "İsimsiz Kayıt"}</strong>
-                <span>${item.mobile || item.email || item.tax_number || item.city || "İletişim bilgisi yok"}</span>
-            </button>
-        `).join("");
+        customerSearchResults.replaceChildren(
+            ...results.map((item) => createCustomerButton(
+                item,
+                "customer-search-item",
+                "İsimsiz Kayıt",
+                "İletişim bilgisi yok"
+            ))
+        );
         customerSearchResults.hidden = false;
         customerSearchResults.classList.remove("is-hidden");
     }
@@ -339,12 +365,14 @@
             return;
         }
 
-        recentCustomers.innerHTML = results.map((item) => `
-            <button type="button" class="customer-recent-chip" data-customer='${JSON.stringify(item).replace(/'/g, "&apos;")}'>
-                <strong>${item.name || "İsimsiz"}</strong>
-                <span>${item.mobile || item.email || item.city || "Kayıt"}</span>
-            </button>
-        `).join("");
+        recentCustomers.replaceChildren(
+            ...results.map((item) => createCustomerButton(
+                item,
+                "customer-recent-chip",
+                "İsimsiz",
+                "Kayıt"
+            ))
+        );
     }
 
     async function loadRecentCustomers() {
@@ -453,12 +481,12 @@
                 const barcodeId = item.scanned_barcode_ids?.[index];
                 if (!barcodeId) {
                     return `
-                        <div class="muted">Çıkış Barkodu: ${barcodeValue}</div>
+                        <div class="muted">Çıkış Barkodu: ${escapeHtml(barcodeValue)}</div>
                     `;
                 }
                 return `
-                    <div class="muted">Çıkış Barkodu: ${barcodeValue}</div>
-                    <div class="muted">Kayıt No: ${barcodeId}</div>
+                    <div class="muted">Çıkış Barkodu: ${escapeHtml(barcodeValue)}</div>
+                    <div class="muted">Kayıt No: ${escapeHtml(barcodeId)}</div>
                 `;
             });
             const scannedMarkup = scannedPairs.length
@@ -466,11 +494,11 @@
                 : `<div class="muted">Çıkış Barkodu: Birim barkodu okutulmadı</div>`;
             const row = document.createElement("tr");
             const quantityEditor = lineEditsLocked
-                ? `<strong>${item.quantity}</strong>`
+                ? `<strong>${Number(item.quantity)}</strong>`
                 : `
                     <div class="inline-stock-editor">
                         <button type="button" class="ghost-button" data-action="decrease">-</button>
-                        <input type="number" min="1" max="${item.max_quantity || item.quantity}" value="${item.quantity}" data-action="quantity" readonly aria-label="Okutulan birim barkodu adedi">
+                        <input type="number" min="1" max="${Number(item.max_quantity || item.quantity)}" value="${Number(item.quantity)}" data-action="quantity" readonly aria-label="Okutulan birim barkodu adedi">
                     </div>
                 `;
             const removeButton = lineEditsLocked
@@ -481,7 +509,7 @@
                 : `
                     <label class="cart-line-type-label">
                         İşlem Türü
-                        <select data-action="line-type" aria-label="${item.name} işlem türü">
+                        <select data-action="line-type" aria-label="${escapeHtml(item.name)} işlem türü">
                             <option value="sale" ${lineType === "sale" ? "selected" : ""}>Normal Satış</option>
                             <option value="gift" ${lineType === "gift" ? "selected" : ""}>Hediye</option>
                             <option value="personal" ${lineType === "personal" ? "selected" : ""}>Şahsi Kullanım</option>
@@ -490,9 +518,9 @@
                 `;
             row.innerHTML = `
                 <td>
-                    <strong>${item.name}</strong>
-                    <div class="muted">${item.variant || ""}</div>
-                    <div class="muted">Malzeme Kodu: ${item.product_code || "-"}</div>
+                    <strong>${escapeHtml(item.name)}</strong>
+                    <div class="muted">${escapeHtml(item.variant || "")}</div>
+                    <div class="muted">Malzeme Kodu: ${escapeHtml(item.product_code || "-")}</div>
                     ${scannedMarkup}
                     ${lineTypeEditor}
                 </td>

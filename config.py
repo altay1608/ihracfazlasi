@@ -33,6 +33,10 @@ def resolve_database_url():
 class BaseConfig:
     SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key-change-me")
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+    # Reject unexpectedly large requests before Flask or openpyxl allocates
+    # memory for them. Product spreadsheets and finance attachments are well
+    # below this limit during normal use.
+    MAX_CONTENT_LENGTH = int(os.getenv("MAX_CONTENT_LENGTH", str(16 * 1024 * 1024)))
     # This store normally carries one piece per size. One piece is healthy;
     # only a zero balance is considered sold out.
     LOW_STOCK_THRESHOLD = 0

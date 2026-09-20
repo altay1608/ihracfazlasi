@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { successResponse, errorResponse } from "@/lib/api-auth";
+import { validateApiKeyOrAdminSession, successResponse, errorResponse } from "@/lib/api-auth";
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -8,6 +8,9 @@ interface RouteContext {
 
 // GET /api/v1/sales/[id] - Satış detayı
 export async function GET(request: NextRequest, context: RouteContext) {
+  const auth = await validateApiKeyOrAdminSession(request);
+  if (!auth.success) return auth.error;
+
   try {
     const { id } = await context.params;
     const saleId = parseInt(id);

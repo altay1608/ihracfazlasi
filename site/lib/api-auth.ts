@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "./prisma";
+import { ADMIN_COOKIE_NAME, validateAdminSession } from "./admin-auth";
 
 export interface AuthResult {
   success: boolean;
@@ -78,6 +79,14 @@ export async function validateApiKey(request: NextRequest): Promise<AuthResult> 
       ),
     };
   }
+}
+
+export async function validateApiKeyOrAdminSession(request: NextRequest): Promise<AuthResult> {
+  const adminSession = request.cookies.get(ADMIN_COOKIE_NAME)?.value;
+  if (adminSession && await validateAdminSession(adminSession)) {
+    return { success: true };
+  }
+  return validateApiKey(request);
 }
 
 // API yanıtı için yardımcı fonksiyonlar

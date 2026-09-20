@@ -1,10 +1,13 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { validateApiKey, successResponse, errorResponse, paginatedResponse } from "@/lib/api-auth";
+import { validateApiKey, validateApiKeyOrAdminSession, successResponse, errorResponse, paginatedResponse } from "@/lib/api-auth";
 import { z } from "zod";
 
 // GET /api/v1/sales - Satış listesi
 export async function GET(request: NextRequest) {
+  const auth = await validateApiKeyOrAdminSession(request);
+  if (!auth.success) return auth.error;
+
   try {
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get("page") || "1");

@@ -128,6 +128,12 @@ async function proxyRequest(request: NextRequest, slug: string[]): Promise<NextR
       responseHeaders.set(key, value);
     });
 
+    responseHeaders.set('X-Frame-Options', 'DENY');
+    responseHeaders.set(
+      'Content-Security-Policy',
+      "base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'"
+    );
+
     // Non-308 redirects (auth redirects, form submissions) pass through to browser
     if ([301, 302, 303, 307].includes(flaskResponse.status)) {
       return new NextResponse(null, {

@@ -1,14 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-
-async function computeAdminToken(password: string): Promise<string> {
-  const salt = process.env.ADMIN_SECRET || 'ihrac-admin-salt-2026';
-  const data = new TextEncoder().encode(password + salt);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  return Array.from(new Uint8Array(hashBuffer))
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('');
-}
+import { validateAdminSession } from "@/lib/admin-auth";
 
 export async function middleware(request: NextRequest) {
   const url = request.nextUrl;
@@ -18,14 +10,11 @@ export async function middleware(request: NextRequest) {
   // Admin route protection
   if (pathname.startsWith('/admin') && !pathname.startsWith('/admin/login')) {
     const adminSession = request.cookies.get('admin-session')?.value;
-    const adminPassword = process.env.AUTH_PASSWORD || process.env.ADMIN_PASSWORD;
-
-    if (!adminSession || !adminPassword) {
+    if (!adminSession) {
       return NextResponse.redirect(new URL('/admin/login', request.url));
     }
 
-    const expectedToken = await computeAdminToken(adminPassword);
-    if (adminSession !== expectedToken) {
+    if (!(await validateAdminSession(adminSession))) {
       return NextResponse.redirect(new URL('/admin/login', request.url));
     }
 

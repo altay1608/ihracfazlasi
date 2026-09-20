@@ -1,17 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { handleUpdate, TelegramUpdate } from "@/lib/telegram";
+import { validateApiKeyOrAdminSession } from "@/lib/api-auth";
 
 // Verify webhook secret (optional security)
 const WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET || "";
 
 export async function POST(request: NextRequest) {
   try {
-    // Optional: Verify webhook secret from header
-    if (WEBHOOK_SECRET) {
-      const secret = request.headers.get("X-Telegram-Bot-Api-Secret-Token");
-      if (secret !== WEBHOOK_SECRET) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-      }
+    if (!WEBHOOK_SECRET) {
+      return NextResponse.json({ error: "Webhook secret not configured" }, { status: 503 });
+    }
+    const secret = request.headers.get("X-Telegram-Bot-Api-Secret-Token");
+    if (secret !== WEBHOOK_SECRET) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const update: TelegramUpdate = await request.json();
@@ -31,6 +32,9 @@ export async function POST(request: NextRequest) {
 
 // For setting up webhook
 export async function GET(request: NextRequest) {
+  const auth = await validateApiKeyOrAdminSession(request);
+  if (!auth.success) return auth.error;
+
   const { searchParams } = new URL(request.url);
   const action = searchParams.get("action");
 
@@ -44,10 +48,6 @@ export async function GET(request: NextRequest) {
     // Set webhook - use NEXT_PUBLIC_SITE_URL or fallback
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.RAILWAY_PUBLIC_DOMAIN || "https://ihracfazlasigiyim.com";
     const webhookUrl = `${baseUrl}/api/telegram/webhook`;
-
-    console.log("NEXT_PUBLIC_SITE_URL:", process.env.NEXT_PUBLIC_SITE_URL);
-    console.log("RAILWAY_PUBLIC_DOMAIN:", process.env.RAILWAY_PUBLIC_DOMAIN);
-    console.log("webhookUrl:", webhookUrl);
 
     const response = await fetch(
       `https://api.telegram.org/bot${BOT_TOKEN}/setWebhook`,
@@ -65,11 +65,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       action: "setWebhook",
       webhookUrl,
-      baseUrl,
-      envVars: {
-        NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL || "undefined",
-        RAILWAY_PUBLIC_DOMAIN: process.env.RAILWAY_PUBLIC_DOMAIN || "undefined",
-      },
       result
     });
   }
