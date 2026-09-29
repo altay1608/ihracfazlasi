@@ -23,6 +23,20 @@ const nextConfig: NextConfig = {
   },
   serverExternalPackages: ["@libsql/client", "@prisma/adapter-libsql"],
 
+  async headers() {
+    return [
+      {
+        source: "/:path*.(webp|png|jpg|jpeg|svg|webm|mp4|woff2)",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=31536000, immutable",
+          },
+        ],
+      },
+    ];
+  },
+
   // 301 Yönlendirmeler - Eski URL'lerden yeni URL'lere
   async redirects() {
     return [

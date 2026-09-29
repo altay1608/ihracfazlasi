@@ -1,13 +1,36 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { animate, stagger } from "animejs";
 import { useIsMobile } from "@/hooks/useIsMobile";
 
 export default function PromoVideo() {
   const sectionRef = useRef<HTMLElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
+  const [loadVideo, setLoadVideo] = useState(false);
   const isMobile = useIsMobile();
+
+  // The promo section is far below the fold. Do not spend bandwidth on its
+  // video until the visitor is close to seeing it.
+  useEffect(() => {
+    if (isMobile || !sectionRef.current) {
+      setLoadVideo(false);
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setLoadVideo(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: "500px 0px" }
+    );
+
+    observer.observe(sectionRef.current);
+    return () => observer.disconnect();
+  }, [isMobile]);
 
   // Parallax on video section - DESKTOP ONLY
   useEffect(() => {
@@ -112,16 +135,19 @@ export default function PromoVideo() {
   return (
     <section ref={sectionRef} className="relative h-[50vh] sm:h-[55vh] md:h-[60vh] min-h-[300px] max-h-[600px] overflow-hidden">
       {/* Video - Desktop */}
-      <video
-        autoPlay
-        muted
-        loop
-        playsInline
-        className="promo-video absolute inset-0 w-full h-full object-cover hidden md:block"
-        style={{ transform: "scale(1.15)" }}
-      >
-        <source src="/promo-video.mp4" type="video/mp4" />
-      </video>
+      {loadVideo && (
+        <video
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="metadata"
+          className="promo-video absolute inset-0 w-full h-full object-cover hidden md:block"
+          style={{ transform: "scale(1.15)" }}
+        >
+          <source src="/promo-video.mp4" type="video/mp4" media="(min-width: 768px)" />
+        </video>
+      )}
 
       {/* Gradient Background - Mobile */}
       <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-gray-800 to-black md:hidden" />
