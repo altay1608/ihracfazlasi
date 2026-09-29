@@ -26,6 +26,35 @@ class FrontendGuardTests(unittest.TestCase):
         self.assertIn("name.textContent = item.name || fallbackName", source)
         self.assertNotIn("data-customer='${JSON.stringify(item)", source)
 
+    def test_telegram_bot_is_limited_to_website_product_uploads(self):
+        source = (Path(__file__).resolve().parents[1] / "site/lib/telegram.ts").read_text(encoding="utf-8")
+        handler = source[source.index("export async function handleUpdate") :]
+
+        for allowed_command in ('case "/urunekle":', 'case "/foto":', 'case "/fotograflar":'):
+            self.assertIn(allowed_command, handler)
+
+        for blocked_command in (
+            'case "/sat":',
+            'case "/stokdus":',
+            'case "/gider":',
+            'case "/finans":',
+            'case "/kasaac":',
+            'case "/defter":',
+            'case "/urunsil":',
+            'case "/fiyat":',
+        ):
+            self.assertNotIn(blocked_command, handler)
+
+        self.assertIn("WEBSITE_UPLOAD_STATES", handler)
+        self.assertIn("Sesli mağaza komutları kapalıdır", handler)
+
+    def test_telegram_single_quantity_uses_upper_sizes_through_3xl(self):
+        source = (Path(__file__).resolve().parents[1] / "site/lib/telegram.ts").read_text(encoding="utf-8")
+
+        self.assertIn('"ust-giyim": ["S", "M", "L", "XL", "XXL", "3XL"]', source)
+        self.assertNotIn('"ust-giyim": ["S", "M", "L", "XL", "XXL", "3XL", "4XL"', source)
+        self.assertIn("stockUpdates = sizes.map(size => ({ size, quantity }))", source)
+
 
 if __name__ == "__main__":
     unittest.main()

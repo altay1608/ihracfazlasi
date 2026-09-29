@@ -82,7 +82,7 @@ const MAIN_CATEGORIES = [
 
 // Default sizes for products by category
 const SIZES_BY_CATEGORY: Record<string, string[]> = {
-  "ust-giyim": ["S", "M", "L", "XL", "XXL", "3XL", "4XL", "5XL"],
+  "ust-giyim": ["S", "M", "L", "XL", "XXL", "3XL"],
   "alt-giyim": ["28", "30", "32", "34", "36", "38", "40", "42"],
   "aksesuar": ["STD"],
 };
@@ -192,6 +192,17 @@ export interface TelegramUpdate {
 
 // User state for multi-step operations
 const userStates: Map<number, { action: string; data: Record<string, unknown> }> = new Map();
+
+// Bu bot yalnızca web sitesi kataloğuna ürün ve medya yüklemek için kullanılır.
+// Mağaza yönetimi, satış ve muhasebe komutları bilinçli olarak kapalıdır.
+const WEBSITE_UPLOAD_STATES = new Set([
+  "add_product_photo",
+  "add_product_info",
+  "add_product_auto",
+  "add_product_with_ai",
+  "add_photo_to_product",
+  "add_stock_serial",
+]);
 
 // Media group tracking for multiple photos/videos
 interface MediaGroupData {
@@ -853,81 +864,31 @@ function parseSimpleCaption(caption: string): { sku: string; name: string; price
 // /start - Welcome message
 async function handleStart(chatId: number) {
   const message = `
-🛍️ <b>İhraç Fazlası Giyim Bot</b>
+🛍️ <b>İhraç Fazlası Giyim Web Sitesi Botu</b>
 
-Merhaba! Mağaza yönetim botuna hoş geldiniz.
+Bu bot yalnızca web sitesine ürün, fotoğraf ve video yüklemek için kullanılır.
+Mağaza stok, satış ve muhasebe sistemi bu bottan tamamen ayrıdır.
 
 <b>🚀 TAM OTOMATİK ÜRÜN EKLEME</b>
 1. Fotoğraf gönderin (tekli veya çoklu)
 2. AI markayı, tipi ve rengi tanır
 3. SKU otomatik oluşturulur
 4. Fiyat yazın: <code>450</code>
-5. Seri stok girin: <code>1 2 3 3 2 1 1 1</code> veya tek sayı <code>5</code>
+5. Her bedenden birer adet eklemek için tek sayı <code>1</code> yazın.
+   Farklı adetler için seri stok girin: <code>1 2 3 3 2 1</code>
    Bedenler ürün tipine göre otomatik belirlenir:
-   • Üst giyim: S, M, L, XL, XXL, 3XL, 4XL, 5XL
+   • Üst giyim: S, M, L, XL, XXL, 3XL
    • Alt giyim: 28, 30, 32, 34, 36, 38, 40, 42
    • Aksesuar: STD
 6. Ürün tamamlandı! ✅
 
-<b>🎤 SESLİ KOMUT</b>
-Ses mesajı gönderin, AI komutu anlayıp çalıştırır!
-Örnek: "TH05 stoğunu göster" veya "bugünkü satışlar"
-
-<b>📦 ÜRÜN YÖNETİMİ</b>
+<b>📦 WEB SİTESİ ÜRÜN YÜKLEME</b>
 /urunekle - Yeni ürün ekle
-/urunler - Ürün listesi
-/urunsil [SKU] - Ürün sil
-/fiyat [SKU] [fiyat] - Fiyat güncelle
+/urunler - Web sitesi ürün listesini kontrol et
 /foto [SKU] - Ürüne fotoğraf ekle
 /fotografekle [SKU] - Mevcut ürüne fotoğraf ekle
 /fotograflar [SKU] - Ürün fotoğraflarını listele
-
-<b>📊 STOK YÖNETİMİ</b>
-/stok [SKU] - Stok sorgula
-/seristok [SKU] [stoklar] - Seri stok gir
-  Örnek: <code>/seristok TH05 1 2 3 3 2 1 1 1</code>
-/stokekle [SKU] [beden] [adet] - Tek stok ekle
-/stokdus [SKU] [beden] [adet] - Stok düş
-/dusukstok - Düşük stokları göster
-/stokoner - Stok sipariş önerileri
-
-<b>💰 SATIŞ</b>
-/sat [SKU] [beden] [adet] [fiyat] - Satış kaydet
-/satisiptal [ID] - Satış iptal
-/sonsatislar - Son 10 satış
-
-<b>📈 RAPORLAR</b>
-/gunluk - Günlük rapor
-/haftalik - Haftalık rapor
-/aylik - Aylık rapor
-/ciro - Anlık ciro
-/raporayarla [saat] - Günlük otomatik rapor
-  Örnek: <code>/raporayarla 21:00</code>
-
-<b>💸 GİDER & FİNANS</b>
-/gider [tutar] [kategori] [açıklama] - Gider ekle
-/giderler - Son giderleri listele
-/kar - Kar/zarar raporu
-/finans - Aylık finansal özet
-
-<b>💵 KASA YÖNETİMİ</b>
-/kasaac [tutar] - Günün başında kasa aç
-/kasakapat - Gün sonu kasa kapat & rapor
-
-<b>💲 TOPLU FİYAT</b>
-/zamekle [yüzde] - Tüm ürünlere zam
-/zamekle [yüzde] [SKU] - SKU'ya göre zam
-/zamekle [yüzde] "kategori" - Kategoriye zam
-/indirim [yüzde] - Tüm ürünlere indirim
-→ Onay için /onayla
-
-<b>📒 KASA DEFTERİ</b>
-Fotoğraf + caption: <code>/defter</code> veya <code>/kasa</code>
-AI el yazısı defteri okur → /onayla ile kaydet
-
-<b>📁 KATEGORİ</b>
-/kategoriler - Kategori listesi
-/kategoriekle [isim] - Yeni kategori
+/iptal - Devam eden yüklemeyi iptal et
 
 💡 <b>Hızlı Ürün Ekleme (Manuel):</b>
 Fotoğraf + caption: <code>SKU İsim Fiyat</code>
@@ -1806,10 +1767,10 @@ async function handlePhoto(
     return;
   }
 
-  // State: Waiting for ledger photo
+  // Eski bir sunucusuz örnekte finans akışı kalmışsa güvenli şekilde temizle.
   if (state?.action === "wait_ledger_photo") {
     userStates.delete(userId);
-    await handleDefter(chatId, userId, fileUrl);
+    await sendMessage(chatId, "⛔ Bu botta kasa ve muhasebe işlemleri kapalıdır. Yalnızca web sitesi ürün görselleri yüklenebilir.");
     return;
   }
 
@@ -1834,9 +1795,9 @@ async function handlePhoto(
 
   // Quick product add with caption
   if (caption) {
-    // Check for /defter or /kasa command
+    // Finans komutları bu web sitesi yükleme botunda kapalıdır.
     if (caption.toLowerCase().startsWith("/defter") || caption.toLowerCase().startsWith("/kasa")) {
-      await handleDefter(chatId, userId, fileUrl);
+      await sendMessage(chatId, "⛔ Kasa ve muhasebe görselleri bu botta işlenmez. Lütfen ürün fotoğrafı gönderin.");
       return;
     }
 
@@ -1869,9 +1830,7 @@ async function handlePhoto(
   const imageTypeResult = await detectImageType(fileUrl);
 
   if (imageTypeResult?.type === "ledger") {
-    // It's a ledger/cash book - analyze as ledger
-    await sendMessage(chatId, "📒 Kasa defteri tespit edildi, analiz ediliyor...");
-    await handleDefter(chatId, userId, fileUrl, { base64: imageTypeResult.base64, mediaType: imageTypeResult.mediaType });
+    await sendMessage(chatId, "⛔ Kasa defteri algılandı. Bu bot yalnızca web sitesine ürün yükler; finans kaydı oluşturulmadı.");
     return;
   }
 
@@ -3630,12 +3589,21 @@ export async function handleUpdate(update: TelegramUpdate) {
 
   // Handle voice message
   if (message.voice) {
-    await handleVoice(chatId, userId, message.voice);
+    await sendMessage(
+      chatId,
+      "⛔ Sesli mağaza komutları kapalıdır. Ürün yüklemek için /urunekle yazın veya ürün fotoğrafını gönderin."
+    );
     return;
   }
 
   // Check for state-based input
   if (text && !text.startsWith("/")) {
+    const currentState = userStates.get(userId);
+    if (currentState && !WEBSITE_UPLOAD_STATES.has(currentState.action)) {
+      userStates.delete(userId);
+      await sendMessage(chatId, "⛔ Bu işlem web sitesi ürün yükleme botunda kapalıdır.");
+      return;
+    }
     const handled = await handleTextInput(chatId, userId, text);
     if (handled) return;
   }
@@ -3665,88 +3633,8 @@ export async function handleUpdate(update: TelegramUpdate) {
       case "/urunekle":
         await handleUrunEkle(chatId, userId);
         break;
-      case "/urunsil":
-        await handleUrunSil(chatId, args);
-        break;
-      case "/fiyat":
-        await handleFiyat(chatId, args);
-        break;
-      case "/stok":
-        await handleStok(chatId, args);
-        break;
-      case "/stokekle":
-        await handleStokEkle(chatId, args);
-        break;
-      case "/stokdus":
-        await handleStokDus(chatId, args);
-        break;
-      case "/dusukstok":
-        await handleDusukStok(chatId);
-        break;
-      case "/sat":
-        await handleSat(chatId, args);
-        break;
-      case "/satisiptal":
-        await handleSatisIptal(chatId, args);
-        break;
-      case "/sonsatislar":
-        await handleSonSatislar(chatId);
-        break;
-      case "/gunluk":
-        await handleGunluk(chatId);
-        break;
-      case "/haftalik":
-        await handleHaftalik(chatId);
-        break;
-      case "/aylik":
-        await handleAylik(chatId);
-        break;
-      case "/ciro":
-        await handleCiro(chatId);
-        break;
-      case "/kategoriler":
-        await handleKategoriler(chatId);
-        break;
-      case "/kategoriekle":
-        await handleKategoriEkle(chatId, args);
-        break;
-      case "/gider":
-        await handleGider(chatId, args);
-        break;
-      case "/giderler":
-        await handleGiderler(chatId);
-        break;
-      case "/kar":
-        await handleKar(chatId);
-        break;
-      case "/finans":
-        await handleFinans(chatId);
-        break;
-      case "/kasaac":
-        await handleKasaAc(chatId, args);
-        break;
-      case "/kasakapat":
-        await handleKasaKapat(chatId);
-        break;
-      case "/zamekle":
-        await handleZamEkle(chatId, userId, args);
-        break;
-      case "/indirim":
-        await handleIndirim(chatId, userId, args);
-        break;
-      case "/defter":
-      case "/kasa":
-        userStates.set(userId, { action: "wait_ledger_photo", data: {} });
-        await sendMessage(chatId, "📒 Kasa defteri fotoğrafını gönderin...\n\n<i>/iptal ile vazgeçebilirsiniz</i>");
-        break;
-      case "/onayla":
-        await handleOnayla(chatId, userId);
-        break;
       case "/iptal":
-        if (pendingPriceUpdates.has(userId)) {
-          pendingPriceUpdates.delete(userId);
-          await sendMessage(chatId, "❌ Fiyat güncelleme iptal edildi.");
-        } else if (userStates.has(userId)) {
+        if (userStates.has(userId)) {
           userStates.delete(userId);
           await sendMessage(chatId, "❌ İşlem iptal edildi.");
         } else {
@@ -3760,26 +3648,20 @@ export async function handleUpdate(update: TelegramUpdate) {
       case "/fotograflar":
         await handleFotograflar(chatId, args);
         break;
-      case "/seristok":
-        await handleSeriStok(chatId, args);
-        break;
-      case "/stokoner":
-        await handleStokOner(chatId);
-        break;
-      case "/raporayarla":
-        await handleRaporAyarla(chatId, args);
-        break;
       case "/atla":
-        // Skip stock entry if in that state
+        // Ürün yükleme akışındaki web sitesi stok adımını atla.
         if (userStates.get(userId)?.action === "add_stock_serial") {
           userStates.delete(userId);
-          await sendMessage(chatId, "⏭️ Stok girişi atlandı.");
+          await sendMessage(chatId, "⏭️ Web sitesi stok bilgisi atlandı. Ürün yükleme tamamlandı.");
         } else {
           await sendMessage(chatId, "ℹ️ Atlanacak bir işlem yok.");
         }
         break;
       default:
-        await sendMessage(chatId, "❓ Bilinmeyen komut. /yardim yazarak komutları görebilirsiniz.");
+        await sendMessage(
+          chatId,
+          "⛔ Bu bot yalnızca web sitesine ürün yüklemek için kullanılır. Kullanılabilir komutlar için /yardim yazın."
+        );
     }
   } catch (error) {
     console.error("Telegram command error:", error);
