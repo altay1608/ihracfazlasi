@@ -40,6 +40,9 @@ class ProductMultiVariantTests(unittest.TestCase):
         self.assertIn('value="S"', form_html)
         self.assertIn('value="XL"', form_html)
         self.assertIn('value="4XL"', form_html)
+        self.assertIn('name="variant_quantity_S"', form_html)
+        self.assertIn('data-variant-quantity-total', form_html)
+        self.assertIn('data-global-stock-field hidden', form_html)
         self.assertNotIn('value="28"', form_html)
         self.assertNotIn('value="29"', form_html)
         self.assertNotIn('value="44"', form_html)
@@ -166,6 +169,44 @@ class ProductMultiVariantTests(unittest.TestCase):
         stylesheet = (Path(__file__).resolve().parents[1] / "app/static/css/style.css").read_text(encoding="utf-8")
         self.assertIn(".bulk-label-print-page .bulk-label-item", stylesheet)
         self.assertNotIn("page-break-after: always", stylesheet)
+
+    def test_each_selected_size_can_have_a_different_quantity(self):
+        with self.app.app_context():
+            multiplier_id = RetailMultiplier.query.filter_by(is_default=True).one().id
+
+        response = self.client.post(
+            "/products/add",
+            data={
+                "name": "Serili Polo Yaka",
+                "category": "Tişört",
+                "product_code": "100000000300",
+                "purchase_price": "250.00",
+                "retail_multiplier_id": str(multiplier_id),
+                "sale_price": "500.00",
+                "stock_quantity": "1",
+                "variants": ["S", "M", "L", "XL"],
+                "variant_quantity_S": "1",
+                "variant_quantity_M": "2",
+                "variant_quantity_L": "2",
+                "variant_quantity_XL": "1",
+            },
+            headers={"X-Requested-With": "XMLHttpRequest"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        result = response.get_json()
+        self.assertTrue(result["success"])
+        self.assertIn("6 ürün birim olarak", result["message"])
+
+        with self.app.app_context():
+            products = Product.query.filter_by(name="Serili Polo Yaka").order_by(Product.product_code.asc()).all()
+            self.assertEqual([product.variant for product in products], ["S", "M", "M", "L", "L", "XL"])
+            self.assertTrue(all(product.stock_quantity == 1 for product in products))
+            self.assertTrue(all(len(product.product_barcodes) == 1 for product in products))
+
+        label_response = self.client.get(result["print_url"])
+        label_html = label_response.get_data(as_text=True)
+        self.assertEqual(label_html.count('class="bulk-label-item"'), 6)
 
     def test_shared_barcode_product_stays_in_one_inventory_row(self):
         with self.app.app_context():

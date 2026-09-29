@@ -411,6 +411,75 @@ function initializeProductForms(root = document) {
         const multiplierSelect = form.querySelector('select[name="retail_multiplier_id"]');
         const salePriceInput = form.querySelector('input[name="sale_price"]');
         const productNameInput = form.querySelector('input[name="name"]');
+        const variantRows = Array.from(form.querySelectorAll("[data-variant-quantity-row]"));
+        const variantNoneCheckbox = form.querySelector("[data-variant-none-checkbox]");
+        const globalStockField = form.querySelector("[data-global-stock-field]");
+        const variantTotal = form.querySelector("[data-variant-quantity-total]");
+
+        if (variantRows.length) {
+            const clampVariantQuantity = (value) => Math.min(999, Math.max(0, Number.parseInt(value, 10) || 0));
+
+            const updateVariantTotal = () => {
+                const total = variantRows.reduce((sum, row) => {
+                    const checkbox = row.querySelector("[data-variant-checkbox]");
+                    const input = row.querySelector("[data-variant-quantity-input]");
+                    return sum + (checkbox?.checked ? clampVariantQuantity(input?.value) : 0);
+                }, 0);
+                if (variantTotal) {
+                    variantTotal.textContent = `Toplam eklenecek ürün: ${total}`;
+                }
+                if (globalStockField) {
+                    globalStockField.hidden = !variantNoneCheckbox?.checked;
+                }
+            };
+
+            const setVariantQuantity = (row, nextValue) => {
+                const checkbox = row.querySelector("[data-variant-checkbox]");
+                const input = row.querySelector("[data-variant-quantity-input]");
+                const controls = row.querySelector("[data-variant-quantity-controls]");
+                if (!checkbox || !input || !controls) {
+                    return;
+                }
+                const quantity = clampVariantQuantity(nextValue);
+                input.value = String(quantity);
+                checkbox.checked = quantity > 0;
+                controls.hidden = quantity === 0;
+                if (quantity > 0 && variantNoneCheckbox) {
+                    variantNoneCheckbox.checked = false;
+                }
+                updateVariantTotal();
+            };
+
+            variantRows.forEach((row) => {
+                const checkbox = row.querySelector("[data-variant-checkbox]");
+                const input = row.querySelector("[data-variant-quantity-input]");
+                const minus = row.querySelector("[data-variant-quantity-minus]");
+                const plus = row.querySelector("[data-variant-quantity-plus]");
+
+                checkbox?.addEventListener("change", () => {
+                    setVariantQuantity(row, checkbox.checked ? Math.max(clampVariantQuantity(input?.value), 1) : 0);
+                });
+                minus?.addEventListener("click", () => setVariantQuantity(row, clampVariantQuantity(input?.value) - 1));
+                plus?.addEventListener("click", () => setVariantQuantity(row, clampVariantQuantity(input?.value) + 1));
+                input?.addEventListener("input", () => setVariantQuantity(row, input.value));
+                input?.addEventListener("blur", () => setVariantQuantity(row, input.value));
+            });
+
+            variantNoneCheckbox?.addEventListener("change", () => {
+                if (variantNoneCheckbox.checked) {
+                    variantRows.forEach((row) => setVariantQuantity(row, 0));
+                    variantNoneCheckbox.checked = true;
+                }
+                updateVariantTotal();
+            });
+
+            variantRows.forEach((row) => {
+                const checkbox = row.querySelector("[data-variant-checkbox]");
+                const input = row.querySelector("[data-variant-quantity-input]");
+                setVariantQuantity(row, checkbox?.checked ? Math.max(clampVariantQuantity(input?.value), 1) : 0);
+            });
+            updateVariantTotal();
+        }
 
         if (productNameInput) {
             const normalizeProductName = (event) => {

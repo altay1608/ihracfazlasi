@@ -27,10 +27,18 @@
                     <strong>Üst Giyim Bedenleri</strong>
                     <div class="product-variant-picker">
                         {% for option in form.variants if option.data in form.upper_body_variants %}
-                        <label class="product-variant-option">
-                            <input type="checkbox" name="{{ form.variants.name }}" value="{{ option.data }}" {% if option.data in (form.variants.data or []) %}checked{% endif %}>
-                            <span>{{ option.label.text }}</span>
-                        </label>
+                        {% set option_checked = option.data in (form.variants.data or []) %}
+                        <div class="product-variant-option" data-variant-quantity-row>
+                            <label class="product-variant-option-label">
+                                <input class="product-variant-checkbox" type="checkbox" name="{{ form.variants.name }}" value="{{ option.data }}" data-variant-checkbox {% if option_checked %}checked{% endif %}>
+                                <span class="product-variant-label">{{ option.label.text }}</span>
+                            </label>
+                            <div class="product-variant-quantity" data-variant-quantity-controls {% if not option_checked %}hidden{% endif %}>
+                                <button type="button" aria-label="{{ option.label.text }} beden adetini azalt" data-variant-quantity-minus>−</button>
+                                <input type="number" name="variant_quantity_{{ option.data }}" value="{{ request.form.get('variant_quantity_' ~ option.data, '1' if option_checked else '0') }}" min="0" max="999" inputmode="numeric" aria-label="{{ option.label.text }} beden adedi" data-variant-quantity-input>
+                                <button type="button" aria-label="{{ option.label.text }} beden adetini artır" data-variant-quantity-plus>+</button>
+                            </div>
+                        </div>
                         {% endfor %}
                     </div>
                 </section>
@@ -38,19 +46,28 @@
                     <strong>Alt Giyim Bedenleri</strong>
                     <div class="product-variant-picker">
                         {% for option in form.variants if option.data in form.lower_body_variants %}
-                        <label class="product-variant-option">
-                            <input type="checkbox" name="{{ form.variants.name }}" value="{{ option.data }}" {% if option.data in (form.variants.data or []) %}checked{% endif %}>
-                            <span>{{ option.label.text }}</span>
-                        </label>
+                        {% set option_checked = option.data in (form.variants.data or []) %}
+                        <div class="product-variant-option" data-variant-quantity-row>
+                            <label class="product-variant-option-label">
+                                <input class="product-variant-checkbox" type="checkbox" name="{{ form.variants.name }}" value="{{ option.data }}" data-variant-checkbox {% if option_checked %}checked{% endif %}>
+                                <span class="product-variant-label">{{ option.label.text }}</span>
+                            </label>
+                            <div class="product-variant-quantity" data-variant-quantity-controls {% if not option_checked %}hidden{% endif %}>
+                                <button type="button" aria-label="{{ option.label.text }} beden adetini azalt" data-variant-quantity-minus>−</button>
+                                <input type="number" name="variant_quantity_{{ option.data }}" value="{{ request.form.get('variant_quantity_' ~ option.data, '1' if option_checked else '0') }}" min="0" max="999" inputmode="numeric" aria-label="{{ option.label.text }} beden adedi" data-variant-quantity-input>
+                                <button type="button" aria-label="{{ option.label.text }} beden adetini artır" data-variant-quantity-plus>+</button>
+                            </div>
+                        </div>
                         {% endfor %}
                     </div>
                 </section>
                 <label class="product-variant-option product-variant-none">
-                    <input type="checkbox" name="{{ form.variants.name }}" value="__none__" {% if "__none__" in (form.variants.data or []) %}checked{% endif %}>
-                    <span>Beden / Varyant Yok</span>
+                    <input class="product-variant-checkbox" type="checkbox" name="{{ form.variants.name }}" value="__none__" data-variant-none-checkbox {% if "__none__" in (form.variants.data or []) %}checked{% endif %}>
+                    <span class="product-variant-label">Beden / Varyant Yok</span>
                 </label>
             </div>
-            <p class="input-hint">Aynı üründen eklemek istediğiniz tüm bedenleri birlikte işaretleyin.</p>
+            <p class="input-hint">Bedenleri işaretleyin ve her beden için gelen adedi ayrı ayrı girin.</p>
+            <p class="product-variant-total" data-variant-quantity-total>Toplam eklenecek ürün: 0</p>
             {% for error in form.variants.errors %}<p class="form-error">{{ error }}</p>{% endfor %}
         {% endif %}
     </div>
@@ -70,10 +87,10 @@
         {{ form.sale_price(step="0.01", readonly=true) }}
         {% for error in form.sale_price.errors %}<p class="form-error">{{ error }}</p>{% endfor %}
     </div>
-    <div>
+    <div {% if not product %}data-global-stock-field{% if "__none__" not in (form.variants.data or []) %} hidden{% endif %}{% endif %}>
         {{ form.stock_quantity.label }}
         {{ form.stock_quantity(min="0") }}
-        {% if not product %}<p class="input-hint">Bu adet, seçilen her beden için ayrı ayrı stoğa eklenir. Örneğin 3 girerseniz 3 bağımsız birim barkodu ve 3 etiket oluşturulur; sayımda her barkod ayrı okutulur.</p>{% endif %}
+        {% if not product %}<p class="input-hint">Bu alan yalnızca beden/varyant olmayan ürünlerde kullanılır.</p>{% endif %}
         {% for error in form.stock_quantity.errors %}<p class="form-error">{{ error }}</p>{% endfor %}
     </div>
     {% if can('alerts.access') %}

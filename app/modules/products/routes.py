@@ -260,6 +260,38 @@ def get_selected_product_variants(form):
     return [None] if selected == ["__none__"] else selected
 
 
+def get_selected_variant_quantities(form, selected_variants):
+    """Return the requested stock count for every selected size.
+
+    Older clients only submit ``stock_quantity``. Keeping that value as the
+    fallback preserves Excel/import and existing integrations while the new
+    product form can send a different quantity for each size.
+    """
+    fallback_quantity = max(int(form.stock_quantity.data or 0), 0)
+    if selected_variants == [None]:
+        return {None: fallback_quantity}
+
+    quantities = {}
+    for variant in selected_variants:
+        raw_quantity = request.form.get(f"variant_quantity_{variant}")
+        if raw_quantity in (None, ""):
+            quantity = fallback_quantity
+        else:
+            try:
+                quantity = int(raw_quantity)
+            except (TypeError, ValueError):
+                form.variants.errors.append(f"{variant} bedeni için geçerli bir adet girin.")
+                return None
+        if quantity < 1:
+            form.variants.errors.append(f"{variant} bedeni için adet en az 1 olmalıdır.")
+            return None
+        if quantity > 999:
+            form.variants.errors.append(f"{variant} bedeni için tek seferde en fazla 999 adet eklenebilir.")
+            return None
+        quantities[variant] = quantity
+    return quantities
+
+
 @bp.route("/")
 def index():
     products, categories, threshold = get_products_listing()
@@ -295,13 +327,18 @@ def add():
 
     if form.validate_on_submit():
         selected_variants = get_selected_product_variants(form)
+        variant_quantities = (
+            get_selected_variant_quantities(form, selected_variants)
+            if selected_variants
+            else None
+        )
         product_code = form.product_code.data.strip()
         existing = Product.query.filter(
             or_(Product.product_code == product_code, Product.barcode == product_code)
         ).first()
         if existing:
             form.product_code.errors.append("Bu ürün kodu zaten kayıtlı.")
-        elif selected_variants:
+        elif selected_variants and variant_quantities:
             try:
                 payload = prepare_product_payload(form)
             except ValueError as exc:
@@ -310,10 +347,9 @@ def add():
                 created_products = []
                 next_product_code = product_code
                 used_product_codes = {product_code}
-                requested_quantity = max(int(payload.get("stock_quantity") or 0), 0)
                 record_count = sum(
-                    max(requested_quantity, 1)
-                    if selected_variant or payload.get("barcode_mode") == "unit"
+                    max(variant_quantities[selected_variant], 1)
+                    if selected_variant is not None or payload.get("barcode_mode") == "unit"
                     else 1
                     for selected_variant in selected_variants
                 )
@@ -328,6 +364,7 @@ def add():
                     # olan ayrı ürün kayıtlarına dönüştürülür. Ortak barkodlu
                     # parfüm vb. ürünler ise tek satırda adetli kalır.
                     barcode_mode = "unit" if selected_variant else payload.get("barcode_mode", "unit")
+                    requested_quantity = variant_quantities[selected_variant]
                     copies = max(requested_quantity, 1) if barcode_mode == "unit" else 1
                     for _copy_index in range(copies):
                         variant_payload = dict(payload)

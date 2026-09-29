@@ -3237,16 +3237,23 @@ tbody tr:hover a {
 
 .product-variant-option {
     position: relative;
+    display: grid;
+    gap: 6px;
+}
+
+.product-variant-option-label {
+    position: relative;
+    margin: 0;
     cursor: pointer;
 }
 
-.product-variant-option input {
+.product-variant-checkbox {
     position: absolute;
     opacity: 0;
     pointer-events: none;
 }
 
-.product-variant-option span {
+.product-variant-label {
     min-height: 38px;
     padding: 8px 10px;
     border: 1px solid var(--color-border);
@@ -3260,20 +3267,73 @@ tbody tr:hover a {
     transition: border-color 0.16s ease, background 0.16s ease, color 0.16s ease, box-shadow 0.16s ease;
 }
 
-.product-variant-option input:checked + span {
+.product-variant-checkbox:checked + .product-variant-label {
     border-color: var(--color-primary);
     background: rgba(153, 29, 24, 0.1);
     color: var(--color-primary);
     box-shadow: inset 0 0 0 1px var(--color-primary);
 }
 
-.product-variant-option input:focus-visible + span {
+.product-variant-checkbox:focus-visible + .product-variant-label {
     outline: 3px solid rgba(153, 29, 24, 0.2);
     outline-offset: 2px;
 }
 
 .product-variant-none {
     max-width: 220px;
+    cursor: pointer;
+}
+
+.product-variant-quantity {
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr) 34px;
+    gap: 5px;
+    align-items: center;
+}
+
+.product-variant-quantity[hidden] {
+    display: none;
+}
+
+.product-variant-quantity button,
+.product-variant-quantity input {
+    min-height: 34px;
+    border: 1px solid var(--color-border);
+    border-radius: 9px;
+    background: var(--color-surface);
+    color: var(--color-text);
+    font-weight: 800;
+    text-align: center;
+}
+
+.product-variant-quantity button {
+    padding: 0;
+    color: var(--color-primary);
+    cursor: pointer;
+}
+
+.product-variant-quantity button:hover {
+    border-color: var(--color-primary);
+    background: rgba(153, 29, 24, 0.08);
+}
+
+.product-variant-quantity input {
+    width: 100%;
+    padding: 4px;
+    appearance: textfield;
+}
+
+.product-variant-quantity input::-webkit-inner-spin-button,
+.product-variant-quantity input::-webkit-outer-spin-button {
+    margin: 0;
+    appearance: none;
+}
+
+.product-variant-total {
+    margin: 10px 0 0;
+    color: var(--color-primary);
+    font-size: 0.9rem;
+    font-weight: 800;
 }
 
 .form-page-header {
