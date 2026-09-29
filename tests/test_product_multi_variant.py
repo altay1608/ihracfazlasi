@@ -113,7 +113,7 @@ class ProductMultiVariantTests(unittest.TestCase):
         base_template = (
             Path(__file__).resolve().parents[1] / "app/templates/base.html"
         ).read_text(encoding="utf-8")
-        self.assertIn("20260920-label-navigation-v4", base_template)
+        self.assertIn("20260929-size-quantity-v2", base_template)
 
         table_template = (
             Path(__file__).resolve().parents[1] / "app/templates/products/_table_section.html"

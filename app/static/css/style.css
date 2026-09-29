@@ -3230,7 +3230,7 @@ tbody tr:hover a {
 
 .product-variant-picker {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(138px, 1fr));
     gap: 8px;
     margin-top: 7px;
 }
@@ -3286,7 +3286,7 @@ tbody tr:hover a {
 
 .product-variant-quantity {
     display: grid;
-    grid-template-columns: 34px minmax(0, 1fr) 34px;
+    grid-template-columns: 34px minmax(44px, 1fr) 34px;
     gap: 5px;
     align-items: center;
 }
@@ -3318,9 +3318,13 @@ tbody tr:hover a {
 }
 
 .product-variant-quantity input {
+    min-width: 44px;
     width: 100%;
     padding: 4px;
     appearance: textfield;
+    background: #ffffff;
+    color: #3b2222;
+    -webkit-text-fill-color: #3b2222;
 }
 
 .product-variant-quantity input::-webkit-inner-spin-button,
