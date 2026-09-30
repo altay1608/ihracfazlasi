@@ -33,6 +33,7 @@ from app.services.finance_operations import (
 )
 from app.services.finance_reporting import (
     build_finance_snapshot,
+    build_monthly_card_document_summary,
     build_operating_profit_summary,
     month_bounds,
     month_choice_options,
@@ -128,6 +129,12 @@ def dashboard():
         monthly_profit,
         selected_month_snapshot["overhead"],
     )
+    pos_document_summary = build_monthly_card_document_summary(
+        site_id=site_id,
+        store_id=store_id,
+        selected_month=month_start,
+        as_of=today,
+    )
     accounts = FinanceAccount.query.filter_by(site_id=site_id, store_id=store_id, is_active=True).all()
     balances = []
     from app.services.finance import get_account_balance
@@ -183,6 +190,7 @@ def dashboard():
         selected_month=month_start, month_options=month_choice_options(month_start),
         credit_due_sales=credit_due_sales,
         credit_due_summary=credit_due_summary,
+        pos_document_summary=pos_document_summary,
     )
 
 

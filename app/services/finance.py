@@ -915,6 +915,22 @@ def create_current_account(
         raise FinanceConfigurationError("Cari kategorisi müşteri veya tedarikçi olmalıdır.")
     if not normalized_name:
         raise FinanceConfigurationError("Cari adı zorunludur.")
+    if len(normalized_name) > 180:
+        raise FinanceConfigurationError("Cari adı en fazla 180 karakter olabilir.")
+
+    normalized_fields = {
+        "tax_no": str(tax_no or "").strip() or None,
+        "phone": str(phone or "").strip() or None,
+        "email": str(email or "").strip() or None,
+        "note": str(note or "").strip() or None,
+    }
+    field_limits = {"tax_no": 30, "phone": 40, "email": 180, "note": 500}
+    field_labels = {"tax_no": "Vergi/VKN", "phone": "Telefon", "email": "E-posta", "note": "Not"}
+    for field_name, field_value in normalized_fields.items():
+        if field_value and len(field_value) > field_limits[field_name]:
+            raise FinanceConfigurationError(
+                f"{field_labels[field_name]} en fazla {field_limits[field_name]} karakter olabilir."
+            )
 
     connection = db.session.connection()
     while True:
@@ -928,10 +944,7 @@ def create_current_account(
         code=normalized_code,
         account_category=normalized_category,
         name=normalized_name,
-        tax_no=str(tax_no or "").strip() or None,
-        phone=str(phone or "").strip() or None,
-        email=str(email or "").strip() or None,
-        note=str(note or "").strip() or None,
+        **normalized_fields,
     )
     db.session.add(account)
     db.session.flush()
@@ -950,13 +963,23 @@ def create_current_entry(
 ):
     _require_activation(site_id, store_id)
     current_account = db.session.get(CurrentAccount, current_account_id)
-    if current_account is None or current_account.site_id != site_id:
+    if current_account is None or current_account.site_id != site_id or not current_account.is_active:
         raise FinanceConfigurationError("Cari hesap bu siteye ait değil.")
     if entry_type not in {"receivable", "payable"}:
         raise FinanceConfigurationError("Cari kayıt türü alacak veya borç olmalıdır.")
+    expected_entry_type = "payable" if current_account.account_category == "supplier" else "receivable"
+    if entry_type != expected_entry_type:
+        expected_label = "Borcumuz" if expected_entry_type == "payable" else "Alacağımız"
+        account_label = "tedarikçi" if current_account.account_category == "supplier" else "müşteri"
+        raise FinanceConfigurationError(
+            f"Bu {account_label} cari kartı için işlem türü {expected_label} olmalıdır."
+        )
     entry_amount = _money(amount)
     if entry_amount <= 0:
         raise FinanceConfigurationError("Cari kayıt tutarı sıfırdan büyük olmalıdır.")
+    normalized_description = str(description or "").strip() or None
+    if normalized_description and len(normalized_description) > 500:
+        raise FinanceConfigurationError("Cari açıklaması en fazla 500 karakter olabilir.")
     entry = CurrentEntry(
         site_id=site_id,
         store_id=store_id,
@@ -965,7 +988,7 @@ def create_current_entry(
         amount=entry_amount,
         remaining_amount=entry_amount,
         due_date=due_date,
-        description=str(description or "").strip() or None,
+        description=normalized_description,
         status="open",
         created_by_user_id=_current_user_id(),
     )

@@ -27,6 +27,7 @@ from app.services.finance import (
     get_account_balance,
 )
 from app.services.inventory_history import record_inventory_movement
+from app.services.product_inventory import sync_product_barcodes
 from app.services.user_auth import get_current_user
 from app.utils import istanbul_day_start_utc, quantize_amount
 
@@ -41,6 +42,15 @@ def _money(value):
 def _user_id():
     user = get_current_user()
     return user.id if user else None
+
+
+def _limited_text(value, *, label, max_length, required=False):
+    text = str(value or "").strip()
+    if required and not text:
+        raise FinanceConfigurationError(f"{label} zorunludur.")
+    if len(text) > max_length:
+        raise FinanceConfigurationError(f"{label} en fazla {max_length} karakter olabilir.")
+    return text or None
 
 
 def _daily_account_total(site_id, store_id, code, business_date):
@@ -172,15 +182,18 @@ def create_expense(*, site_id, store_id, account_id, category_id, expense_date, 
     gross = quantize_amount(net + vat)
     if gross <= 0:
         raise FinanceConfigurationError("Masraf toplamı sıfırdan büyük olmalıdır.")
+    normalized_vendor = _limited_text(vendor, label="Firma / satıcı", max_length=180)
+    normalized_document_no = _limited_text(document_no, label="Belge numarası", max_length=100)
+    normalized_description = _limited_text(
+        description, label="Masraf açıklaması", max_length=500, required=True
+    )
     voucher = ExpenseVoucher(
         site_id=site_id, store_id=store_id, account_id=account_id, category_id=category_id,
-        expense_date=expense_date, vendor=str(vendor or "").strip() or None,
-        document_no=str(document_no or "").strip() or None,
-        description=str(description or "").strip(), net_amount=net, vat_amount=vat,
+        expense_date=expense_date, vendor=normalized_vendor,
+        document_no=normalized_document_no,
+        description=normalized_description, net_amount=net, vat_amount=vat,
         gross_amount=gross, requested_by_user_id=_user_id(),
     )
-    if not voucher.description:
-        raise FinanceConfigurationError("Masraf açıklaması zorunludur.")
     db.session.add(voucher)
     db.session.flush()
     if gross > _approval_limit(config):
@@ -197,9 +210,10 @@ def create_supplier_invoice(*, site_id, store_id, supplier_id, invoice_no, invoi
     supplier = db.session.get(CurrentAccount, supplier_id)
     if supplier is None or supplier.site_id != site_id or supplier.account_category != "supplier" or not supplier.is_active:
         raise FinanceConfigurationError("Geçerli bir tedarikçi seçmelisiniz.")
-    invoice_no = str(invoice_no or "").strip()
-    if not invoice_no:
-        raise FinanceConfigurationError("Fatura numarası zorunludur.")
+    invoice_no = _limited_text(
+        invoice_no, label="Fatura numarası", max_length=100, required=True
+    )
+    normalized_note = _limited_text(note, label="Fatura notu", max_length=500)
     net, vat = _money(net_amount), _money(vat_amount)
     if net < 0 or vat < 0:
         raise FinanceConfigurationError("Net ve KDV tutarları negatif olamaz.")
@@ -215,7 +229,7 @@ def create_supplier_invoice(*, site_id, store_id, supplier_id, invoice_no, invoi
         site_id=site_id, store_id=store_id, supplier_id=supplier.id,
         invoice_no=invoice_no, invoice_date=invoice_date, due_date=due_date,
         net_amount=net, vat_amount=vat, gross_amount=gross,
-        current_entry_id=entry.id, note=str(note or "").strip() or None,
+        current_entry_id=entry.id, note=normalized_note,
         created_by_user_id=_user_id(),
     )
     db.session.add(invoice)
@@ -241,11 +255,18 @@ def create_supplier_invoice(*, site_id, store_id, supplier_id, invoice_no, invoi
         inventory = StoreInventory.query.filter_by(store_id=store_id, product_id=product.id).one_or_none()
         if inventory is None:
             inventory = StoreInventory(site_id=site_id, store_id=store_id, product_id=product.id, stock_quantity=0)
-            db.session.add(inventory)
+            # Ilişki koleksiyonuna da ekle; barkod eşitleme içindeki
+            # Product.stock_quantity ayarlayıcısı ikinci bir stok satırı
+            # oluşturmasın.
+            product.store_inventories.append(inventory)
             db.session.flush()
         before = int(inventory.stock_quantity or 0)
         product.purchase_price = cost
         inventory.stock_quantity = before + qty
+        # Stok ile satılabilir barkod sayısı her zaman birlikte ilerlemeli.
+        # Ortak barkodlu ürünlerde tek barkod korunur; birim barkodlu ürünlerde
+        # eklenen her adet için yeni, benzersiz bir barkod oluşturulur.
+        sync_product_barcodes(product, inventory.stock_quantity, product.barcode_mode)
         record_inventory_movement(
             product, transaction_type="manual_in", quantity_before=before,
             quantity_after=inventory.stock_quantity, source_type="supplier_invoice",

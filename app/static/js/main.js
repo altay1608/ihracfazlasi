@@ -1053,6 +1053,37 @@ function normalizeFilterComparable(value) {
     return String(value || "").trim().toLocaleLowerCase("tr");
 }
 
+function initializeCurrentEntryForms(root = document) {
+    root.querySelectorAll("[data-current-entry-form]").forEach((form) => {
+        if (form.dataset.currentEntryReady === "1") {
+            return;
+        }
+        form.dataset.currentEntryReady = "1";
+        const accountSelect = form.querySelector("[data-current-account-select]");
+        const typeDisplay = form.querySelector("[data-current-entry-type-display]");
+        const typeInput = form.querySelector("[data-current-entry-type]");
+        const guidance = form.querySelector("[data-current-entry-guidance]");
+        if (!accountSelect || !typeDisplay || !typeInput) {
+            return;
+        }
+
+        const syncType = () => {
+            const category = accountSelect.selectedOptions[0]?.dataset.accountCategory || "customer";
+            const entryType = category === "supplier" ? "payable" : "receivable";
+            typeDisplay.value = entryType;
+            typeInput.value = entryType;
+            if (guidance) {
+                guidance.textContent = category === "supplier"
+                    ? "Tedarikçi seçildi: kayıt Borcumuz olarak açılacak. Kasa yalnız ödeme yaptığınızda etkilenir."
+                    : "Müşteri seçildi: kayıt Alacağımız olarak açılacak. Kasa yalnız tahsilat yaptığınızda etkilenir.";
+            }
+        };
+
+        accountSelect.addEventListener("change", syncType);
+        syncType();
+    });
+}
+
 function splitTextFilterTerms(value) {
     return String(value || "")
         .split(";")
@@ -2545,6 +2576,7 @@ function initializeUi(root = document) {
     enhanceFilterForms(root);
     initializeReturnForms(root);
     initializeProductForms(root);
+    initializeCurrentEntryForms(root);
     initializeBulkProductActions(root);
     root.querySelectorAll("table[data-enhanced-table]").forEach((table) => initializeEnhancedTable(table));
     ensureTableExportButtons(root);

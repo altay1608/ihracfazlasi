@@ -17,6 +17,22 @@
         <article class="finance-balance-card finance-balance-total"><span>Açık Tedarikçi Borcu</span><strong>{{ open_payables|currency }}</strong><small>Ödenecek cari bakiye</small></article>
         <article class="finance-balance-card {% if pending_approvals %}finance-alert-card{% endif %}"><span>Bekleyen Onay</span><strong>{{ pending_approvals }}</strong><small><a href="{{ url_for('finance_ops.approvals') }}">Onay merkezine git</a></small></article>
     </div>
+    <section class="finance-tool {% if pos_document_summary.should_remind %}finance-alert-card{% endif %}">
+        <div class="section-heading">
+            <div><p class="eyebrow">AYLIK POS EVRAK TAKİBİ</p><h2>Kart Satışı ve Kaydedilen Belgeler</h2></div>
+            {% if pos_document_summary.should_remind %}<span class="status-badge warning">Ay sonu kontrolü</span>{% endif %}
+        </div>
+        {% if pos_document_summary.should_remind %}
+        <div class="finance-notice"><div><strong>Bu ayın POS evrak kontrolü tamamlanmadı.</strong><span>Kalan {{ pos_document_summary.remaining|currency }} için alış veya masraf belgelerini kontrol edin. Bu bilgi muhasebe evrak takibine yardımcıdır; vergisel uygunluğu mali müşavirinizle doğrulayın.</span></div></div>
+        {% endif %}
+        <div class="finance-balance-grid">
+            <article class="finance-balance-card"><span>Kredi Kartı Satışları</span><strong>{{ pos_document_summary.card_total|currency }}</strong><small>{{ pos_document_summary.month_start.strftime('%m.%Y') }}</small></article>
+            <article class="finance-balance-card"><span>Tedarikçi Faturaları</span><strong>{{ pos_document_summary.supplier_document_total|currency }}</strong><small><a href="{{ url_for('finance_ops.supplier_invoices') }}">Fatura ekle veya görüntüle</a></small></article>
+            <article class="finance-balance-card"><span>Masraf Belgeleri</span><strong>{{ pos_document_summary.expense_document_total|currency }}</strong><small><a href="{{ url_for('finance_ops.expenses') }}">Masraf belgesi ekle</a></small></article>
+            <article class="finance-balance-card finance-balance-total"><span>Kaydedilen Belge Toplamı</span><strong>{{ pos_document_summary.document_total|currency }}</strong><small>{% if pos_document_summary.remaining > 0 %}Kontrol edilecek fark: {{ pos_document_summary.remaining|currency }}{% elif pos_document_summary.surplus > 0 %}Belge fazlası: {{ pos_document_summary.surplus|currency }}{% else %}Tutarlar eşit{% endif %}</small></article>
+        </div>
+        <p class="helper-text">Bu ekran yalnız evrak tamlık kontrolüdür. Kart tahsilatı ile alış/masraf belgelerinin birebir eşit olması gerektiğine dair hukuki karar vermez.</p>
+    </section>
     <section class="finance-tool">
         <div class="section-heading">
             <div><p class="eyebrow">OTOMATİK SATIŞ VE GİDER TAKİBİ</p><h2>Günlük Gerçek Net Kâr</h2></div>

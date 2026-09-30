@@ -29,6 +29,8 @@ from app.models import (
 )
 from app.services.finance import (
     activate_finance,
+    create_current_account,
+    create_current_entry,
     create_manual_movement,
     get_account_balance,
     settle_auto_pos_reconciliation,
@@ -43,6 +45,7 @@ from app.services.finance_operations import (
     decide_approval,
     settle_personnel_advance,
 )
+from app.services.finance_reporting import build_monthly_card_document_summary
 from config import BaseConfig
 
 
@@ -386,6 +389,103 @@ class FinanceModuleTests(unittest.TestCase):
         inventory = StoreInventory.query.filter_by(store_id=self.store.id, product_id=product.id).one()
         self.assertEqual(inventory.stock_quantity, 3)
         self.assertEqual(len(invoice.lines), 1)
+        self.assertEqual(len(product.product_barcodes), 3)
+        self.assertTrue(all(barcode.status == "available" for barcode in product.product_barcodes))
+
+    def test_current_entries_follow_customer_and_supplier_categories(self):
+        activate_finance(self.site.id, self.store.id)
+        supplier = create_current_account(
+            site_id=self.site.id, account_category="supplier", name="Güvenli Tedarikçi"
+        )
+        customer = create_current_account(
+            site_id=self.site.id, account_category="customer", name="Güvenli Müşteri"
+        )
+        db.session.flush()
+
+        supplier_entry = create_current_entry(
+            site_id=self.site.id, store_id=self.store.id,
+            current_account_id=supplier.id, entry_type="payable", amount=1000,
+        )
+        customer_entry = create_current_entry(
+            site_id=self.site.id, store_id=self.store.id,
+            current_account_id=customer.id, entry_type="receivable", amount=500,
+        )
+
+        self.assertEqual(supplier_entry.entry_type, "payable")
+        self.assertEqual(customer_entry.entry_type, "receivable")
+        with self.assertRaisesRegex(ValueError, "Borcumuz"):
+            create_current_entry(
+                site_id=self.site.id, store_id=self.store.id,
+                current_account_id=supplier.id, entry_type="receivable", amount=100,
+            )
+        with self.assertRaisesRegex(ValueError, "Alacağımız"):
+            create_current_entry(
+                site_id=self.site.id, store_id=self.store.id,
+                current_account_id=customer.id, entry_type="payable", amount=100,
+            )
+
+    def test_expense_rejects_text_that_would_overflow_database_columns(self):
+        activate_finance(self.site.id, self.store.id)
+        db.session.flush()
+        cash = FinanceAccount.query.filter_by(site_id=self.site.id, store_id=self.store.id, code="CASH").one()
+        category = FinanceCategory.query.filter_by(site_id=self.site.id, code="MANUAL_OUT").one()
+
+        with self.assertRaisesRegex(ValueError, "en fazla 500"):
+            create_expense(
+                site_id=self.site.id, store_id=self.store.id, account_id=cash.id,
+                category_id=category.id, expense_date=date.today(), vendor="Test",
+                document_no="F-1", description="X" * 501, net_amount=100,
+                vat_amount=0, config={"FINANCE_APPROVAL_LIMIT": "5000"},
+            )
+
+    def test_month_end_card_document_summary_combines_split_and_legacy_sales(self):
+        activate_finance(self.site.id, self.store.id)
+        db.session.flush()
+        cash = FinanceAccount.query.filter_by(site_id=self.site.id, store_id=self.store.id, code="CASH").one()
+        expense_category = FinanceCategory.query.filter_by(site_id=self.site.id, code="MANUAL_OUT").one()
+        supplier = CurrentAccount(
+            site_id=self.site.id, code="32000999", account_category="supplier", name="Evrak Tedarikçisi"
+        )
+        legacy_card_sale = Sale(
+            document_no=90, site_id=self.site.id, store_id=self.store.id,
+            sale_date=datetime(2026, 9, 10, 9, 0), total_amount=Decimal("2000.00"),
+            payment_method="Kredi Kartı",
+        )
+        split_sale = Sale(
+            document_no=91, site_id=self.site.id, store_id=self.store.id,
+            sale_date=datetime(2026, 9, 11, 9, 0), total_amount=Decimal("2000.00"),
+            payment_method="Parçalı Ödeme",
+            payments=[
+                SalePayment(payment_method="Kredi Kartı", amount=Decimal("1500.00")),
+                SalePayment(payment_method="Nakit", amount=Decimal("500.00")),
+            ],
+        )
+        db.session.add_all([supplier, legacy_card_sale, split_sale])
+        db.session.flush()
+        create_supplier_invoice(
+            site_id=self.site.id, store_id=self.store.id, supplier_id=supplier.id,
+            invoice_no="E-2026-09", invoice_date=date(2026, 9, 12), due_date=date(2026, 10, 12),
+            net_amount=1000, vat_amount=200,
+        )
+        create_expense(
+            site_id=self.site.id, store_id=self.store.id, account_id=cash.id,
+            category_id=expense_category.id, expense_date=date(2026, 9, 13), vendor="Test Gideri",
+            document_no="G-2026-09", description="Belgeli mağaza gideri", net_amount=300,
+            vat_amount=0, config={"FINANCE_APPROVAL_LIMIT": "5000"},
+        )
+        db.session.commit()
+
+        summary = build_monthly_card_document_summary(
+            site_id=self.site.id, store_id=self.store.id,
+            selected_month=date(2026, 9, 1), as_of=date(2026, 9, 29),
+        )
+
+        self.assertEqual(summary["card_total"], Decimal("3500.00"))
+        self.assertEqual(summary["supplier_document_total"], Decimal("1200.00"))
+        self.assertEqual(summary["expense_document_total"], Decimal("300.00"))
+        self.assertEqual(summary["document_total"], Decimal("1500.00"))
+        self.assertEqual(summary["remaining"], Decimal("2000.00"))
+        self.assertTrue(summary["should_remind"])
 
     def test_supplier_invoice_rejects_stock_total_mismatch(self):
         activate_finance(self.site.id, self.store.id)

@@ -11,22 +11,24 @@
             <input type="hidden" name="csrf_token" value="{{ session.get('auth_csrf_token', '') }}">
             <div class="finance-full"><p class="eyebrow">Kart</p><h2>Yeni Cari</h2></div>
             <label>Kategori<select name="account_category" required>{% for value, config in current_account_categories.items() %}<option value="{{ value }}">{{ config.label }} · {{ config.prefix }} serisi</option>{% endfor %}</select></label>
-            <label>Ad<input type="text" name="name" required></label>
-            <label>Vergi/VKN<input type="text" name="tax_no"></label>
-            <label>Telefon<input type="text" name="phone"></label>
-            <label>E-posta<input type="email" name="email"></label>
-            <label>Not<input type="text" name="note"></label>
+            <label>Ad<input type="text" name="name" maxlength="180" required></label>
+            <label>Vergi/VKN<input type="text" name="tax_no" maxlength="30"></label>
+            <label>Telefon<input type="text" name="phone" maxlength="40"></label>
+            <label>E-posta<input type="email" name="email" maxlength="180"></label>
+            <label>Not<input type="text" name="note" maxlength="500"></label>
             <p class="helper-text finance-full">Cari kodu seçilen kategoriye göre site içinde otomatik oluşturulur.</p>
             <button class="primary-button" type="submit">Cari Oluştur</button>
         </form>
-        <form method="post" action="{{ url_for('finance.create_current_entry_route') }}" class="finance-tool finance-form-grid">
+        <form method="post" action="{{ url_for('finance.create_current_entry_route') }}" class="finance-tool finance-form-grid" data-current-entry-form>
             <input type="hidden" name="csrf_token" value="{{ session.get('auth_csrf_token', '') }}">
             <div class="finance-full"><p class="eyebrow">Planlama</p><h2>Borç / Alacak Kaydı</h2></div>
-            <label>Cari<select name="current_account_id" required>{% for current in current_accounts %}<option value="{{ current.id }}">{{ current.code }} - {{ current.name }}</option>{% endfor %}</select></label>
-            <label>Tür<select name="entry_type"><option value="receivable">Alacağımız</option><option value="payable">Borcumuz</option></select></label>
+            {% set default_entry_type = 'payable' if current_accounts and current_accounts[0].account_category == 'supplier' else 'receivable' %}
+            <label>Cari<select name="current_account_id" required data-current-account-select>{% for current in current_accounts %}<option value="{{ current.id }}" data-account-category="{{ current.account_category }}">{{ current.code }} - {{ current.name }}</option>{% endfor %}</select></label>
+            <label>Tür<select data-current-entry-type-display disabled><option value="receivable" {% if default_entry_type == 'receivable' %}selected{% endif %}>Alacağımız</option><option value="payable" {% if default_entry_type == 'payable' %}selected{% endif %}>Borcumuz</option></select><input type="hidden" name="entry_type" value="{{ default_entry_type }}" data-current-entry-type></label>
             <label>Tutar<input type="number" name="amount" min="0.01" step="0.01" required></label>
             <label>Vade<input type="date" name="due_date"></label>
-            <label class="finance-full">Açıklama<input type="text" name="description"></label>
+            <label class="finance-full">Açıklama<input type="text" name="description" maxlength="500"></label>
+            <p class="helper-text finance-full" data-current-entry-guidance></p>
             <button class="primary-button" type="submit">Kaydı Oluştur</button>
         </form>
     </div>

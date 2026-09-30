@@ -4,7 +4,10 @@ from calendar import monthrange
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 
-from app.models import Store
+from sqlalchemy import func
+
+from app.extensions import db
+from app.models import ExpenseVoucher, Sale, SalePayment, Store, SupplierInvoice
 from app.models.finance import FinanceAccount, FinanceMovement, MonthlyOverheadBudget
 from app.utils import istanbul_day_start_utc, quantize_amount, utc_to_istanbul
 
@@ -51,6 +54,73 @@ def month_bounds(value=None):
     start = selected.replace(day=1)
     end = start.replace(day=monthrange(start.year, start.month)[1])
     return start, end
+
+
+def build_monthly_card_document_summary(*, site_id, store_id, selected_month, as_of=None):
+    """Compare monthly card collections with recorded purchase/expense documents.
+
+    This is an operational document-completeness aid, not a tax declaration.
+    Split payments and legacy single-payment sales are combined without double
+    counting. Supplier invoices and non-rejected expense vouchers form the
+    recorded document total.
+    """
+    month_start, month_end = month_bounds(selected_month)
+    range_start = istanbul_day_start_utc(month_start)
+    range_end = istanbul_day_start_utc(month_end + timedelta(days=1))
+    valid_sale_filters = (
+        Sale.site_id == site_id,
+        Sale.store_id == store_id,
+        Sale.sale_date >= range_start,
+        Sale.sale_date < range_end,
+        Sale.order_status != "CANCELLED",
+        Sale.payment_status != "VOIDED",
+    )
+    split_card_total = db.session.query(func.coalesce(func.sum(SalePayment.amount), 0)).join(
+        Sale, Sale.id == SalePayment.sale_id
+    ).filter(
+        *valid_sale_filters,
+        SalePayment.payment_method == "Kredi Kartı",
+    ).scalar()
+    legacy_card_total = db.session.query(func.coalesce(func.sum(Sale.total_amount), 0)).filter(
+        *valid_sale_filters,
+        Sale.payment_method == "Kredi Kartı",
+        ~Sale.payments.any(),
+    ).scalar()
+    supplier_total = db.session.query(func.coalesce(func.sum(SupplierInvoice.gross_amount), 0)).filter(
+        SupplierInvoice.site_id == site_id,
+        SupplierInvoice.store_id == store_id,
+        SupplierInvoice.invoice_date >= month_start,
+        SupplierInvoice.invoice_date <= month_end,
+    ).scalar()
+    expense_total = db.session.query(func.coalesce(func.sum(ExpenseVoucher.gross_amount), 0)).filter(
+        ExpenseVoucher.site_id == site_id,
+        ExpenseVoucher.store_id == store_id,
+        ExpenseVoucher.expense_date >= month_start,
+        ExpenseVoucher.expense_date <= month_end,
+        ExpenseVoucher.status != "rejected",
+    ).scalar()
+
+    card_total = quantize_amount(Decimal(split_card_total or 0) + Decimal(legacy_card_total or 0))
+    purchase_document_total = quantize_amount(Decimal(supplier_total or 0))
+    expense_document_total = quantize_amount(Decimal(expense_total or 0))
+    document_total = quantize_amount(purchase_document_total + expense_document_total)
+    remaining = max(quantize_amount(card_total - document_total), Decimal("0.00"))
+    surplus = max(quantize_amount(document_total - card_total), Decimal("0.00"))
+    check_date = as_of or date.today()
+    is_current_month = check_date.year == month_start.year and check_date.month == month_start.month
+    reminder_start = month_end - timedelta(days=1)
+
+    return {
+        "month_start": month_start,
+        "month_end": month_end,
+        "card_total": card_total,
+        "supplier_document_total": purchase_document_total,
+        "expense_document_total": expense_document_total,
+        "document_total": document_total,
+        "remaining": remaining,
+        "surplus": surplus,
+        "should_remind": bool(is_current_month and check_date >= reminder_start and remaining > 0),
+    }
 
 
 def authorized_store_ids(*, user, site_id, role_id):
