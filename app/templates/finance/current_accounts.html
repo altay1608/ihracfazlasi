@@ -56,10 +56,18 @@
                 <td data-summary-value="{{ settled_amount }}">{{ settled_amount|currency }}</td>
                 <td data-summary-value="{{ entry.remaining_amount }}">{{ entry.remaining_amount|currency }}</td>
                 <td>{{ current_status_labels.get(entry.status, entry.status) }}</td>
-                <td>{% if entry.remaining_amount > 0 %}<form method="post" action="{{ url_for('finance.settle_current_entry_route', entry_id=entry.id) }}" class="finance-inline-action"><input type="hidden" name="csrf_token" value="{{ session.get('auth_csrf_token', '') }}"><select name="finance_account_id" required>{% for account in accounts %}<option value="{{ account.id }}">{{ account.name }}</option>{% endfor %}</select><input type="number" name="amount" max="{{ entry.remaining_amount }}" min="0.01" step="0.01" required placeholder="Tutar"><input type="hidden" name="occurred_at" value="{{ now_value }}"><button class="icon-action-button" type="submit" title="Tahsilat veya ödemeyi kaydet" data-tooltip="Kaydet" aria-label="Tahsilat veya ödemeyi kaydet">{{ save_icon() }}</button></form>{% else %}<span class="status-badge success">Kapalı</span>{% endif %}</td>
+                <td>{% if entry.remaining_amount > 0 %}<form method="post" action="{{ url_for('finance.settle_current_entry_route', entry_id=entry.id) }}" class="finance-inline-action"><input type="hidden" name="csrf_token" value="{{ session.get('auth_csrf_token', '') }}"><select name="finance_account_id" required>{% for account in accounts %}<option value="{{ account.id }}">{{ account.name }}</option>{% endfor %}</select><input type="number" name="amount" max="{{ entry.remaining_amount }}" min="0.01" step="0.01" required placeholder="Tutar"><input type="datetime-local" name="occurred_at" value="{{ now_value }}" required title="Ödeme tarihi ve saati"><button class="icon-action-button" type="submit" title="Tahsilat veya ödemeyi kaydet" data-tooltip="Kaydet" aria-label="Tahsilat veya ödemeyi kaydet">{{ save_icon() }}</button></form>{% else %}<span class="status-badge success">Kapalı</span>{% endif %}</td>
             </tr>
             {% else %}<tr><td colspan="8" class="empty-state">Cari hareket yok.</td></tr>{% endfor %}
             </tbody>
+        </table></div>
+    </div>
+
+    <div class="finance-table-section panel">
+        <div class="section-heading"><div><p class="eyebrow">Ödeme Geçmişi</p><h2>Tedarikçi Ödemeleri ve Müşteri Tahsilatları</h2></div></div>
+        <div class="table-wrap"><table data-enhanced-table data-table-key="finance-current-settlements-v1" data-export-name="cari-odeme-gecmisi">
+            <thead><tr><th>Tarih</th><th>Cari</th><th>İşlem</th><th>Finans Hesabı</th><th data-summary="currency">Tutar</th></tr></thead>
+            <tbody>{% for row in settlement_rows %}<tr><td>{{ row.settlement.occurred_at|tr_datetime }}</td><td>{{ row.current_account.name if row.current_account else '-' }}</td><td>{{ 'Tedarikçi ödemesi' if row.entry.entry_type == 'payable' else 'Müşteri tahsilatı' }}</td><td>{{ row.finance_account.name if row.finance_account else '-' }}</td><td data-summary-value="{{ row.settlement.amount }}">{{ row.settlement.amount|currency }}</td></tr>{% else %}<tr><td colspan="5" class="empty-state">Henüz cari ödeme veya tahsilat kaydı yok.</td></tr>{% endfor %}</tbody>
         </table></div>
     </div>
 </section>

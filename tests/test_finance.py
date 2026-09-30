@@ -15,6 +15,7 @@ from app.models import (
     FinancePaymentMapping,
     PosReconciliation,
     CurrentAccount,
+    CurrentEntry,
     DailyCashClosing,
     ExpenseVoucher,
     Package,
@@ -34,6 +35,7 @@ from app.services.finance import (
     create_manual_movement,
     get_account_balance,
     settle_auto_pos_reconciliation,
+    settle_current_entry,
     sync_sale_finance,
     update_pos_settings,
 )
@@ -507,6 +509,70 @@ class FinanceModuleTests(unittest.TestCase):
                 line_items=[{"product_id": product.id, "quantity": 3, "unit_cost": 250}],
             )
         db.session.rollback()
+
+    def test_supplier_debt_can_be_paid_and_later_documented_without_double_counting(self):
+        activate_finance(self.site.id, self.store.id, opening_cash=Decimal("500000.00"))
+        supplier = create_current_account(
+            site_id=self.site.id,
+            account_category="supplier",
+            name="Ahmet Tedarikçi",
+        )
+        db.session.flush()
+        debt = create_current_entry(
+            site_id=self.site.id,
+            store_id=self.store.id,
+            current_account_id=supplier.id,
+            entry_type="payable",
+            amount=Decimal("300000.00"),
+            description="Faturasız mal alımı",
+        )
+        cash = FinanceAccount.query.filter_by(
+            site_id=self.site.id,
+            store_id=self.store.id,
+            code="CASH",
+        ).one()
+        settle_current_entry(
+            site_id=self.site.id,
+            store_id=self.store.id,
+            entry_id=debt.id,
+            finance_account_id=cash.id,
+            amount=Decimal("40000.00"),
+            occurred_at=datetime(2026, 9, 25, 12, 0),
+            description="Cuma günü kısmi ödeme",
+        )
+        invoice = create_supplier_invoice(
+            site_id=self.site.id,
+            store_id=self.store.id,
+            supplier_id=supplier.id,
+            invoice_no="AHM-40K",
+            invoice_date=date(2026, 9, 25),
+            due_date=None,
+            net_amount=Decimal("40000.00"),
+            vat_amount=Decimal("0.00"),
+            existing_entry_id=debt.id,
+        )
+        db.session.commit()
+
+        self.assertEqual(debt.amount, Decimal("300000.00"))
+        self.assertEqual(debt.remaining_amount, Decimal("260000.00"))
+        self.assertEqual(invoice.current_entry_id, None)
+        self.assertEqual(invoice.linked_current_entry_id, debt.id)
+        self.assertEqual(invoice.payable_entry.id, debt.id)
+        self.assertFalse(invoice.creates_payable)
+        self.assertEqual(CurrentEntry.query.filter_by(current_account_id=supplier.id).count(), 1)
+
+        with self.assertRaisesRegex(ValueError, "belgesiz kalan"):
+            create_supplier_invoice(
+                site_id=self.site.id,
+                store_id=self.store.id,
+                supplier_id=supplier.id,
+                invoice_no="AHM-OVER",
+                invoice_date=date(2026, 9, 26),
+                due_date=None,
+                net_amount=Decimal("270000.00"),
+                vat_amount=Decimal("0.00"),
+                existing_entry_id=debt.id,
+            )
 
     def test_personnel_advance_can_be_partially_settled(self):
         activate_finance(self.site.id, self.store.id, opening_cash=Decimal("1000.00"))

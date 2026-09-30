@@ -13,6 +13,7 @@ from app.models import PaymentMethod, Store
 from app.models.finance import (
     CurrentAccount,
     CurrentEntry,
+    CurrentSettlement,
     FinanceAccount,
     FinanceActivation,
     FinanceCategory,
@@ -489,8 +490,32 @@ def current_accounts():
             (entry.remaining_amount if entry.entry_type == "receivable" else -entry.remaining_amount for entry in account_entries),
             Decimal("0.00"),
         )
+    settlements = CurrentSettlement.query.filter_by(
+        site_id=site_id,
+        store_id=store_id,
+    ).order_by(CurrentSettlement.occurred_at.desc(), CurrentSettlement.id.desc()).limit(200).all()
+    entries_by_id = {entry.id: entry for entry in entries}
+    accounts_by_id = {account.id: account for account in accounts}
+    finance_accounts = FinanceAccount.query.filter_by(site_id=site_id, store_id=store_id).all()
+    finance_accounts_by_id = {account.id: account for account in finance_accounts}
+    settlement_rows = []
+    for settlement in settlements:
+        entry = entries_by_id.get(settlement.current_entry_id)
+        if entry is None:
+            continue
+        settlement_rows.append({
+            "settlement": settlement,
+            "entry": entry,
+            "current_account": accounts_by_id.get(entry.current_account_id),
+            "finance_account": finance_accounts_by_id.get(settlement.finance_account_id),
+        })
     context = _form_context(site_id, store_id)
-    context.update(current_accounts=accounts, entries=entries, current_totals=totals)
+    context.update(
+        current_accounts=accounts,
+        entries=entries,
+        current_totals=totals,
+        settlement_rows=settlement_rows,
+    )
     return render_template("finance/current_accounts.html", **context)
 
 

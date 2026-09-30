@@ -6,6 +6,7 @@ from decimal import Decimal
 from app.extensions import db
 from app.models import (
     CurrentAccount,
+    CurrentEntry,
     DailyCashClosing,
     ExpenseVoucher,
     FinanceAccount,
@@ -205,7 +206,8 @@ def create_expense(*, site_id, store_id, account_id, category_id, expense_date, 
 
 def create_supplier_invoice(*, site_id, store_id, supplier_id, invoice_no, invoice_date,
                             due_date, net_amount, vat_amount, note=None, line_items=None,
-                            product_id=None, quantity=0, unit_cost=0):
+                            product_id=None, quantity=0, unit_cost=0,
+                            existing_entry_id=None):
     ensure_finance_period_open(site_id, store_id, invoice_date)
     supplier = db.session.get(CurrentAccount, supplier_id)
     if supplier is None or supplier.site_id != site_id or supplier.account_category != "supplier" or not supplier.is_active:
@@ -220,24 +222,63 @@ def create_supplier_invoice(*, site_id, store_id, supplier_id, invoice_no, invoi
     gross = quantize_amount(net + vat)
     if gross <= 0:
         raise FinanceConfigurationError("Fatura toplamı sıfırdan büyük olmalıdır.")
-    entry = create_current_entry(
-        site_id=site_id, store_id=store_id, current_account_id=supplier.id,
-        entry_type="payable", amount=gross, due_date=due_date,
-        description=f"Alış faturası {invoice_no}",
-    )
+    normalized_lines = list(line_items or [])
+    if not normalized_lines and product_id:
+        normalized_lines = [{"product_id": product_id, "quantity": quantity, "unit_cost": unit_cost}]
+
+    linked_entry = None
+    if existing_entry_id:
+        linked_entry = CurrentEntry.query.filter_by(
+            id=int(existing_entry_id),
+            site_id=site_id,
+            store_id=store_id,
+            current_account_id=supplier.id,
+            entry_type="payable",
+        ).one_or_none()
+        if linked_entry is None:
+            raise FinanceConfigurationError("Belgelendirilecek tedarikçi borcu bulunamadı.")
+        if normalized_lines:
+            raise FinanceConfigurationError(
+                "Mevcut borcu belgelendirirken stok tekrar girilemez; ürünler ilk mal kabulünde zaten stoğa alınmış olmalıdır."
+            )
+        related_invoices = SupplierInvoice.query.filter_by(
+            site_id=site_id,
+            store_id=store_id,
+        ).all()
+        documented_total = sum(
+            (
+                invoice.gross_amount
+                for invoice in related_invoices
+                if invoice.current_entry_id == linked_entry.id
+                or invoice.linked_current_entry_id == linked_entry.id
+            ),
+            Decimal("0.00"),
+        )
+        undocumented_amount = quantize_amount(linked_entry.amount - documented_total)
+        if gross > undocumented_amount:
+            raise FinanceConfigurationError(
+                f"Fatura toplamı belgesiz kalan borcu aşamaz. Belgesiz kalan: {undocumented_amount}"
+            )
+        entry = None
+    else:
+        entry = create_current_entry(
+            site_id=site_id, store_id=store_id, current_account_id=supplier.id,
+            entry_type="payable", amount=gross, due_date=due_date,
+            description=f"Alış faturası {invoice_no}",
+        )
     invoice = SupplierInvoice(
         site_id=site_id, store_id=store_id, supplier_id=supplier.id,
         invoice_no=invoice_no, invoice_date=invoice_date, due_date=due_date,
         net_amount=net, vat_amount=vat, gross_amount=gross,
-        current_entry_id=entry.id, note=normalized_note,
+        current_entry_id=entry.id if entry else None,
+        linked_current_entry_id=linked_entry.id if linked_entry else None,
+        status="documented" if linked_entry else "open",
+        note=normalized_note,
         created_by_user_id=_user_id(),
     )
     db.session.add(invoice)
     db.session.flush()
 
-    normalized_lines = list(line_items or [])
-    if not normalized_lines and product_id:
-        normalized_lines = [{"product_id": product_id, "quantity": quantity, "unit_cost": unit_cost}]
     stock_line_total = Decimal("0.00")
     for item in normalized_lines:
         selected_product_id = item.get("product_id")

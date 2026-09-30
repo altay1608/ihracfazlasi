@@ -92,7 +92,13 @@ class SupplierInvoice(db.Model):
     vat_amount = db.Column(db.Numeric(14, 2), nullable=False, default=0)
     gross_amount = db.Column(db.Numeric(14, 2), nullable=False)
     status = db.Column(db.String(20), nullable=False, default="open", index=True)
-    current_entry_id = db.Column(db.Integer, db.ForeignKey("current_entries.id"), nullable=False, unique=True)
+    current_entry_id = db.Column(db.Integer, db.ForeignKey("current_entries.id"), nullable=True, unique=True)
+    linked_current_entry_id = db.Column(
+        db.Integer,
+        db.ForeignKey("current_entries.id"),
+        nullable=True,
+        index=True,
+    )
     note = db.Column(db.String(500), nullable=True)
     attachment_name = db.Column(db.String(255), nullable=True)
     attachment_mime = db.Column(db.String(120), nullable=True)
@@ -101,8 +107,18 @@ class SupplierInvoice(db.Model):
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 
     supplier = db.relationship("CurrentAccount")
-    current_entry = db.relationship("CurrentEntry")
+    current_entry = db.relationship("CurrentEntry", foreign_keys=[current_entry_id])
+    linked_current_entry = db.relationship("CurrentEntry", foreign_keys=[linked_current_entry_id])
     lines = db.relationship("SupplierInvoiceLine", back_populates="invoice", cascade="all, delete-orphan")
+
+    @property
+    def payable_entry(self):
+        """Return the debt created by, or merely documented by, this invoice."""
+        return self.current_entry or self.linked_current_entry
+
+    @property
+    def creates_payable(self):
+        return self.current_entry_id is not None
 
 
 class SupplierInvoiceLine(db.Model):

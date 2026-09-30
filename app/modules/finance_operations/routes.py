@@ -84,6 +84,22 @@ def _attachment(upload):
 
 
 def _form_options(site_id, store_id):
+    supplier_debts = CurrentEntry.query.filter_by(
+        site_id=site_id,
+        store_id=store_id,
+        entry_type="payable",
+    ).order_by(CurrentEntry.created_at.desc()).all()
+    supplier_invoices = SupplierInvoice.query.filter_by(site_id=site_id, store_id=store_id).all()
+    documented_by_entry = {}
+    for invoice in supplier_invoices:
+        entry_id = invoice.current_entry_id or invoice.linked_current_entry_id
+        if entry_id:
+            documented_by_entry[entry_id] = documented_by_entry.get(entry_id, Decimal("0.00")) + invoice.gross_amount
+    debt_options = []
+    for entry in supplier_debts:
+        undocumented = quantize_amount(entry.amount - documented_by_entry.get(entry.id, Decimal("0.00")))
+        if undocumented > 0:
+            debt_options.append({"entry": entry, "undocumented": undocumented})
     return {
         "accounts": FinanceAccount.query.filter_by(site_id=site_id, store_id=store_id, is_active=True).order_by(FinanceAccount.name).all(),
         "expense_categories": FinanceCategory.query.filter(
@@ -93,6 +109,7 @@ def _form_options(site_id, store_id):
         ).order_by(FinanceCategory.name).all(),
         "suppliers": CurrentAccount.query.filter_by(site_id=site_id, account_category="supplier", is_active=True).order_by(CurrentAccount.name).all(),
         "products": Product.query.filter_by(site_id=site_id).order_by(Product.name).all(),
+        "supplier_debts": debt_options,
         "today": now_in_istanbul().date(),
     }
 
@@ -286,6 +303,7 @@ def supplier_invoices():
                 due_date=_date(request.form.get("due_date"), None) if request.form.get("due_date") else None,
                 net_amount=_money(request.form.get("net_amount")), vat_amount=_money(request.form.get("vat_amount")),
                 note=request.form.get("note"),
+                existing_entry_id=(int(request.form.get("existing_entry_id")) if request.form.get("entry_mode") == "document" and request.form.get("existing_entry_id") else None),
                 line_items=[
                     {"product_id": product_id, "quantity": quantity, "unit_cost": unit_cost}
                     for product_id, quantity, unit_cost in zip(
@@ -299,7 +317,12 @@ def supplier_invoices():
             for key, value in _attachment(request.files.get("attachment")).items():
                 setattr(invoice, key, value)
             db.session.commit()
-            flash("Alış faturası, tedarikçi borcu ve stok girişi kaydedildi.", "success")
+            flash(
+                "Fatura mevcut borca bağlandı; borç ve stok tekrar artırılmadı."
+                if invoice.linked_current_entry_id
+                else "Alış faturası, tedarikçi borcu ve stok girişi kaydedildi.",
+                "success",
+            )
             return redirect(url_for("finance_ops.supplier_invoices"))
         except IntegrityError:
             db.session.rollback()
