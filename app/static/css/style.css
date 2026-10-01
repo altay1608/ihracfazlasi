@@ -37,7 +37,8 @@
 .finance-tabs {
     display: flex;
     gap: 4px;
-    overflow-x: auto;
+    flex-wrap: wrap;
+    overflow: visible;
     padding-bottom: 2px;
     border-bottom: 1px solid var(--line-color, #eadfce);
 }
@@ -55,6 +56,60 @@
 .finance-tabs a.active {
     color: #991b1b;
     border-bottom-color: #b91c1c;
+}
+
+.finance-more-menu {
+    position: relative;
+    flex: 0 0 auto;
+}
+
+.finance-more-menu summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 10px 12px;
+    color: #5a4542;
+    border-bottom: 3px solid transparent;
+    font-weight: 650;
+    white-space: nowrap;
+}
+
+.finance-more-menu summary::-webkit-details-marker,
+.module-menu summary::-webkit-details-marker {
+    display: none;
+}
+
+.finance-more-menu summary:hover,
+.finance-more-menu summary.active,
+.finance-more-menu[open] summary {
+    color: #991b1b;
+    border-bottom-color: #b91c1c;
+}
+
+.finance-more-panel {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    z-index: 45;
+    width: 230px;
+    display: grid;
+    gap: 3px;
+    padding: 8px;
+    border: 1px solid rgba(139, 26, 26, 0.14);
+    border-radius: 14px;
+    background: #ffffff;
+    box-shadow: 0 18px 38px rgba(58, 37, 24, 0.18);
+}
+
+.finance-more-panel a {
+    padding: 10px 12px;
+    border: 0;
+    border-radius: 9px;
+}
+
+.finance-more-panel a:hover,
+.finance-more-panel a.active {
+    background: rgba(201, 168, 76, 0.14);
+    border-bottom-color: transparent;
 }
 
 .finance-notice {
@@ -802,12 +857,67 @@ h2 {
     gap: 3px;
     flex: 1 1 auto;
     min-width: 0;
-    overflow-x: auto;
-    overflow-y: hidden;
+    overflow: visible;
     scrollbar-width: thin;
     scrollbar-color: rgba(255, 228, 139, 0.32) transparent;
     row-gap: 0;
     padding-bottom: 0;
+}
+
+.module-menu {
+    position: relative;
+    flex: 0 0 auto;
+}
+
+.module-menu > summary {
+    cursor: pointer;
+    list-style: none;
+}
+
+.module-menu[open] > summary {
+    color: #ffe48b;
+    border-color: rgba(255, 228, 139, 0.30);
+    background: rgba(255, 228, 139, 0.14);
+}
+
+.module-menu-caret {
+    margin-left: 2px;
+    font-size: 0.75rem;
+    transition: transform 160ms ease;
+}
+
+.module-menu[open] .module-menu-caret {
+    transform: rotate(180deg);
+}
+
+.module-menu-panel {
+    position: absolute;
+    top: calc(100% + 9px);
+    right: 0;
+    z-index: 50;
+    width: 240px;
+    display: grid;
+    gap: 3px;
+    padding: 8px;
+    border: 1px solid rgba(255, 228, 139, 0.18);
+    border-radius: 14px;
+    background: linear-gradient(180deg, #2d2925, #1f1c1a);
+    box-shadow: 0 20px 42px rgba(16, 11, 8, 0.35);
+}
+
+.module-menu-panel a {
+    display: block;
+    padding: 10px 12px;
+    border-radius: 9px;
+    color: rgba(255, 250, 243, 0.86);
+    font-size: 0.78rem;
+    text-decoration: none;
+}
+
+.module-menu-panel a:hover,
+.module-menu-panel a.active {
+    color: #ffe48b;
+    background: rgba(255, 228, 139, 0.14);
 }
 
 .top-nav::-webkit-scrollbar {
@@ -820,20 +930,20 @@ h2 {
 }
 
 .nav-link {
-    padding: 5px 6px;
+    padding: 7px 9px;
     border: 1px solid rgba(255, 228, 139, 0.06);
     border-radius: 10px;
     color: rgba(255, 250, 243, 0.78);
     transition: 160ms ease;
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 6px;
     white-space: nowrap;
     flex: 0 0 auto;
     min-width: auto;
     max-width: none;
     position: relative;
-    font-size: 0.69rem;
+    font-size: 0.75rem;
     background: rgba(255, 255, 255, 0.02);
 }
 
@@ -6488,6 +6598,23 @@ th:hover .table-column-resize-handle::after,
     .top-nav {
         width: 100%;
         padding-bottom: 6px;
+        flex-wrap: wrap;
+        overflow: visible;
+    }
+
+    .module-menu-panel {
+        left: 0;
+        right: auto;
+    }
+
+    .finance-tabs {
+        flex-wrap: wrap;
+        overflow: visible;
+    }
+
+    .finance-more-panel {
+        left: 0;
+        right: auto;
     }
 
     .audit-endpoint-form {

@@ -12,7 +12,7 @@
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/favicon-32x32.png') }}?v=2" sizes="32x32">
     <link rel="apple-touch-icon" href="{{ url_for('static', filename='img/apple-touch-icon.png') }}?v=2">
     <link rel="manifest" href="{{ url_for('static', filename='manifest.webmanifest', v='20260818-pwa-v1') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20260929-size-quantity-v2') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20261001-navigation-v1') }}">
     <meta name="csrf-token" content="{{ session.get('auth_csrf_token', '') }}">
     {% block head_extra %}{% endblock %}
 </head>
@@ -32,7 +32,7 @@
                         <span class="nav-icon" aria-hidden="true">
                             <svg viewBox="0 0 24 24"><path d="M4 12.5 12 5l8 7.5"/><path d="M6.5 10.5V19h11v-8.5"/><path d="M10 19v-4.5h4V19"/></svg>
                         </span>
-                        <span>System Administrator Lobby</span>
+                        <span>Genel Bakış</span>
                     </a>
                     {% endif %}
                     {% if can('products.access') %}
@@ -40,15 +40,7 @@
                         <span class="nav-icon" aria-hidden="true">
                             <svg viewBox="0 0 24 24"><path d="M4 7.5 12 4l8 3.5v9L12 20l-8-3.5z"/><path d="M4 7.5 12 11l8-3.5"/><path d="M12 11v9"/></svg>
                         </span>
-                        <span>Envanter Malzeme Ve Stok</span>
-                    </a>
-                    {% endif %}
-                    {% if can('inventory_history.access') %}
-                    <a href="{{ url_for('inventory_history.index') }}" class="nav-link {% if request.blueprint == 'inventory_history' %}active{% endif %}">
-                        <span class="nav-icon" aria-hidden="true">
-                            <svg viewBox="0 0 24 24"><path d="M5 4v16h14"/><path d="M8 8h7"/><path d="M8 12h5"/><path d="M8 16h8"/><path d="m16 7 3 3-3 3"/></svg>
-                        </span>
-                        <span>Envanter İşlem Tarihçesi</span>
+                        <span>Stok</span>
                     </a>
                     {% endif %}
                     {% if can('sales.access') %}
@@ -62,57 +54,32 @@
                         <span class="nav-icon" aria-hidden="true">
                             <svg viewBox="0 0 24 24"><path d="M7 5h10l2 3v11H5V8z"/><path d="M9 10h6"/><path d="M9 14h6"/></svg>
                         </span>
-                        <span>Satış Sipariş Satırları</span>
-                    </a>
-                    {% endif %}
-                    {% if can('daily_reports.access') %}
-                    <a href="{{ url_for('reports.daily') }}" class="nav-link {% if request.endpoint == 'reports.daily' %}active{% endif %}">
-                        <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 19V6"/><path d="M19 19H5"/><path d="m8 15 3-4 3 2 2-5"/></svg></span>
-                        <span>Günlük Hızlı Rapor</span>
-                    </a>
-                    {% endif %}
-                    {% if can('profit_reports.access') %}
-                    <a href="{{ url_for('reports.profit') }}" class="nav-link {% if request.endpoint == 'reports.profit' %}active{% endif %}">
-                        <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 19V6"/><path d="M19 19H5"/><path d="m8 15 3-4 3 2 2-5"/></svg></span>
-                        <span>Karlılık Analizi</span>
-                    </a>
-                    {% endif %}
-                    {% if can('returns.access') %}
-                    <a href="{{ url_for('returns.index') }}" class="nav-link {% if request.blueprint == 'returns' %}active{% endif %}">
-                        <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 5h12v14H6z"/><path d="M9 9h6"/><path d="m10 14 2 2 3-4"/></svg></span>
-                        <span>İade Malzeme Yönetimi</span>
+                        <span>Satışlar</span>
                     </a>
                     {% endif %}
                     {% if can('finance.access') %}
                     <a href="{{ url_for('finance_ops.dashboard') }}" class="nav-link {% if request.blueprint in ['finance', 'finance_ops'] %}active{% endif %}">
                         <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 7h16v12H4z"/><path d="M7 7V5h10v2"/><path d="M4 11h16"/><path d="M8 15h3"/></svg></span>
-                        <span>Finans ve Ön Muhasebe</span>
+                        <span>Finans</span>
                     </a>
                     {% endif %}
-                    {% if can('alerts.access') %}
-                    <a href="{{ url_for('alerts.index') }}" class="nav-link {% if request.blueprint == 'alerts' %}active{% endif %}">
-                        <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m12 4 9 16H3z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></span>
-                        <span>Kritik Stok Uyarıları</span>
-                    </a>
-                    {% endif %}
-                    {% if can('inventory_counts.access') %}
-                    <a href="{{ url_for('inventory_counts.index') }}" class="nav-link {% if request.blueprint == 'inventory_counts' %}active{% endif %}">
-                        <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 6h14"/><path d="M5 12h14"/><path d="M5 18h14"/><path d="M8 4v4"/><path d="M15 10v4"/><path d="M11 16v4"/></svg></span>
-                        <span>Stok Sayım Yönetimi</span>
-                    </a>
-                    {% endif %}
-                    {% if can('reference_data.access') %}
-                    <a href="{{ url_for('admin.index') }}" class="nav-link {% if request.blueprint == 'admin' %}active{% endif %}">
-                        <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 7.5a4.5 4.5 0 1 1 0 9 4.5 4.5 0 0 1 0-9Z"/><path d="M19 12a7.6 7.6 0 0 0-.1-1.1l2-1.6-2-3.4-2.5 1a8.5 8.5 0 0 0-1.9-1.1L14 3h-4l-.5 2.8a8.5 8.5 0 0 0-1.9 1.1l-2.5-1-2 3.4 2 1.6A7.6 7.6 0 0 0 5 12c0 .4 0 .7.1 1.1l-2 1.6 2 3.4 2.5-1c.6.5 1.2.8 1.9 1.1L10 21h4l.5-2.8c.7-.3 1.3-.6 1.9-1.1l2.5 1 2-3.4-2-1.6c.1-.4.1-.7.1-1.1Z"/></svg></span>
-                        <span>Temel Veri Yönetim Paneli</span>
-                    </a>
-                    {% endif %}
-                    <a href="{{ url_for('auth.logout') }}" class="nav-link">
+                    <details class="module-menu">
+                        <summary class="nav-link {% if request.blueprint in ['inventory_history', 'reports', 'returns', 'alerts', 'inventory_counts', 'admin'] %}active{% endif %}">
                         <span class="nav-icon" aria-hidden="true">
-                            <svg viewBox="0 0 24 24"><path d="M9 6V5a2 2 0 0 1 2-2h7v18h-7a2 2 0 0 1-2-2v-1"/><path d="M3 12h10"/><path d="m6 9-3 3 3 3"/></svg>
+                            <svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg>
                         </span>
-                        <span>Çıkış</span>
-                    </a>
+                        <span>Diğer Modüller</span><span class="module-menu-caret" aria-hidden="true">⌄</span>
+                        </summary>
+                        <div class="module-menu-panel">
+                            {% if can('inventory_history.access') %}<a href="{{ url_for('inventory_history.index') }}" class="{% if request.blueprint == 'inventory_history' %}active{% endif %}">Envanter Geçmişi</a>{% endif %}
+                            {% if can('daily_reports.access') %}<a href="{{ url_for('reports.daily') }}" class="{% if request.endpoint == 'reports.daily' %}active{% endif %}">Günlük Rapor</a>{% endif %}
+                            {% if can('profit_reports.access') %}<a href="{{ url_for('reports.profit') }}" class="{% if request.endpoint == 'reports.profit' %}active{% endif %}">Karlılık Analizi</a>{% endif %}
+                            {% if can('returns.access') %}<a href="{{ url_for('returns.index') }}" class="{% if request.blueprint == 'returns' %}active{% endif %}">İade Yönetimi</a>{% endif %}
+                            {% if can('alerts.access') %}<a href="{{ url_for('alerts.index') }}" class="{% if request.blueprint == 'alerts' %}active{% endif %}">Kritik Stok Uyarıları</a>{% endif %}
+                            {% if can('inventory_counts.access') %}<a href="{{ url_for('inventory_counts.index') }}" class="{% if request.blueprint == 'inventory_counts' %}active{% endif %}">Stok Sayımı</a>{% endif %}
+                            {% if can('reference_data.access') %}<a href="{{ url_for('admin.index') }}" class="{% if request.blueprint == 'admin' %}active{% endif %}">Temel Veri Yönetimi</a>{% endif %}
+                        </div>
+                    </details>
                 </nav>
                 <details class="user-menu">
                     <summary class="user-menu-trigger">

@@ -440,6 +440,23 @@ class FinanceModuleTests(unittest.TestCase):
                 vat_amount=0, config={"FINANCE_APPROVAL_LIMIT": "5000"},
             )
 
+    def test_expense_receipt_page_opens_with_finance_navigation(self):
+        activate_finance(self.site.id, self.store.id)
+        db.session.commit()
+
+        with self.app.test_client() as client:
+            with client.session_transaction() as session_state:
+                session_state["active_site_id"] = self.site.id
+                session_state["active_store_id"] = self.store.id
+                session_state["auth_csrf_token"] = "test-token"
+            response = client.get("/finance/operations/expenses")
+
+        self.assertEqual(response.status_code, 200)
+        page = response.get_data(as_text=True)
+        self.assertIn("Masraf Fişi ve Belge Yönetimi", page)
+        self.assertIn("Diğer Modüller", page)
+        self.assertIn("Diğer Finans İşlemleri", page)
+
     def test_month_end_card_document_summary_combines_split_and_legacy_sales(self):
         activate_finance(self.site.id, self.store.id)
         db.session.flush()
