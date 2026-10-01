@@ -30,6 +30,7 @@ from app.models.finance import (
     PosReconciliation,
     ShortTermObligation,
 )
+from app.models.sale import CreditSaleCollection, Sale
 from app.services.product_inventory import get_customer_gross_amount
 from app.services.user_auth import get_current_user
 from app.utils import now_in_istanbul, quantize_amount, utc_to_istanbul
@@ -113,6 +114,7 @@ PAYMENT_ACCOUNT_TYPES = {
 DEFAULT_POS_COMMISSION_RATE = Decimal("2.5500")
 DEFAULT_POS_COMMISSION_VAT_RATE = Decimal("10.00")
 DEFAULT_POS_SETTLEMENT_DAYS = 1
+CREDIT_COLLECTION_METHODS = ("Nakit", "Kredi Kartı", "Havale/EFT")
 
 CURRENT_ACCOUNT_CATEGORIES = {
     "customer": {"label": "Müşteri", "prefix": "120", "sequence": "current_customer"},
@@ -1541,6 +1543,167 @@ def create_account_transfer(
             pair_key=pair_key,
         )
     return transfer
+
+
+def credit_sale_total(sale):
+    """Return only the portion of a sale originally assigned to Veresiye."""
+    allocated = [
+        _money(payment.amount)
+        for payment in getattr(sale, "payments", ())
+        if payment.payment_method == "Veresiye"
+    ]
+    if allocated:
+        return _money(sum(allocated, Decimal("0.00")))
+    if sale.payment_method == "Veresiye":
+        return _money(sale.total_amount)
+    return Decimal("0.00")
+
+
+def credit_sale_collected(sale):
+    return _money(sum(
+        (_money(collection.amount) for collection in getattr(sale, "credit_collections", ())),
+        Decimal("0.00"),
+    ))
+
+
+def credit_sale_remaining(sale):
+    return max(credit_sale_total(sale) - credit_sale_collected(sale), Decimal("0.00"))
+
+
+def credit_sale_summary(sale):
+    total = credit_sale_total(sale)
+    collected = credit_sale_collected(sale)
+    return {
+        "total": total,
+        "collected": collected,
+        "remaining": max(total - collected, Decimal("0.00")),
+    }
+
+
+def collect_credit_sale_payment(
+    *, site_id, store_id, sale_id, payment_method, amount, occurred_at
+):
+    """Collect a credit-sale balance without recording the sale revenue twice."""
+    _require_activation(site_id, store_id)
+    sale = (
+        Sale.query.filter_by(id=sale_id, site_id=site_id, store_id=store_id)
+        .with_for_update()
+        .one_or_none()
+    )
+    if sale is None:
+        raise FinanceConfigurationError("Veresiye satış bulunamadı.")
+    if sale.order_status == "CANCELLED":
+        raise FinanceConfigurationError("İptal edilmiş satış için tahsilat alınamaz.")
+
+    normalized_method = str(payment_method or "").strip()
+    if normalized_method not in CREDIT_COLLECTION_METHODS:
+        raise FinanceConfigurationError("Tahsilat yöntemi Nakit, Kredi Kartı veya Havale/EFT olmalıdır.")
+    collection_amount = _money(amount)
+    remaining_before = credit_sale_remaining(sale)
+    if remaining_before <= Decimal("0.00"):
+        raise FinanceConfigurationError("Bu veresiye satışın açık bakiyesi bulunmuyor.")
+    if collection_amount <= Decimal("0.00") or collection_amount > remaining_before:
+        raise FinanceConfigurationError("Tahsilat tutarı sıfırdan büyük ve kalan borcu aşmayacak şekilde olmalıdır.")
+
+    occurred_at = _as_naive_utc(occurred_at or datetime.utcnow())
+    ensure_finance_period_open(site_id, store_id, occurred_at)
+    credit_account = _mapped_account(site_id, store_id, "Veresiye")
+    target_account = _mapped_account(site_id, store_id, normalized_method)
+    description = f"Veresiye tahsilatı: Satış #{sale.document_no or sale.id} - {normalized_method}"
+    transfer = create_account_transfer(
+        site_id=site_id,
+        store_id=store_id,
+        from_account_id=credit_account.id,
+        to_account_id=target_account.id,
+        amount=collection_amount,
+        occurred_at=occurred_at,
+        description=description,
+    )
+    collection = CreditSaleCollection(
+        site_id=site_id,
+        store_id=store_id,
+        sale=sale,
+        payment_method=normalized_method,
+        amount=collection_amount,
+        occurred_at=occurred_at,
+        finance_transfer_id=transfer.id,
+        created_by_user_id=_current_user_id(),
+    )
+    db.session.add(collection)
+    db.session.flush()
+
+    if normalized_method == "Kredi Kartı":
+        activation = get_finance_activation(site_id, store_id)
+        bank_account = _configured_pos_bank_account(activation)
+        rate = _commission_rate(
+            activation.pos_commission_rate
+            if activation.pos_commission_rate is not None
+            else DEFAULT_POS_COMMISSION_RATE
+        )
+        commission = _money((collection_amount * rate) / Decimal("100"))
+        commission_vat = _money((commission * DEFAULT_POS_COMMISSION_VAT_RATE) / Decimal("100"))
+        total_commission = _money(commission + commission_vat)
+        net = _money(collection_amount - total_commission)
+        if net <= Decimal("0.00"):
+            raise FinanceConfigurationError("POS komisyonundan sonra banka net tutarı sıfırdan büyük olmalıdır.")
+
+        pair_key = f"credit-collection-pos:{collection.id}"
+        reconciliation = PosReconciliation(
+            site_id=site_id,
+            store_id=store_id,
+            pos_account_id=target_account.id,
+            bank_account_id=bank_account.id,
+            sale_id=None,
+            gross_amount=collection_amount,
+            commission_rate=rate,
+            commission_amount=total_commission,
+            commission_vat_rate=DEFAULT_POS_COMMISSION_VAT_RATE,
+            commission_vat_amount=commission_vat,
+            net_amount=net,
+            occurred_at=occurred_at,
+            expected_settlement_date=utc_to_istanbul(occurred_at).date() + timedelta(
+                days=int(activation.pos_settlement_days or DEFAULT_POS_SETTLEMENT_DAYS)
+            ),
+            status="pending",
+            settled_at=None,
+            auto_generated=True,
+            reference=f"Veresiye tahsilatı #{sale.document_no or sale.id}",
+            pair_key=pair_key,
+            created_by_user_id=_current_user_id(),
+        )
+        db.session.add(reconciliation)
+        db.session.flush()
+        collection.pos_reconciliation_id = reconciliation.id
+        if total_commission > Decimal("0.00"):
+            _append_movement(
+                site_id=site_id,
+                store_id=store_id,
+                account=target_account,
+                category=_category(site_id, "POS_COMMISSION"),
+                occurred_at=occurred_at,
+                direction="out",
+                amount=total_commission,
+                movement_type="pos_commission",
+                description=(
+                    f"POS komisyonu (%{rate}) + KDV %{DEFAULT_POS_COMMISSION_VAT_RATE}: "
+                    f"Veresiye tahsilatı #{sale.document_no or sale.id}"
+                ),
+                document_no=str(collection.id),
+                source_type="credit_collection",
+                source_id=collection.id,
+                source_key=f"{pair_key}:commission",
+                pair_key=pair_key,
+                is_overhead=False,
+            )
+
+    remaining_after = _money(remaining_before - collection_amount)
+    new_status = "PAID" if remaining_after == Decimal("0.00") else "PARTIAL"
+    sale.payment_status = new_status
+    for payment in sale.payments:
+        if payment.payment_method == "Veresiye":
+            payment.status = new_status
+    db.session.flush()
+    return collection
 
 
 def create_pos_reconciliation(

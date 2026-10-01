@@ -10,7 +10,7 @@ from app.data import TR_LOCATIONS
 from app.extensions import db
 from app.models import Product, Sale, SaleItem, SalePayment
 from app.services.customer_orders import prepare_customer_order
-from app.services.finance import sync_sale_finance
+from app.services.finance import credit_sale_summary, sync_sale_finance
 from app.services.inventory_history import record_inventory_movement
 from app.services.product_inventory import release_barcodes_from_sale, reserve_barcodes_for_sale, round_customer_price
 from app.services.reference_data import get_payment_method_choices, get_payment_method_map
@@ -486,6 +486,9 @@ def edit(sale_id):
     if sale.order_status == "CANCELLED":
         flash("İptal edilmiş satış siparişi yeniden düzenlenemez.", "error")
         return redirect(url_for("sales.detail", sale_id=sale.id))
+    if sale.credit_collections:
+        flash("Tahsilat alınmış veresiye satış değiştirilemez; düzeltme için iade sürecini kullanın.", "error")
+        return redirect(url_for("sales.detail", sale_id=sale.id))
     line_edits_locked = any(int(item.returned_quantity or 0) > 0 for item in sale.items)
     return render_template(
         "sales/pos.html",
@@ -547,6 +550,7 @@ def detail(sale_id):
         .first_or_404()
     )
     breakdown = calculate_sale_breakdown(sale)
+    credit_summary = credit_sale_summary(sale)
     customer_fields = [
         ("Ad Soyad", sale.customer_name),
         ("Cep Telefonu", sale.customer_mobile),
@@ -566,6 +570,7 @@ def detail(sale_id):
         vat_amount=breakdown["vat_amount"],
         line_subtotal=breakdown["line_subtotal"],
         customer_fields=customer_fields,
+        credit_summary=credit_summary,
         return_date_from=return_date_from,
         return_date_to=return_date_to,
     )
@@ -607,6 +612,13 @@ def update(sale_id):
             {
                 "success": False,
                 "message": "İptal edilmiş satış siparişi yeniden düzenlenemez.",
+            }
+        ), 409
+    if sale.credit_collections:
+        return jsonify(
+            {
+                "success": False,
+                "message": "Tahsilat alınmış veresiye satış değiştirilemez; düzeltme için iade sürecini kullanın.",
             }
         ), 409
     payload = request.get_json(silent=True) or {}

@@ -72,6 +72,13 @@ class Sale(db.Model):
         lazy="selectin",
         order_by="SalePayment.id.asc()",
     )
+    credit_collections = db.relationship(
+        "CreditSaleCollection",
+        back_populates="sale",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+        order_by="CreditSaleCollection.occurred_at.asc(), CreditSaleCollection.id.asc()",
+    )
     site = db.relationship("Site")
     store = db.relationship("Store")
 
@@ -105,6 +112,7 @@ class Sale(db.Model):
         return {
             "PAID": "Ödendi",
             "OPEN": "Veresiye Açık",
+            "PARTIAL": "Kısmi Ödendi",
             "PARTIALLY_REFUNDED": "Kısmi Geri Ödeme",
             "REFUNDED": "Geri Ödendi",
             "VOIDED": "İptal Edildi",
@@ -129,6 +137,56 @@ class SalePayment(db.Model):
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 
     sale = db.relationship("Sale", back_populates="payments")
+
+
+class CreditSaleCollection(db.Model):
+    __tablename__ = "credit_sale_collections"
+    __table_args__ = (
+        db.CheckConstraint("amount > 0", name="ck_credit_sale_collection_positive"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    site_id = db.Column(
+        db.Integer,
+        db.ForeignKey("sites.id", ondelete="CASCADE"),
+        nullable=False,
+        default=get_active_site_id,
+        index=True,
+    )
+    store_id = db.Column(
+        db.Integer,
+        db.ForeignKey("stores.id", ondelete="RESTRICT"),
+        nullable=False,
+        default=get_active_store_id,
+        index=True,
+    )
+    sale_id = db.Column(
+        db.Integer,
+        db.ForeignKey("sales.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    payment_method = db.Column(db.String(30), nullable=False, index=True)
+    amount = db.Column(db.Numeric(10, 2), nullable=False)
+    occurred_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, index=True)
+    finance_transfer_id = db.Column(
+        db.Integer,
+        db.ForeignKey("finance_transfers.id", ondelete="RESTRICT"),
+        nullable=False,
+        unique=True,
+    )
+    pos_reconciliation_id = db.Column(
+        db.Integer,
+        db.ForeignKey("pos_reconciliations.id", ondelete="RESTRICT"),
+        nullable=True,
+        unique=True,
+    )
+    created_by_user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    sale = db.relationship("Sale", back_populates="credit_collections")
+    finance_transfer = db.relationship("FinanceTransfer")
+    pos_reconciliation = db.relationship("PosReconciliation")
 
 
 class SaleItem(db.Model):

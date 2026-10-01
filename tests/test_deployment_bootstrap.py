@@ -86,8 +86,10 @@ class DeploymentBootstrapTests(unittest.TestCase):
         ).read_text(encoding="utf-8")
 
         self.assertIn("CREATE TABLE IF NOT EXISTS sale_payments", bootstrap_source)
+        self.assertIn("CREATE TABLE IF NOT EXISTS credit_sale_collections", bootstrap_source)
         self.assertIn("ix_sale_payments_sale_id", bootstrap_source)
-        self.assertIn("deployment_ready_20260919_v2", bootstrap_source)
+        self.assertIn("ix_credit_sale_collections_sale_id", bootstrap_source)
+        self.assertIn("deployment_ready_20261001_v3", bootstrap_source)
 
 
 if __name__ == "__main__":

@@ -1,15 +1,17 @@
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from io import BytesIO
 
 from flask import Blueprint, abort, current_app, flash, redirect, render_template, request, send_file, session, url_for
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import joinedload
 
 from app.extensions import db
 from app.models import (
     CurrentAccount,
     CurrentEntry,
+    CreditSaleCollection,
     DailyCashClosing,
     ExpenseVoucher,
     FinanceAccount,
@@ -38,9 +40,14 @@ from app.services.finance_reporting import (
     month_bounds,
     month_choice_options,
 )
+from app.services.finance import (
+    CREDIT_COLLECTION_METHODS,
+    collect_credit_sale_payment,
+    credit_sale_summary,
+)
 from app.services.identity_access import get_active_site_id, get_active_store_id
 from app.services.reporting import get_daily_report, get_profit_report
-from app.utils import now_in_istanbul, quantize_amount
+from app.utils import istanbul_to_utc, now_in_istanbul, quantize_amount
 
 
 bp = Blueprint("finance_ops", __name__, url_prefix="/finance/operations")
@@ -69,6 +76,14 @@ def _money(value):
     if "," in text:
         text = text.replace(".", "").replace(",", ".")
     return quantize_amount(Decimal(text))
+
+
+def _datetime(value):
+    try:
+        local_value = datetime.fromisoformat(str(value or ""))
+    except ValueError as exc:
+        raise ValueError("Tahsilat tarihi ve saati geçerli değil.") from exc
+    return istanbul_to_utc(local_value)
 
 
 def _attachment(upload):
@@ -176,23 +191,38 @@ def dashboard():
         "next_7": payable_sum(CurrentEntry.due_date >= today, CurrentEntry.due_date <= today + timedelta(days=7)),
         "next_30": payable_sum(CurrentEntry.due_date > today + timedelta(days=7), CurrentEntry.due_date <= today + timedelta(days=30)),
     }
-    credit_due_sales = (
+    candidate_credit_sales = (
         Sale.query.filter(
             Sale.site_id == site_id,
             Sale.store_id == store_id,
-            Sale.payment_method == "Veresiye",
-            Sale.payment_status == "OPEN",
+            Sale.payment_status.in_(("OPEN", "PARTIAL")),
+            or_(
+                Sale.payment_method == "Veresiye",
+                Sale.payments.any(payment_method="Veresiye"),
+            ),
             Sale.payment_due_date.isnot(None),
         )
         .order_by(Sale.payment_due_date.asc(), Sale.id.asc())
+        .limit(200)
+        .all()
+    )
+    credit_due_rows = []
+    for sale in candidate_credit_sales:
+        summary = credit_sale_summary(sale)
+        if summary["remaining"] > 0:
+            credit_due_rows.append({"sale": sale, **summary})
+    credit_due_summary = {
+        "overdue": sum(1 for row in credit_due_rows if row["sale"].payment_due_date < today),
+        "today": sum(1 for row in credit_due_rows if row["sale"].payment_due_date == today),
+        "next_7": sum(1 for row in credit_due_rows if today < row["sale"].payment_due_date <= today + timedelta(days=7)),
+    }
+    recent_credit_collections = (
+        CreditSaleCollection.query.options(joinedload(CreditSaleCollection.sale))
+        .filter_by(site_id=site_id, store_id=store_id)
+        .order_by(CreditSaleCollection.occurred_at.desc(), CreditSaleCollection.id.desc())
         .limit(100)
         .all()
     )
-    credit_due_summary = {
-        "overdue": sum(1 for sale in credit_due_sales if sale.payment_due_date < today),
-        "today": sum(1 for sale in credit_due_sales if sale.payment_due_date == today),
-        "next_7": sum(1 for sale in credit_due_sales if today < sale.payment_due_date <= today + timedelta(days=7)),
-    }
     recent_expenses = ExpenseVoucher.query.filter_by(site_id=site_id, store_id=store_id).order_by(ExpenseVoucher.created_at.desc()).limit(5).all()
     recent_closing = DailyCashClosing.query.filter_by(site_id=site_id, store_id=store_id).order_by(DailyCashClosing.business_date.desc()).first()
     return render_template(
@@ -205,10 +235,35 @@ def dashboard():
         daily_operating=daily_operating, monthly_operating=monthly_operating,
         today_snapshot=today_snapshot, selected_month_snapshot=selected_month_snapshot,
         selected_month=month_start, month_options=month_choice_options(month_start),
-        credit_due_sales=credit_due_sales,
+        credit_due_rows=credit_due_rows,
         credit_due_summary=credit_due_summary,
+        recent_credit_collections=recent_credit_collections,
+        credit_collection_methods=CREDIT_COLLECTION_METHODS,
+        collection_now=now_in_istanbul().strftime("%Y-%m-%dT%H:%M"),
         pos_document_summary=pos_document_summary,
     )
+
+
+@bp.post("/credit-sales/<int:sale_id>/collect")
+@permission_required("finance.current.manage")
+def collect_credit_sale(sale_id):
+    _csrf()
+    site_id, store_id = _scope()
+    try:
+        collection = collect_credit_sale_payment(
+            site_id=site_id,
+            store_id=store_id,
+            sale_id=sale_id,
+            payment_method=request.form.get("payment_method"),
+            amount=_money(request.form.get("amount")),
+            occurred_at=_datetime(request.form.get("occurred_at")),
+        )
+        db.session.commit()
+        flash("Tahsilat kaydedildi ve seçilen muhasebe hesabına işlendi.", "success")
+    except (TypeError, ValueError, InvalidOperation) as exc:
+        db.session.rollback()
+        flash(str(exc), "error")
+    return redirect(url_for("finance_ops.dashboard") + "#credit-sales")
 
 
 @bp.route("/daily-closing", methods=["GET", "POST"])

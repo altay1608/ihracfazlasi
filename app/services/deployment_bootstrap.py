@@ -11,8 +11,8 @@ from app.models import FinanceActivation, Package, Site, Store, SystemSetting
 
 
 DELIVERY_RESET_VERSION = "customer_delivery_operational_reset_20260916_v2"
-AUTOMATIC_SCHEMA_VERSION = "automatic_schema_bootstrap_20260919_v4"
-DEPLOYMENT_READY_VERSION = "deployment_ready_20260919_v2"
+AUTOMATIC_SCHEMA_VERSION = "automatic_schema_bootstrap_20261001_v5"
+DEPLOYMENT_READY_VERSION = "deployment_ready_20261001_v3"
 
 
 def ensure_deployment_ready():
@@ -61,6 +61,25 @@ def ensure_automatic_pos_schema():
         "CREATE INDEX IF NOT EXISTS ix_sale_payments_payment_method ON sale_payments (payment_method)",
         "CREATE INDEX IF NOT EXISTS ix_sale_payments_due_date ON sale_payments (due_date)",
         "CREATE INDEX IF NOT EXISTS ix_sale_payments_status ON sale_payments (status)",
+        """CREATE TABLE IF NOT EXISTS credit_sale_collections (
+            id SERIAL PRIMARY KEY,
+            site_id INTEGER NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+            store_id INTEGER NOT NULL REFERENCES stores(id) ON DELETE RESTRICT,
+            sale_id INTEGER NOT NULL REFERENCES sales(id) ON DELETE CASCADE,
+            payment_method VARCHAR(30) NOT NULL,
+            amount NUMERIC(10,2) NOT NULL,
+            occurred_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            finance_transfer_id INTEGER NOT NULL UNIQUE REFERENCES finance_transfers(id) ON DELETE RESTRICT,
+            pos_reconciliation_id INTEGER NULL UNIQUE REFERENCES pos_reconciliations(id) ON DELETE RESTRICT,
+            created_by_user_id INTEGER NULL REFERENCES users(id),
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            CONSTRAINT ck_credit_sale_collection_positive CHECK (amount > 0)
+        )""",
+        "CREATE INDEX IF NOT EXISTS ix_credit_sale_collections_site_id ON credit_sale_collections (site_id)",
+        "CREATE INDEX IF NOT EXISTS ix_credit_sale_collections_store_id ON credit_sale_collections (store_id)",
+        "CREATE INDEX IF NOT EXISTS ix_credit_sale_collections_sale_id ON credit_sale_collections (sale_id)",
+        "CREATE INDEX IF NOT EXISTS ix_credit_sale_collections_payment_method ON credit_sale_collections (payment_method)",
+        "CREATE INDEX IF NOT EXISTS ix_credit_sale_collections_occurred_at ON credit_sale_collections (occurred_at)",
         "ALTER TABLE sale_items ADD COLUMN IF NOT EXISTS line_type VARCHAR(20) NOT NULL DEFAULT 'sale'",
         "CREATE INDEX IF NOT EXISTS ix_sale_items_line_type ON sale_items (line_type)",
         "ALTER TABLE products ADD COLUMN IF NOT EXISTS barcode_mode VARCHAR(20) NOT NULL DEFAULT 'unit'",
@@ -117,6 +136,7 @@ def reset_customer_delivery_data_once(site_id):
         "DELETE FROM obligation_recurrence_plans WHERE site_id = :site_id",
         "DELETE FROM current_settlements WHERE site_id = :site_id",
         "DELETE FROM current_entries WHERE site_id = :site_id",
+        "DELETE FROM credit_sale_collections WHERE site_id = :site_id",
         "DELETE FROM pos_reconciliations WHERE site_id = :site_id",
         "DELETE FROM finance_source_states WHERE site_id = :site_id",
         "DELETE FROM finance_transfers WHERE site_id = :site_id",

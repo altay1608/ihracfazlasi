@@ -24,6 +24,7 @@
         <p class="metric-label">Ödeme</p>
         <h2>{{ payment_methods.get(sale.payment_method, sale.payment_method) }}</h2>
         {% if sale.payment_due_date %}<p class="muted">Ödeme tarihi: {{ sale.payment_due_date|tr_date }}</p>{% endif %}
+        {% if credit_summary.total > 0 %}<p class="muted">{{ sale.payment_status_label }} · Kalan {{ credit_summary.remaining|currency }}</p>{% endif %}
     </article>
     <article class="panel metric-card">
         <p class="metric-label">Sipariş Durumu</p>
@@ -97,5 +98,13 @@
     </aside>
     {% endif %}
 </section>
+
+{% if credit_summary.total > 0 %}
+<section class="panel">
+    <div class="section-heading"><div><p class="eyebrow">VERESİYE TAKİBİ</p><h2>Tahsilat Özeti</h2></div>{% if credit_summary.remaining > 0 and can('finance.current.manage') %}<a class="primary-button" href="{{ url_for('finance_ops.dashboard') }}#credit-sales">Ödeme Al</a>{% endif %}</div>
+    <div class="finance-summary-list"><span>Veresiye Tutarı <strong>{{ credit_summary.total|currency }}</strong></span><span>Tahsil Edilen <strong>{{ credit_summary.collected|currency }}</strong></span><span>Kalan <strong>{{ credit_summary.remaining|currency }}</strong></span></div>
+    {% if sale.credit_collections %}<div class="table-wrap"><table><thead><tr><th>Tarih</th><th>Yöntem</th><th>Tutar</th></tr></thead><tbody>{% for collection in sale.credit_collections|reverse %}<tr><td>{{ collection.occurred_at|tr_datetime }}</td><td>{{ collection.payment_method }}</td><td>{{ collection.amount|currency }}</td></tr>{% endfor %}</tbody></table></div>{% endif %}
+</section>
+{% endif %}
 {% endblock %}
 

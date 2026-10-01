@@ -7,6 +7,7 @@ from uuid import uuid4
 from app import create_app
 from app.extensions import db
 from app.models import (
+    CreditSaleCollection,
     FinanceAccount,
     FinanceActivation,
     FinanceApproval,
@@ -30,6 +31,7 @@ from app.models import (
 )
 from app.services.finance import (
     activate_finance,
+    collect_credit_sale_payment,
     create_current_account,
     create_current_entry,
     create_manual_movement,
@@ -48,6 +50,7 @@ from app.services.finance_operations import (
     settle_personnel_advance,
 )
 from app.services.finance_reporting import build_monthly_card_document_summary
+from app.utils import now_in_istanbul
 from config import BaseConfig
 
 
@@ -119,6 +122,83 @@ class FinanceModuleTests(unittest.TestCase):
         self.assertEqual(get_account_balance(cash), Decimal("320.00"))
         self.assertEqual(FinanceMovement.query.filter_by(source_type="sale").count(), 1)
         self.assertEqual(FinanceMovement.query.filter_by(movement_type="manual").count(), 1)
+
+    def test_credit_sale_partial_and_card_collections_update_balances_once(self):
+        activate_finance(
+            self.site.id,
+            self.store.id,
+            opening_cash=Decimal("0.00"),
+            activated_at=datetime.utcnow() - timedelta(minutes=1),
+        )
+        db.session.flush()
+        sale = Sale(
+            document_no=91,
+            site_id=self.site.id,
+            store_id=self.store.id,
+            sale_date=datetime.utcnow(),
+            total_amount=Decimal("1000.00"),
+            payment_method="Veresiye",
+            payment_status="OPEN",
+            payment_due_date=date.today() + timedelta(days=7),
+            customer_name="Veresiye Müşteri",
+        )
+        sale.payments.append(SalePayment(
+            payment_method="Veresiye",
+            amount=Decimal("1000.00"),
+            due_date=sale.payment_due_date,
+            status="OPEN",
+        ))
+        db.session.add(sale)
+        sync_sale_finance(sale)
+        db.session.flush()
+
+        collect_credit_sale_payment(
+            site_id=self.site.id,
+            store_id=self.store.id,
+            sale_id=sale.id,
+            payment_method="Nakit",
+            amount=Decimal("200.00"),
+            occurred_at=datetime.utcnow(),
+        )
+        self.assertEqual(sale.payment_status, "PARTIAL")
+
+        collect_credit_sale_payment(
+            site_id=self.site.id,
+            store_id=self.store.id,
+            sale_id=sale.id,
+            payment_method="Kredi Kartı",
+            amount=Decimal("800.00"),
+            occurred_at=datetime.utcnow(),
+        )
+        db.session.commit()
+
+        accounts = {
+            account.code: account
+            for account in FinanceAccount.query.filter_by(site_id=self.site.id, store_id=self.store.id).all()
+        }
+        self.assertEqual(sale.payment_status, "PAID")
+        self.assertEqual(sale.payments[0].status, "PAID")
+        self.assertEqual(CreditSaleCollection.query.filter_by(sale_id=sale.id).count(), 2)
+        self.assertEqual(get_account_balance(accounts["CREDIT"]), Decimal("0.00"))
+        self.assertEqual(get_account_balance(accounts["CASH"]), Decimal("200.00"))
+        self.assertEqual(get_account_balance(accounts["POS"]), Decimal("777.56"))
+        reconciliation = PosReconciliation.query.filter_by(
+            reference=f"Veresiye tahsilatı #{sale.document_no}",
+        ).one()
+        self.assertEqual(reconciliation.status, "pending")
+        self.assertEqual(reconciliation.gross_amount, Decimal("800.00"))
+        self.assertEqual(reconciliation.commission_amount, Decimal("22.44"))
+        self.assertEqual(reconciliation.net_amount, Decimal("777.56"))
+
+        settle_auto_pos_reconciliation(
+            site_id=self.site.id,
+            store_id=self.store.id,
+            reconciliation_id=reconciliation.id,
+            settled_at=datetime.utcnow(),
+        )
+        db.session.commit()
+        self.assertEqual(get_account_balance(accounts["POS"]), Decimal("0.00"))
+        self.assertEqual(get_account_balance(accounts["BANK"]), Decimal("777.56"))
 
     def test_first_sale_automatically_starts_finance_and_posts_revenue(self):
         sale = Sale(
@@ -456,6 +536,63 @@ class FinanceModuleTests(unittest.TestCase):
         self.assertIn("Masraf Fişi ve Belge Yönetimi", page)
         self.assertIn("Diğer Modüller", page)
         self.assertIn("Diğer Finans İşlemleri", page)
+
+    def test_credit_collection_route_records_partial_payment(self):
+        activate_finance(
+            self.site.id,
+            self.store.id,
+            opening_cash=Decimal("0.00"),
+            activated_at=datetime.utcnow() - timedelta(minutes=1),
+        )
+        sale = Sale(
+            document_no=92,
+            site_id=self.site.id,
+            store_id=self.store.id,
+            sale_date=datetime.utcnow(),
+            total_amount=Decimal("500.00"),
+            payment_method="Veresiye",
+            payment_status="OPEN",
+            payment_due_date=date.today() + timedelta(days=3),
+            customer_name="Rota Test Müşteri",
+        )
+        sale.payments.append(SalePayment(
+            payment_method="Veresiye",
+            amount=Decimal("500.00"),
+            due_date=sale.payment_due_date,
+            status="OPEN",
+        ))
+        db.session.add(sale)
+        sync_sale_finance(sale)
+        db.session.commit()
+
+        with self.app.test_client() as client:
+            with client.session_transaction() as session_state:
+                session_state["active_site_id"] = self.site.id
+                session_state["active_store_id"] = self.store.id
+                session_state["auth_csrf_token"] = "test-token"
+            page = client.get("/finance/operations/")
+            self.assertEqual(page.status_code, 200)
+            self.assertIn("Ödeme Al", page.get_data(as_text=True))
+            response = client.post(
+                f"/finance/operations/credit-sales/{sale.id}/collect",
+                data={
+                    "csrf_token": "test-token",
+                    "payment_method": "Havale/EFT",
+                    "amount": "125.50",
+                    "occurred_at": now_in_istanbul().strftime("%Y-%m-%dT%H:%M"),
+                },
+            )
+
+        self.assertEqual(response.status_code, 302)
+        db.session.expire_all()
+        refreshed_sale = db.session.get(Sale, sale.id)
+        self.assertEqual(refreshed_sale.payment_status, "PARTIAL")
+        self.assertEqual(len(refreshed_sale.credit_collections), 1)
+        self.assertEqual(refreshed_sale.credit_collections[0].amount, Decimal("125.50"))
+        bank = FinanceAccount.query.filter_by(
+            site_id=self.site.id, store_id=self.store.id, code="BANK"
+        ).one()
+        self.assertEqual(get_account_balance(bank), Decimal("125.50"))
 
     def test_month_end_card_document_summary_combines_split_and_legacy_sales(self):
         activate_finance(self.site.id, self.store.id)
