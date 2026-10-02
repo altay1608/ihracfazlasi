@@ -44,6 +44,7 @@ from app.services.finance import (
     CREDIT_COLLECTION_METHODS,
     collect_credit_sale_payment,
     credit_sale_summary,
+    ensure_default_finance_setup,
 )
 from app.services.identity_access import get_active_site_id, get_active_store_id
 from app.services.reporting import get_daily_report, get_profit_report
@@ -318,6 +319,12 @@ def daily_closing_reopen(closing_id):
 @permission_required("finance.manual.create")
 def expenses():
     site_id, store_id = _scope()
+    # Older/customer databases may not yet contain the standard cash accounts
+    # and outgoing-expense category.  Keep this entry screen self-healing so a
+    # required select is never rendered empty and silently blocked by the
+    # browser.
+    ensure_default_finance_setup(site_id, store_id)
+    db.session.commit()
     if request.method == "POST":
         _csrf()
         try:

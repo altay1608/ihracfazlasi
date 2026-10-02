@@ -537,6 +537,73 @@ class FinanceModuleTests(unittest.TestCase):
         self.assertIn("Diğer Modüller", page)
         self.assertIn("Diğer Finans İşlemleri", page)
 
+    def test_expense_receipt_form_creates_approved_expense_and_movement(self):
+        activate_finance(
+            self.site.id,
+            self.store.id,
+            opening_cash=Decimal("1000.00"),
+            activated_at=datetime.utcnow() - timedelta(minutes=1),
+        )
+        db.session.commit()
+        cash = FinanceAccount.query.filter_by(
+            site_id=self.site.id,
+            store_id=self.store.id,
+            code="CASH",
+        ).one()
+        category = FinanceCategory.query.filter_by(
+            site_id=self.site.id,
+            code="MANUAL_OUT",
+        ).one()
+
+        with self.app.test_client() as client:
+            with client.session_transaction() as session_state:
+                session_state["active_site_id"] = self.site.id
+                session_state["active_store_id"] = self.store.id
+                session_state["auth_csrf_token"] = "test-token"
+            response = client.post(
+                "/finance/operations/expenses",
+                data={
+                    "csrf_token": "test-token",
+                    "expense_date": date.today().isoformat(),
+                    "account_id": str(cash.id),
+                    "category_id": str(category.id),
+                    "vendor": "Test Satıcı",
+                    "document_no": "MASRAF-1",
+                    "net_amount": "250.00",
+                    "vat_amount": "25.00",
+                    "description": "Test mağaza gideri",
+                },
+                follow_redirects=True,
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Masraf kaydedildi.", response.get_data(as_text=True))
+        voucher = ExpenseVoucher.query.one()
+        self.assertEqual(voucher.status, "approved")
+        self.assertEqual(voucher.gross_amount, Decimal("275.00"))
+        movement = db.session.get(FinanceMovement, voucher.movement_id)
+        self.assertIsNotNone(movement)
+        self.assertEqual(movement.amount, Decimal("275.00"))
+        self.assertEqual(movement.direction, "out")
+
+    def test_expense_page_repairs_missing_default_accounts_and_categories(self):
+        with self.app.test_client() as client:
+            with client.session_transaction() as session_state:
+                session_state["active_site_id"] = self.site.id
+                session_state["active_store_id"] = self.store.id
+                session_state["auth_csrf_token"] = "test-token"
+            response = client.get("/finance/operations/expenses")
+
+        self.assertEqual(response.status_code, 200)
+        page = response.get_data(as_text=True)
+        self.assertIn("Nakit Kasa", page)
+        self.assertIn("Manuel Gider", page)
+        self.assertIsNotNone(FinanceAccount.query.filter_by(
+            site_id=self.site.id,
+            store_id=self.store.id,
+            code="CASH",
+        ).one_or_none())
+
     def test_credit_collection_route_records_partial_payment(self):
         activate_finance(
             self.site.id,

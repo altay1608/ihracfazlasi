@@ -5,12 +5,24 @@
 <section class="finance-page finance-workspace">
     {% include "finance/_nav.html" %}
     <div class="finance-quick-grid">
+        {% if can('finance.manual.create') %}
         <a href="{{ url_for('finance_ops.expenses') }}"><strong>Masraf Gir</strong><span>Fiş veya fatura ekleyin</span></a>
+        {% endif %}
+        {% if can('finance.current.manage') %}
         <a href="{{ url_for('finance_ops.supplier_invoices') }}"><strong>Tedarikçi Faturası</strong><span>Borç ve stok girişini kaydedin</span></a>
+        {% endif %}
+        {% if can('finance.manual.create') %}
         <a href="{{ url_for('finance_ops.personnel') }}"><strong>Personel İşlemi</strong><span>Avans veya mağaza harcaması</span></a>
+        {% endif %}
+        {% if can('finance.accounts.manage') %}
         <a href="{{ url_for('finance_ops.daily_closing') }}"><strong>Gün Sonu Kapat</strong><span>Kasa ve vardiya teslimi</span></a>
+        {% endif %}
+        {% if can('finance.current.manage') %}
         <a href="{{ url_for('finance.current_accounts') }}"><strong>Borç Öde</strong><span>Cari borç ve tahsilat işlemleri</span></a>
+        {% endif %}
+        {% if can('finance.transfer.create') %}
         <a href="{{ url_for('finance.transfers') }}"><strong>Para Transferi</strong><span>Kasa, banka ve POS hesapları</span></a>
+        {% endif %}
     </div>
     <div class="finance-balance-grid">
         {% for row in balances %}<article class="finance-balance-card"><span>{{ row.account.name }}</span><strong>{{ row.balance|currency }}</strong><small>{{ row.account.display_code }}</small></article>{% endfor %}
