@@ -11,8 +11,8 @@ from app.models import FinanceActivation, Package, Site, Store, SystemSetting
 
 
 DELIVERY_RESET_VERSION = "customer_delivery_operational_reset_20260916_v2"
-AUTOMATIC_SCHEMA_VERSION = "automatic_schema_bootstrap_20261001_v5"
-DEPLOYMENT_READY_VERSION = "deployment_ready_20261001_v3"
+AUTOMATIC_SCHEMA_VERSION = "automatic_schema_bootstrap_20261003_v6"
+DEPLOYMENT_READY_VERSION = "deployment_ready_20261003_v4"
 
 
 def ensure_deployment_ready():
@@ -26,8 +26,9 @@ def ensure_deployment_ready():
         db.create_all()
 
     ensure_automatic_pos_schema()
-    customer_site, _customer_store = ensure_deployment_store()
-    reset_customer_delivery_data_once(customer_site.id)
+    ensure_deployment_store()
+    # Deployment upgrades must never reset customer data, even if an old
+    # delivery-reset marker is missing. Resets are explicit operations only.
 
     if db.session.get(SystemSetting, DEPLOYMENT_READY_VERSION) is None:
         db.session.add(SystemSetting(key=DEPLOYMENT_READY_VERSION, value="completed"))
@@ -43,6 +44,9 @@ def ensure_automatic_pos_schema():
     if db.session.get(SystemSetting, marker_key) is not None:
         return
     statements = (
+        "ALTER TABLE supplier_invoices ADD COLUMN IF NOT EXISTS linked_current_entry_id INTEGER NULL REFERENCES current_entries(id)",
+        "ALTER TABLE supplier_invoices ALTER COLUMN current_entry_id DROP NOT NULL",
+        "CREATE INDEX IF NOT EXISTS ix_supplier_invoices_linked_current_entry_id ON supplier_invoices (linked_current_entry_id)",
         "ALTER TABLE finance_activations ADD COLUMN IF NOT EXISTS pos_commission_rate NUMERIC(7,4) NOT NULL DEFAULT 2.5500",
         "ALTER TABLE finance_activations ADD COLUMN IF NOT EXISTS pos_settlement_days INTEGER NOT NULL DEFAULT 1",
         "ALTER TABLE finance_activations ADD COLUMN IF NOT EXISTS pos_bank_account_id INTEGER NULL",

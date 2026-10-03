@@ -7,8 +7,7 @@ from app import create_app
 
 app = create_app()
 
-# Vercel PostgreSQL veritabanini ilk istege hazirla ve teslim sifirlamasini
-# site bazinda, tek seferlik bir islem olarak uygula.
+# Prepare Vercel PostgreSQL schema and store setup without resetting any data.
 database_url_is_configured = any(
     os.getenv(key, "").strip()
     for key in (
@@ -21,7 +20,7 @@ database_url_is_configured = any(
 )
 if os.getenv("VERCEL") and database_url_is_configured:
     with app.app_context():
-        # Normal cold starts take one marker query. Schema/store/reset work only
+        # Normal cold starts take one marker query. Schema/store setup only
         # runs after a new deployment setup version or on a brand-new database.
         from app.services.deployment_bootstrap import ensure_deployment_ready
 

@@ -100,22 +100,7 @@ def _attachment(upload):
 
 
 def _form_options(site_id, store_id):
-    supplier_debts = CurrentEntry.query.filter_by(
-        site_id=site_id,
-        store_id=store_id,
-        entry_type="payable",
-    ).order_by(CurrentEntry.created_at.desc()).all()
-    supplier_invoices = SupplierInvoice.query.filter_by(site_id=site_id, store_id=store_id).all()
-    documented_by_entry = {}
-    for invoice in supplier_invoices:
-        entry_id = invoice.current_entry_id or invoice.linked_current_entry_id
-        if entry_id:
-            documented_by_entry[entry_id] = documented_by_entry.get(entry_id, Decimal("0.00")) + invoice.gross_amount
-    debt_options = []
-    for entry in supplier_debts:
-        undocumented = quantize_amount(entry.amount - documented_by_entry.get(entry.id, Decimal("0.00")))
-        if undocumented > 0:
-            debt_options.append({"entry": entry, "undocumented": undocumented})
+    """Common expense/personnel inputs must not depend on supplier invoices."""
     return {
         "accounts": FinanceAccount.query.filter(
             FinanceAccount.site_id == site_id,
@@ -128,6 +113,32 @@ def _form_options(site_id, store_id):
             FinanceCategory.is_active.is_(True),
             FinanceCategory.direction.in_(("out", "both")),
         ).order_by(FinanceCategory.name).all(),
+        "today": now_in_istanbul().date(),
+    }
+
+
+def _supplier_form_options(site_id, store_id):
+    supplier_debts = CurrentEntry.query.filter_by(
+        site_id=site_id,
+        store_id=store_id,
+        entry_type="payable",
+    ).order_by(CurrentEntry.created_at.desc()).all()
+    supplier_invoices = db.session.query(
+        SupplierInvoice.current_entry_id,
+        SupplierInvoice.linked_current_entry_id,
+        SupplierInvoice.gross_amount,
+    ).filter_by(site_id=site_id, store_id=store_id).all()
+    documented_by_entry = {}
+    for invoice in supplier_invoices:
+        entry_id = invoice.current_entry_id or invoice.linked_current_entry_id
+        if entry_id:
+            documented_by_entry[entry_id] = documented_by_entry.get(entry_id, Decimal("0.00")) + invoice.gross_amount
+    debt_options = []
+    for entry in supplier_debts:
+        undocumented = quantize_amount(entry.amount - documented_by_entry.get(entry.id, Decimal("0.00")))
+        if undocumented > 0:
+            debt_options.append({"entry": entry, "undocumented": undocumented})
+    return {
         "suppliers": CurrentAccount.query.filter_by(site_id=site_id, account_category="supplier", is_active=True).order_by(CurrentAccount.name).all(),
         "products": Product.query.filter_by(site_id=site_id).order_by(Product.name).all(),
         "supplier_debts": debt_options,
@@ -403,7 +414,7 @@ def supplier_invoices():
             db.session.rollback()
             flash(str(exc), "error")
     invoices = SupplierInvoice.query.filter_by(site_id=site_id, store_id=store_id).order_by(SupplierInvoice.invoice_date.desc()).limit(200).all()
-    return render_template("finance_operations/supplier_invoices.html", invoices=invoices, **_form_options(site_id, store_id))
+    return render_template("finance_operations/supplier_invoices.html", invoices=invoices, **_supplier_form_options(site_id, store_id))
 
 
 @bp.route("/personnel", methods=["GET", "POST"])

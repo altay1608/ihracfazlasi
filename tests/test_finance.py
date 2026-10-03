@@ -3,6 +3,7 @@ from datetime import date, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 from uuid import uuid4
+from sqlalchemy import text
 
 from app import create_app
 from app.extensions import db
@@ -606,6 +607,41 @@ class FinanceModuleTests(unittest.TestCase):
             store_id=self.store.id,
             code="CASH",
         ).one_or_none())
+
+    def test_expense_and_personnel_pages_work_with_legacy_supplier_schema(self):
+        activate_finance(self.site.id, self.store.id)
+        db.session.commit()
+        # Reproduce a database created before the supplier-debt linking release.
+        columns = ", ".join(
+            column.name for column in SupplierInvoice.__table__.columns
+            if column.name != "linked_current_entry_id"
+        )
+        # Rebuild only this empty table in the isolated SQLite test database.
+        db.session.execute(text(f"CREATE TABLE legacy_invoices AS SELECT {columns} FROM supplier_invoices"))
+        db.session.execute(text("DROP TABLE supplier_invoices"))
+        db.session.execute(text("ALTER TABLE legacy_invoices RENAME TO supplier_invoices"))
+        db.session.commit()
+        with self.app.test_client() as client:
+            with client.session_transaction() as state:
+                state["active_site_id"] = self.site.id
+                state["active_store_id"] = self.store.id
+                state["auth_csrf_token"] = "test-token"
+            for path in ("/finance/operations/expenses", "/finance/operations/personnel"):
+                with self.subTest(path=path):
+                    response = client.get(path)
+                    self.assertEqual(response.status_code, 200)
+            cash = FinanceAccount.query.filter_by(site_id=self.site.id, code="CASH").one()
+            category = FinanceCategory.query.filter_by(site_id=self.site.id, code="MANUAL_OUT").one()
+            response = client.post("/finance/operations/expenses", data={
+                "csrf_token": "test-token", "expense_date": date.today().isoformat(),
+                "account_id": cash.id, "category_id": category.id,
+                "net_amount": "100.00", "vat_amount": "20.00",
+                "description": "Eski şemada masraf kaydı",
+            }, follow_redirects=True)
+            self.assertEqual(response.status_code, 200)
+            self.assertIn("Masraf kaydedildi.", response.get_data(as_text=True))
+            self.assertEqual(ExpenseVoucher.query.one().gross_amount, Decimal("120.00"))
+            self.assertEqual(get_account_balance(cash), Decimal("-120.00"))
 
     def test_expense_page_opens_with_legacy_immutable_account_code(self):
         db.session.add(FinanceAccount(
