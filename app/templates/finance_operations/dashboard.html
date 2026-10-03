@@ -40,7 +40,7 @@
         <div class="finance-balance-grid">
             <article class="finance-balance-card"><span>Kredi Kartı Satışları</span><strong>{{ pos_document_summary.card_total|currency }}</strong><small>{{ pos_document_summary.month_start.strftime('%m.%Y') }}</small></article>
             <article class="finance-balance-card"><span>Tedarikçi Faturaları</span><strong>{{ pos_document_summary.supplier_document_total|currency }}</strong><small><a href="{{ url_for('finance_ops.supplier_invoices') }}">Fatura ekle veya görüntüle</a></small></article>
-            <article class="finance-balance-card"><span>Masraf Belgeleri</span><strong>{{ pos_document_summary.expense_document_total|currency }}</strong><small><a href="{{ url_for('finance_ops.expenses') }}">Masraf belgesi ekle</a></small></article>
+            <article class="finance-balance-card"><span>Masraf Belgeleri</span><strong>{{ pos_document_summary.expense_document_total|currency }}</strong><small>{% if can('finance.manual.create') %}<a href="{{ url_for('finance_ops.expenses') }}">Masraf belgesi ekle</a>{% else %}Görüntüleme yetkisi yok{% endif %}</small></article>
             <article class="finance-balance-card finance-balance-total"><span>Kaydedilen Belge Toplamı</span><strong>{{ pos_document_summary.document_total|currency }}</strong><small>{% if pos_document_summary.remaining > 0 %}Kontrol edilecek fark: {{ pos_document_summary.remaining|currency }}{% elif pos_document_summary.surplus > 0 %}Belge fazlası: {{ pos_document_summary.surplus|currency }}{% else %}Tutarlar eşit{% endif %}</small></article>
         </div>
         <p class="helper-text">Bu ekran yalnız evrak tamlık kontrolüdür. Kart tahsilatı ile alış/masraf belgelerinin birebir eşit olması gerektiğine dair hukuki karar vermez.</p>

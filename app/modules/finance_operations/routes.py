@@ -117,7 +117,12 @@ def _form_options(site_id, store_id):
         if undocumented > 0:
             debt_options.append({"entry": entry, "undocumented": undocumented})
     return {
-        "accounts": FinanceAccount.query.filter_by(site_id=site_id, store_id=store_id, is_active=True).order_by(FinanceAccount.name).all(),
+        "accounts": FinanceAccount.query.filter(
+            FinanceAccount.site_id == site_id,
+            FinanceAccount.store_id == store_id,
+            FinanceAccount.is_active.is_(True),
+            FinanceAccount.account_type.in_(("cash", "bank")),
+        ).order_by(FinanceAccount.name).all(),
         "expense_categories": FinanceCategory.query.filter(
             FinanceCategory.site_id == site_id,
             FinanceCategory.is_active.is_(True),
@@ -323,8 +328,13 @@ def expenses():
     # and outgoing-expense category.  Keep this entry screen self-healing so a
     # required select is never rendered empty and silently blocked by the
     # browser.
-    ensure_default_finance_setup(site_id, store_id)
-    db.session.commit()
+    try:
+        ensure_default_finance_setup(site_id, store_id)
+        db.session.commit()
+    except IntegrityError:
+        # Two first requests can race while creating the same standard account.
+        # The winning request has already prepared it, so reload the form data.
+        db.session.rollback()
     if request.method == "POST":
         _csrf()
         try:

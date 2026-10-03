@@ -81,6 +81,7 @@ DEFAULT_ACCOUNTS = (
     ("BANK", "01", "Banka/EFT", "bank"),
     ("POS", "03", "POS/Kart Alacağı", "pos_receivable"),
     ("CREDIT", "04", "Veresiye Alacakları", "pos_receivable"),
+    ("BIZ_CARD", "05", "İşletme Kredi Kartı", "bank"),
 )
 
 DEFAULT_CATEGORIES = (
@@ -143,8 +144,6 @@ def ensure_default_finance_setup(site_id, store_id):
                 is_active=True,
             )
             db.session.add(account)
-        elif not str(account.display_code or "").strip() or account.display_code == "-":
-            account.display_code = display_code
         accounts[code] = account
 
     categories = {}

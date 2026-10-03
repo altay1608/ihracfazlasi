@@ -597,12 +597,102 @@ class FinanceModuleTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         page = response.get_data(as_text=True)
         self.assertIn("Nakit Kasa", page)
+        self.assertIn("İşletme Kredi Kartı", page)
+        self.assertNotIn(">POS/Kart Alacağı<", page)
+        self.assertNotIn(">Veresiye Alacakları<", page)
         self.assertIn("Manuel Gider", page)
         self.assertIsNotNone(FinanceAccount.query.filter_by(
             site_id=self.site.id,
             store_id=self.store.id,
             code="CASH",
         ).one_or_none())
+
+    def test_expense_page_opens_with_legacy_immutable_account_code(self):
+        db.session.add(FinanceAccount(
+            site_id=self.site.id,
+            store_id=self.store.id,
+            code="CASH",
+            display_code="-",
+            name="Nakit Kasa",
+            account_type="cash",
+            is_system=True,
+            is_active=True,
+        ))
+        db.session.commit()
+
+        with self.app.test_client() as client:
+            with client.session_transaction() as session_state:
+                session_state["active_site_id"] = self.site.id
+                session_state["active_store_id"] = self.store.id
+                session_state["auth_csrf_token"] = "test-token"
+            response = client.get("/finance/operations/expenses")
+
+        self.assertEqual(response.status_code, 200)
+        legacy_cash = FinanceAccount.query.filter_by(
+            site_id=self.site.id,
+            store_id=self.store.id,
+            code="CASH",
+        ).one()
+        self.assertEqual(legacy_cash.display_code, "-")
+
+    def test_credit_card_expense_creates_visible_card_debt(self):
+        activate_finance(self.site.id, self.store.id)
+        db.session.flush()
+        card = FinanceAccount.query.filter_by(
+            site_id=self.site.id,
+            store_id=self.store.id,
+            code="BIZ_CARD",
+        ).one()
+        category = FinanceCategory.query.filter_by(
+            site_id=self.site.id,
+            code="MANUAL_OUT",
+        ).one()
+
+        voucher = create_expense(
+            site_id=self.site.id,
+            store_id=self.store.id,
+            account_id=card.id,
+            category_id=category.id,
+            expense_date=date.today(),
+            vendor="Test Satıcı",
+            document_no="KART-1",
+            description="Kartla alınan mağaza malzemesi",
+            net_amount=Decimal("900.00"),
+            vat_amount=Decimal("100.00"),
+            config={"FINANCE_APPROVAL_LIMIT": "5000"},
+        )
+        db.session.commit()
+
+        self.assertEqual(voucher.status, "approved")
+        self.assertEqual(get_account_balance(card), Decimal("-1000.00"))
+
+    def test_expense_rejects_customer_pos_receivable_account(self):
+        activate_finance(self.site.id, self.store.id)
+        db.session.flush()
+        pos = FinanceAccount.query.filter_by(
+            site_id=self.site.id,
+            store_id=self.store.id,
+            code="POS",
+        ).one()
+        category = FinanceCategory.query.filter_by(
+            site_id=self.site.id,
+            code="MANUAL_OUT",
+        ).one()
+
+        with self.assertRaisesRegex(ValueError, "işletme kredi kartı"):
+            create_expense(
+                site_id=self.site.id,
+                store_id=self.store.id,
+                account_id=pos.id,
+                category_id=category.id,
+                expense_date=date.today(),
+                vendor="Test Satıcı",
+                document_no="POS-YANLIS",
+                description="Yanlış hesap denemesi",
+                net_amount=Decimal("100.00"),
+                vat_amount=Decimal("0.00"),
+                config={"FINANCE_APPROVAL_LIMIT": "5000"},
+            )
 
     def test_credit_collection_route_records_partial_payment(self):
         activate_finance(

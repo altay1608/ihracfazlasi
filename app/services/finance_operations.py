@@ -174,7 +174,11 @@ def create_expense(*, site_id, store_id, account_id, category_id, expense_date, 
     category = FinanceCategory.query.filter_by(
         id=category_id, site_id=site_id, is_active=True
     ).one_or_none()
-    if account is None or category is None or category.direction not in {"out", "both"}:
+    if account is None or account.account_type not in {"cash", "bank"}:
+        raise FinanceConfigurationError(
+            "Masraf yalnızca nakit, banka/EFT veya işletme kredi kartı hesabından ödenebilir."
+        )
+    if category is None or category.direction not in {"out", "both"}:
         raise FinanceConfigurationError("Geçerli bir gider hesabı ve kategorisi seçmelisiniz.")
     net = _money(net_amount)
     vat = _money(vat_amount)
