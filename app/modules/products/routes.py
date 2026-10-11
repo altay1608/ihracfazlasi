@@ -4,7 +4,7 @@ from flask import Blueprint, current_app, flash, jsonify, redirect, render_templ
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Font, PatternFill
 from openpyxl.worksheet.datavalidation import DataValidation
-from sqlalchemy import or_
+from sqlalchemy import and_, func, or_
 from sqlalchemy.exc import IntegrityError
 from werkzeug.utils import secure_filename
 
@@ -17,10 +17,12 @@ from app.models import (
     ProductBarcode,
     RetailMultiplier,
     SupplierInvoiceLine,
+    StoreInventory,
     Variant,
 )
 from app.services.barcodes import generate_code128_svg
 from app.services.access_control import has_permission
+from app.services.identity_access import get_active_site_id, get_active_store_id
 from app.services.inventory_history import record_inventory_movement
 from app.services.product_inventory import (
     compute_sale_price,
@@ -129,16 +131,17 @@ def get_products_listing():
         )
     if category:
         query = query.filter(Product.category == category)
+    # Filter before loading products and their barcodes, including for old
+    # bookmarked low/in filters. One unit is normal stock for this store.
+    if stock_filter != "all":
+        query = query.outerjoin(StoreInventory, and_(
+            StoreInventory.product_id == Product.id,
+            StoreInventory.site_id == get_active_site_id(),
+            StoreInventory.store_id == get_active_store_id(),
+        ))
+        quantity = func.coalesce(StoreInventory.stock_quantity, 0)
+        query = query.filter(quantity <= 0 if stock_filter in {"out", "low"} else quantity > 0)
     products = query.order_by(Product.updated_at.desc()).all()
-    attach_stock_thresholds(products, threshold)
-    if stock_filter == "low" and has_permission("alerts.access"):
-        products = [product for product in products if product.stock_quantity <= product.effective_low_stock_threshold]
-    elif stock_filter == "in" and has_permission("alerts.access"):
-        products = [product for product in products if product.stock_quantity > product.effective_low_stock_threshold]
-    elif stock_filter == "out":
-        products = [product for product in products if product.stock_quantity <= 0]
-    elif stock_filter != "all":
-        products = [product for product in products if product.stock_quantity > 0]
     categories = [item.name for item in Category.query.order_by(Category.name.asc()).all()]
     return products, categories, threshold
 

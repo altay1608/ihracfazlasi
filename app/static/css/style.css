@@ -5922,6 +5922,7 @@ th:hover .table-column-resize-handle::after,
 
 .lobby-page {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     gap: 10px;
 }
 
@@ -5992,13 +5993,13 @@ th:hover .table-column-resize-handle::after,
 
 .lobby-grid {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 10px;
 }
 
 .lobby-summary-grid {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
     gap: 12px;
 }
 
@@ -6258,6 +6259,38 @@ th:hover .table-column-resize-handle::after,
 
 .cockpit-table-card {
     grid-column: span 6;
+}
+
+.lobby-turnover-card {
+    grid-column: auto;
+    min-width: 0;
+}
+
+.lobby-turnover-card .helper-text {
+    color: #b9cbd6;
+}
+
+.lobby-turnover-card .dashboard-table-wrap {
+    max-height: none;
+}
+
+.lobby-turnover-card a:not(.ghost-button) {
+    color: #eef8ff;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+.lobby-turnover-card th:last-child,
+.lobby-turnover-card td:last-child {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.lobby-turnover-card tfoot th {
+    background: #172d38;
+    color: #eef8ff;
+    border-top: 1px solid #476675;
 }
 
 .lobby-page .section-heading {

@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Günlük Cirolar | İhraç Fazlası Giyim{% endblock %}
+{% block page_title %}Günlük Cirolar{% endblock %}
+{% block topbar_actions %}<a class="ghost-button" href="{{ url_for('dashboard.index') }}">Lobby'ye Dön</a>{% endblock %}
+{% block content %}
+<section class="panel">
+    <form method="get" class="filter-bar">
+        <label for="turnover-month">Ciro Ayı</label>
+        <input type="month" id="turnover-month" name="month" value="{{ month }}" min="1900-01" max="{{ today.strftime('%Y-%m') }}" required>
+        <button type="submit" class="ghost-button">Göster</button>
+    </form>
+    <p class="helper-text">İndirim sonrası, KDV dahil satış cirosudur. İadeler ve değişim farkları işlem gününde hesaba katılır. Veresiye satış satış gününde dahildir; sonradan alınan ödeme tekrar ciro sayılmaz. Gider ve banka komisyonu düşülmez.</p>
+</section>
+<section class="panel">
+    <div class="section-heading">
+        <h2>{{ start.strftime('%m.%Y') }} · Günlük Ciro Listesi</h2>
+        {% if end < month_end %}<span class="status-badge">Devam Eden Ay</span>{% endif %}
+    </div>
+    <div class="table-wrap">
+        <table>
+            <thead><tr><th>Tarih</th><th>Ciro (KDV Dahil)</th></tr></thead>
+            <tbody>
+                {% for row in rows %}
+                <tr><td>{{ row.date|tr_date }}{% if row.date == today %} · Bugün{% endif %}</td><td>{{ row.revenue|currency }}</td></tr>
+                {% else %}
+                <tr><td colspan="2" class="empty-state">Bu ay için henüz gün oluşmadı.</td></tr>
+                {% endfor %}
+            </tbody>
+            <tfoot><tr><th>Ay Toplamı{% if end < month_end %} · Bugüne Kadar{% endif %}</th><th>{{ total|currency }}</th></tr></tfoot>
+        </table>
+    </div>
+</section>
+{% endblock %}

@@ -24,6 +24,7 @@ BLUEPRINT_ACCESS = {
 
 
 ENDPOINT_PERMISSIONS = {
+    "reports.turnover": "dashboard.column.finance",
     "reports.daily": "daily_reports.access",
     "reports.profit": "profit_reports.access",
     "reports.profit_export": "profit_reports.action.export",

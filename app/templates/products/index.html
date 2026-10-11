@@ -16,11 +16,7 @@
         <select name="stock">
             <option value="">Stokta Olanlar</option>
             <option value="all" {% if request.args.get('stock') == 'all' %}selected{% endif %}>Tüm Ürünler</option>
-            {% if can('alerts.access') %}
-            <option value="low" {% if request.args.get('stock') == 'low' %}selected{% endif %}>Düşük Stok</option>
-            <option value="in" {% if request.args.get('stock') == 'in' %}selected{% endif %}>Yeterli Stok</option>
-            {% endif %}
-            <option value="out" {% if request.args.get('stock') == 'out' %}selected{% endif %}>Stokta Yok</option>
+            <option value="out" {% if request.args.get('stock') in ['out', 'low'] %}selected{% endif %}>Stokta Yok</option>
         </select>
         <button type="submit" class="ghost-button">Filtrele</button>
     </form>

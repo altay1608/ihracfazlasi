@@ -3,15 +3,16 @@ from decimal import Decimal
 from types import SimpleNamespace
 
 from sqlalchemy import and_, func
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import joinedload, lazyload
 
+from app.extensions import db
 from app.models import Category, Product, Return, ReturnItem, Sale, SaleItem, StoreInventory
 from app.services.product_inventory import (
     PRODUCT_VAT_MULTIPLIER,
     get_customer_gross_amount,
     round_signed_customer_price,
 )
-from app.utils import end_of_day, istanbul_day_start_utc, parse_iso_date, quantize_amount, start_of_day, utc_to_istanbul
+from app.utils import end_of_day, istanbul_day_start_utc, now_in_istanbul, parse_iso_date, quantize_amount, start_of_day, utc_to_istanbul
 
 
 ZERO = Decimal("0.00")
@@ -399,7 +400,7 @@ def get_return_records_for_sales(start, end, sale_ids):
         return []
 
     return (
-        Return.query.options(joinedload(Return.items).joinedload(ReturnItem.product))
+        Return.query.options(lazyload("*"), joinedload(Return.items).joinedload(ReturnItem.product))
         .filter(
             Return.return_date >= start,
             Return.return_date <= end,
@@ -443,7 +444,8 @@ def get_effective_low_stock_threshold(product, fallback_threshold, category_thre
     if getattr(product, "critical_stock_level", None) is not None:
         return int(product.critical_stock_level)
 
-    category_thresholds = category_thresholds or build_category_threshold_map()
+    if category_thresholds is None:
+        category_thresholds = build_category_threshold_map()
     category_threshold = category_thresholds.get(product.category)
     if category_threshold is not None:
         return int(category_threshold)
@@ -452,7 +454,8 @@ def get_effective_low_stock_threshold(product, fallback_threshold, category_thre
 
 
 def attach_stock_thresholds(products, fallback_threshold, category_thresholds=None):
-    category_thresholds = category_thresholds or build_category_threshold_map()
+    if category_thresholds is None:
+        category_thresholds = build_category_threshold_map()
     for product in products:
         effective_threshold = get_effective_low_stock_threshold(
             product,
@@ -472,16 +475,16 @@ def attach_stock_thresholds(products, fallback_threshold, category_thresholds=No
 
 
 def get_dashboard_metrics(today=None):
-    today = today or date.today()
-    start = start_of_day(today)
-    end = end_of_day(today)
+    today = today or now_in_istanbul().date()
+    start = istanbul_day_start_utc(today)
+    end = istanbul_day_start_utc(today + timedelta(days=1))
 
     sales = (
-        Sale.query.options(joinedload(Sale.items).joinedload(SaleItem.product))
-        .filter(Sale.sale_date >= start, Sale.sale_date <= end)
+        Sale.query.options(lazyload("*"), joinedload(Sale.items).joinedload(SaleItem.product))
+        .filter(Sale.sale_date >= start, Sale.sale_date < end)
         .all()
     )
-    return_records = get_return_records_for_sales(start, end, [sale.id for sale in sales])
+    return_records = get_return_records_for_sales(start, end - timedelta(microseconds=1), [sale.id for sale in sales])
     return_items = [item for record in return_records for item in record.items]
     product_rows = build_profit_product_rows(sales, return_items)
     returned_by_sale = {}
@@ -505,7 +508,7 @@ def get_dashboard_metrics(today=None):
 
 
 def get_last_7_days_sales():
-    today = date.today()
+    today = now_in_istanbul().date()
     first_day = today - timedelta(days=6)
     sales = (
         Sale.query.with_entities(Sale.sale_date, Sale.total_amount)
@@ -530,6 +533,48 @@ def get_last_7_days_sales():
             }
         )
     return rows
+
+
+def _business_day(column):
+    """Group UTC database timestamps into Istanbul calendar days."""
+    if db.engine.dialect.name == "sqlite":
+        return func.date(column, "+3 hours")
+    return func.date(func.timezone("Europe/Istanbul", func.timezone("UTC", column)))
+
+
+def get_daily_turnover(start_date, end_date):
+    """Read daily gross turnover in two bounded queries, without loading products.
+
+    Sales include discounts and VAT, regardless of collection method. Refunds
+    (and negative exchange lines) affect the day the return was completed.
+    Cash transfers, debt collections, expenses and POS commissions are not sales.
+    """
+    start = istanbul_day_start_utc(start_date)
+    end = istanbul_day_start_utc(end_date + timedelta(days=1))
+    sale_day = _business_day(Sale.sale_date)
+    sales = (
+        Sale.query.with_entities(sale_day, func.sum(Sale.total_amount))
+        .filter(Sale.sale_date >= start, Sale.sale_date < end, Sale.order_status != "CANCELLED")
+        .group_by(sale_day)
+        .all()
+    )
+    return_day = _business_day(Return.return_date)
+    refunds = (
+        ReturnItem.query.with_entities(return_day, func.sum(ReturnItem.gross_refund_amount))
+        .join(Return, Return.id == ReturnItem.return_id)
+        .filter(Return.return_date >= start, Return.return_date < end, Return.status == "tamamlandi")
+        .group_by(return_day)
+        .all()
+    )
+    totals = {}
+    for rows, sign in ((sales, 1), (refunds, -1)):
+        for day, amount in rows:
+            key = day.isoformat() if isinstance(day, date) else str(day)
+            totals[key] = totals.get(key, ZERO) + sign * Decimal(amount or 0)
+    return [
+        {"date": day, "revenue": quantize_amount(totals.get(day.isoformat(), ZERO))}
+        for day in (start_date + timedelta(days=offset) for offset in range((end_date - start_date).days + 1))
+    ]
 
 
 def get_top_products(limit=5):

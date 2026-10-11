@@ -67,12 +67,10 @@
     id="products-table-section"
     class="panel"
     data-partial-url="{{ url_for('products.index', partial='table', search=request.args.get('search', ''), category=request.args.get('category', ''), stock=request.args.get('stock', '')) }}"
-    data-low-threshold="{{ threshold }}"
-    data-critical-threshold="{{ threshold * 2 }}"
     data-bulk-labels-url="{{ url_for('products.bulk_labels') }}"
     data-bulk-multiplier-url="{{ url_for('products.bulk_multiplier') }}"
     data-bulk-delete-url="{{ url_for('products.bulk_delete') }}"
-    data-stock-palette-enabled="{{ '1' if can('alerts.access') else '0' }}"
+    data-stock-palette-enabled="0"
 >
     <div class="section-heading">
         <div>
@@ -109,14 +107,6 @@
         </div>
     </div>
 
-    {% if can('alerts.access') %}
-    <div class="stock-palette-info">
-        <span class="stock-legend-item"><span class="stock-legend-swatch stock-legend-healthy"></span> Yeterli Stok</span>
-        <span class="stock-legend-item"><span class="stock-legend-swatch stock-legend-critical"></span> Stok Takibi</span>
-        <span class="stock-legend-item"><span class="stock-legend-swatch stock-legend-low"></span> Tükendi</span>
-    </div>
-    {% endif %}
-
     <div class="bulk-selection-info muted">Birden fazla satır seçtiğinizde, işlemler sütunundaki ikonlar seçili kayıtlar için toplu çalışır.</div>
 
     <div class="table-wrap">
@@ -143,22 +133,7 @@
             </thead>
             <tbody>
                 {% for product in products %}
-                {% if can('alerts.access') and product.stock_quantity <= product.effective_low_stock_threshold %}
-                    {% set stock_row_class = "stock-status-low" %}
-                {% elif can('alerts.access') and product.stock_quantity <= product.effective_critical_stock_threshold %}
-                    {% set stock_row_class = "stock-status-critical" %}
-                {% elif can('alerts.access') %}
-                    {% set stock_row_class = "stock-status-healthy" %}
-                {% else %}
-                    {% set stock_row_class = "" %}
-                {% endif %}
-                <tr
-                    class="{{ stock_row_class }}"
-                    {% if can('alerts.access') %}
-                    data-low-threshold="{{ product.effective_low_stock_threshold }}"
-                    data-critical-threshold="{{ product.effective_critical_stock_threshold }}"
-                    {% endif %}
-                >
+                <tr>
                     <td>
                         <input
                             type="checkbox"

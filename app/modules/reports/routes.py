@@ -1,14 +1,36 @@
+from calendar import monthrange
 from datetime import date
 from io import BytesIO
 
-from flask import Blueprint, render_template, request, send_file
+from flask import Blueprint, abort, render_template, request, send_file
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill
 
-from app.services.reporting import get_daily_report, get_profit_report
+from app.services.reporting import ZERO, get_daily_report, get_daily_turnover, get_profit_report
+from app.utils import now_in_istanbul
 
 
 bp = Blueprint("reports", __name__, url_prefix="/reports")
+
+
+@bp.get("/turnover")
+def turnover():
+    today = now_in_istanbul().date()
+    month = request.args.get("month") or today.strftime("%Y-%m")
+    try:
+        start = date.fromisoformat(f"{month}-01")
+        if start.year < 1900 or start.year > 9998:
+            raise ValueError
+    except ValueError:
+        abort(400, description="Geçerli bir ay seçin (YYYY-AA).")
+    month_end = start.replace(day=monthrange(start.year, start.month)[1])
+    end = min(month_end, today)
+    rows = get_daily_turnover(start, end) if start <= end else []
+    return render_template(
+        "reports/turnover.html", rows=list(reversed(rows)), month=month,
+        total=sum((row["revenue"] for row in rows), ZERO),
+        start=start, end=end, month_end=month_end, today=today,
+    )
 
 
 @bp.route("/daily")

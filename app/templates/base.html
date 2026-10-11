@@ -12,7 +12,7 @@
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/favicon-32x32.png') }}?v=2" sizes="32x32">
     <link rel="apple-touch-icon" href="{{ url_for('static', filename='img/apple-touch-icon.png') }}?v=2">
     <link rel="manifest" href="{{ url_for('static', filename='manifest.webmanifest', v='20260818-pwa-v1') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20261001-credit-collection-v1') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20261011-turnover-v1') }}">
     <meta name="csrf-token" content="{{ session.get('auth_csrf_token', '') }}">
     {% block head_extra %}{% endblock %}
 </head>
@@ -73,9 +73,9 @@
                         <div class="module-menu-panel">
                             {% if can('inventory_history.access') %}<a href="{{ url_for('inventory_history.index') }}" class="{% if request.blueprint == 'inventory_history' %}active{% endif %}">Envanter Geçmişi</a>{% endif %}
                             {% if can('daily_reports.access') %}<a href="{{ url_for('reports.daily') }}" class="{% if request.endpoint == 'reports.daily' %}active{% endif %}">Günlük Rapor</a>{% endif %}
+                            {% if can('dashboard.column.finance') %}<a href="{{ url_for('reports.turnover') }}" class="{% if request.endpoint == 'reports.turnover' %}active{% endif %}">Günlük Cirolar</a>{% endif %}
                             {% if can('profit_reports.access') %}<a href="{{ url_for('reports.profit') }}" class="{% if request.endpoint == 'reports.profit' %}active{% endif %}">Karlılık Analizi</a>{% endif %}
                             {% if can('returns.access') %}<a href="{{ url_for('returns.index') }}" class="{% if request.blueprint == 'returns' %}active{% endif %}">İade Yönetimi</a>{% endif %}
-                            {% if can('alerts.access') %}<a href="{{ url_for('alerts.index') }}" class="{% if request.blueprint == 'alerts' %}active{% endif %}">Kritik Stok Uyarıları</a>{% endif %}
                             {% if can('inventory_counts.access') %}<a href="{{ url_for('inventory_counts.index') }}" class="{% if request.blueprint == 'inventory_counts' %}active{% endif %}">Stok Sayımı</a>{% endif %}
                             {% if can('reference_data.access') %}<a href="{{ url_for('admin.index') }}" class="{% if request.blueprint == 'admin' %}active{% endif %}">Temel Veri Yönetimi</a>{% endif %}
                         </div>

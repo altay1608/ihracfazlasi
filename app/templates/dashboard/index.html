@@ -4,9 +4,8 @@
 {% block page_title %}Lobby Kontrol Merkezi{% endblock %}
 
 {% set revenue_target = 5000 %}
-{% set revenue_ratio = ((metrics.revenue / revenue_target) * 100) if revenue_target else 0 %}
+{% set revenue_ratio = (((metrics.revenue|default(0)) / revenue_target) * 100) if revenue_target else 0 %}
 {% set revenue_percent = 100 if revenue_ratio > 100 else (0 if revenue_ratio < 0 else revenue_ratio) %}
-{% set stock_health_ratio = 100 - ((low_stock_products|length * 12) if (low_stock_products|length * 12) < 100 else 100) %}
 {% set top_product = top_products[0] if top_products else None %}
 
 {% block content %}
@@ -41,7 +40,7 @@
         {% endif %}
 
         {% if can('dashboard.column.finance') %}
-        <a class="panel lobby-link-card lobby-status-success" href="{{ url_for('reports.daily') }}">
+        <a class="panel lobby-link-card lobby-status-success" href="{{ url_for('reports.turnover') }}">
             <div class="lobby-link-card-top">
                 <p class="cockpit-label">Ciro Kilidi</p>
                 <span class="lobby-link-arrow">↗</span>
@@ -49,24 +48,9 @@
             <div class="cockpit-value">{{ metrics.revenue|currency }}</div>
             <div class="cockpit-subgrid">
                 <span>Bugünkü ciro</span>
-                <strong>Rapor ekranına git</strong>
+                <strong>Günlük ciroları aç</strong>
             </div>
             <p class="lobby-link-note">{{ metrics.profit|currency }} tahmini kâr</p>
-        </a>
-        {% endif %}
-
-        {% if can('dashboard.column.stock') %}
-        <a class="panel lobby-link-card lobby-status-info" href="{{ url_for('alerts.index') }}">
-            <div class="lobby-link-card-top">
-                <p class="cockpit-label">Stok Radarı</p>
-                <span class="lobby-link-arrow">↗</span>
-            </div>
-            <div class="cockpit-value">{{ low_stock_products|length }}</div>
-            <div class="cockpit-subgrid">
-                <span>Riskli ürün</span>
-                <strong>Alarm listesine git</strong>
-            </div>
-            <p class="lobby-link-note">Eşik değeri {{ threshold }}</p>
         </a>
         {% endif %}
 
@@ -88,6 +72,33 @@
         </a>
         {% endif %}
     </div>
+
+    {% if can('dashboard.column.finance') %}
+    <article class="panel cockpit-table-card lobby-turnover-card">
+        <div class="section-heading">
+            <div>
+                <p class="cockpit-label">Ciro Takibi</p>
+                <h2>Son 5 Günün Cirosu</h2>
+            </div>
+            <a class="ghost-button" href="{{ url_for('reports.turnover') }}">Günlük Ciroları Aç ↗</a>
+        </div>
+        <p class="helper-text">İndirim sonrası, KDV dahil satışlar. İadeler işlem gününde düşülür; bu tutar kâr veya tahsilat değildir.</p>
+        <div class="table-wrap dashboard-table-wrap">
+            <table>
+                <thead><tr><th>Tarih</th><th>Ciro</th></tr></thead>
+                <tbody>
+                    {% for row in recent_turnover %}
+                    <tr>
+                        <td><a href="{{ url_for('reports.turnover', month=row.date.strftime('%Y-%m')) }}">{{ row.date|tr_date }}{% if row.date == today %} · Bugün{% endif %}</a></td>
+                        <td>{{ row.revenue|currency }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot><tr><th>Bu Ay Toplam · {{ month_start|tr_date }} – {{ today|tr_date }}</th><th>{{ month_total|currency }}</th></tr></tfoot>
+            </table>
+        </div>
+    </article>
+    {% endif %}
 
     <div class="lobby-command-grid">
         {% if can('dashboard.column.sales_trend') %}
@@ -111,16 +122,6 @@
                 </div>
             </div>
             <div class="lobby-monitoring-body">
-                {% if can('dashboard.column.stock') %}
-                <div class="monitoring-alarm">
-                    <span class="monitoring-alarm-dot {% if low_stock_products|length %}is-alert{% else %}is-safe{% endif %}"></span>
-                    <div>
-                        <strong>{{ "Alarm Var" if low_stock_products|length else "Durum Normal" }}</strong>
-                        <p>{{ low_stock_products|length }} ürün stok radarında görünüyor.</p>
-                    </div>
-                </div>
-                {% endif %}
-
                 <div class="monitoring-list">
                     {% if can('dashboard.column.sales_trend') %}
                     <div class="monitoring-row">
@@ -138,20 +139,14 @@
                         <strong>{{ "%.0f"|format(revenue_percent) }}%</strong>
                     </div>
                     {% endif %}
-                    {% if can('dashboard.column.stock') %}
-                    <div class="monitoring-row">
-                        <span>Stok sağlığı</span>
-                        <strong>{{ "%.0f"|format(stock_health_ratio) }}%</strong>
-                    </div>
-                    {% endif %}
                 </div>
 
                 <div class="monitoring-links">
                     {% if can('sales.action.complete') %}
                     <a href="{{ url_for('sales.pos') }}">POS Operasyonu</a>
                     {% endif %}
-                    {% if can('alerts.access') %}
-                    <a href="{{ url_for('alerts.index') }}">Stok Alarm Ekranı</a>
+                    {% if can('products.access') %}
+                    <a href="{{ url_for('products.index') }}">Stok Listesi</a>
                     {% endif %}
                     {% if can('daily_reports.access') %}
                     <a href="{{ url_for('reports.daily') }}">Günlük Rapor</a>
@@ -165,7 +160,7 @@
     </div>
 
     <div class="lobby-grid">
-        {% if can('dashboard.column.finance') or can('dashboard.column.stock') %}
+        {% if can('dashboard.column.finance') %}
         <article class="panel cockpit-gauge-card">
             <div class="section-heading">
                 <div>
@@ -179,14 +174,6 @@
                     <div class="gauge-ring-inner">
                         <strong>{{ "%.0f"|format(revenue_percent) }}%</strong>
                         <span>Ciro Hedefi</span>
-                    </div>
-                </div>
-                {% endif %}
-                {% if can('dashboard.column.stock') %}
-                <div class="gauge-ring gauge-ring-secondary" style="--gauge-value: {{ stock_health_ratio }};">
-                    <div class="gauge-ring-inner">
-                        <strong>{{ "%.0f"|format(stock_health_ratio) }}%</strong>
-                        <span>Stok Sağlığı</span>
                     </div>
                 </div>
                 {% endif %}
@@ -230,43 +217,6 @@
         </article>
         {% endif %}
 
-        {% if can('dashboard.column.stock') %}
-        <article class="panel cockpit-table-card">
-            <div class="section-heading">
-                <div>
-                    <p class="cockpit-label">Alarm Yığını</p>
-                    <h2>Düşük Stoklu Ürünler</h2>
-                </div>
-                <a class="ghost-button lobby-ghost-button" href="{{ url_for('alerts.index') }}">Tümünü Gör</a>
-            </div>
-            <div class="table-wrap dashboard-table-wrap">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Ürün</th>
-                            <th>Kategori</th>
-                            <th>Varyant</th>
-                            <th>Stok</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for product in low_stock_products %}
-                        <tr>
-                            <td>{{ product.name }}</td>
-                            <td>{{ product.category }}</td>
-                            <td>{{ product.variant or "-" }}</td>
-                            <td>{{ product.stock_quantity }}</td>
-                        </tr>
-                        {% else %}
-                        <tr>
-                            <td colspan="4" class="empty-state">Şu anda düşük stok uyarısı yok.</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </article>
-        {% endif %}
     </div>
 </section>
 {% endblock %}
