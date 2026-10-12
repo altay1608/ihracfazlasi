@@ -100,6 +100,39 @@
     </article>
     {% endif %}
 
+    {% if finance_summary is not none %}
+    <article class="panel cockpit-table-card lobby-turnover-card">
+        <div class="section-heading">
+            <div><p class="cockpit-label">{{ month_start|tr_date }} – {{ today|tr_date }}</p><h2>Bu Ayın Finans Özeti</h2></div>
+            <a class="ghost-button" href="{{ url_for('finance.index', date_from=month_start.isoformat(), date_to=today.isoformat()) }}">Hareketleri Gör ↗</a>
+        </div>
+        <p>Bu ay iade ve indirimler sonrası <strong>{{ month_total|currency }}</strong> ciro oluştu.</p>
+        <p class="helper-text">Aşağıdaki tutarlar kayıtlı para hareketleridir, net kâr değildir. Hesaplar arası aktarımlar gider sayılmaz. Cari borç ödemeleri ürün maliyetinden tekrar düşülmez. Ters kayıtlar aylık toplamlara yansıtılır.</p>
+        <div class="table-wrap dashboard-table-wrap">
+            <table>
+                <thead><tr><th>Bu ay ne oldu?</th><th>Hesap / Açıklama</th><th>Tutar</th></tr></thead>
+                <tbody>
+                {% for row in finance_summary.rows %}
+                <tr><td>{{ row.title }}</td><td>{{ row.account }} · {{ row.category or '' }}{% if row.person %} · {{ row.person }}{% endif %}</td><td>{{ row.amount|currency }} {{ 'giriş' if row.incoming else 'çıkış' }}</td></tr>
+                {% else %}<tr><td colspan="3">Bu ay henüz finans hareketi kaydedilmedi.</td></tr>{% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <h3>Son 5 Para Hareketi</h3>
+        <p class="helper-text">Aktarımların kaynak hesaptaki çıkışı ve hedef hesaptaki girişi ayrı satırlarda görünür; iki ayrı harcama değildir.</p>
+        <div class="table-wrap dashboard-table-wrap">
+            <table>
+                <thead><tr><th>Tarih</th><th>Açıklama</th><th>Hesap</th><th>Tutar</th></tr></thead>
+                <tbody>
+                {% for row in finance_summary.recent %}
+                <tr><td>{{ row.date }}</td><td>{{ row.description }}{% if row.person %} · {{ row.person }}{% endif %}</td><td>{{ row.account }}</td><td>{{ '+' if row.incoming else '−' }}{{ row.amount|currency }}</td></tr>
+                {% else %}<tr><td colspan="4">Henüz hareket yok.</td></tr>{% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </article>
+    {% endif %}
+
     <div class="lobby-command-grid">
         {% if can('dashboard.column.sales_trend') %}
         <article class="panel cockpit-chart-card lobby-chart-main">

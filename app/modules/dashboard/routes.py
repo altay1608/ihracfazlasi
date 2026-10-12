@@ -3,6 +3,8 @@ from datetime import timedelta
 from flask import Blueprint, render_template
 
 from app.services.access_control import has_permission
+from app.services.lobby_finance import build_lobby_finance
+from app.services.identity_access import get_active_site_id, get_active_store_id
 from app.services.reporting import (
     ZERO,
     get_daily_turnover,
@@ -26,6 +28,7 @@ def index():
     chart_data = [{"label": row["date"].strftime("%d.%m"), "value": float(row["revenue"])} for row in turnover[-7:]]
     top_products = get_top_products() if show_trend else []
     month_total = sum((row["revenue"] for row in turnover if row["date"] >= month_start), ZERO)
+    finance_summary = build_lobby_finance(get_active_site_id(), get_active_store_id(), today) if show_finance and has_permission("finance.ledger.view") else None
     if turnover:
         # Keep the headline, graph and daily list on the same turnover basis.
         metrics["revenue"] = turnover[-1]["revenue"]
@@ -38,4 +41,5 @@ def index():
         month_total=month_total,
         month_start=month_start,
         today=today,
+        finance_summary=finance_summary,
     )
