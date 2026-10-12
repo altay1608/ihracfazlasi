@@ -8,6 +8,7 @@ from app import create_app
 from app.extensions import db
 from app.models.finance import FinanceAccount, FinanceCategory, FinanceMovement
 from app.services.lobby_finance import build_lobby_finance
+from app.services.finance_reporting import build_finance_snapshot
 from app.utils import istanbul_to_utc
 from config import BaseConfig
 
@@ -91,6 +92,41 @@ class LobbyFinanceTests(unittest.TestCase):
         self.assertEqual(result["rows"][0]["title"], "Genel gider")
         self.assertTrue(result["rows"][0]["incoming"])
         self.assertEqual(result["rows"][0]["amount"], 100)
+
+    def test_finance_snapshot_keeps_balances_and_cross_month_corrections(self):
+        previous = self.movement(1000, direction="in", kind="sale",
+            occurred_at=istanbul_to_utc(datetime(2026, 9, 30, 23)))
+        self.movement(1000, kind="reversal", reversal_of_id=previous.id)
+        self.movement(500, direction="in", kind="sale")
+        self.movement(25, kind="return")
+        self.movement(20, is_overhead=True)
+        commission = self.movement(10, kind="pos_commission")
+        self.movement(10, direction="in", kind="reversal", reversal_of_id=commission.id)
+        self.movement(999, direction="in", site_id=2)
+        self.movement(888, direction="in", store_id=2)
+        result = build_finance_snapshot(site_id=1, store_ids=[1], selected_month=date(2026, 10, 1))
+        self.assertEqual(result["consolidated_balance"], 455)
+        self.assertEqual(result["gross_revenue"], -500)
+        self.assertEqual(result["net_revenue"], -525)
+        self.assertEqual(result["actual_overhead"], 20)
+        self.assertEqual(result["pos_commission_expense"], 0)
+
+    def test_finance_snapshot_does_not_materialize_historical_movements(self):
+        for _ in range(30):
+            self.movement(100, occurred_at=istanbul_to_utc(datetime(2025, 1, 1)))
+        db.session.commit()
+        db.session.expunge_all()
+        loaded = []
+        def record(instance, context):
+            loaded.append(instance.id)
+        event.listen(FinanceMovement, "load", record)
+        try:
+            result = build_finance_snapshot(site_id=1, store_ids=[1], selected_month=date(2026, 10, 1))
+        finally:
+            event.remove(FinanceMovement, "load", record)
+        self.assertEqual(result["consolidated_balance"], -3000)
+        self.assertEqual(result["net_revenue"], 0)
+        self.assertEqual(loaded, [])
 
     def test_dashboard_hidden_without_ledger_permission(self):
         with patch("app.modules.dashboard.routes.has_permission", side_effect=lambda p: p != "finance.ledger.view"), patch("app.modules.dashboard.routes.build_lobby_finance") as build:

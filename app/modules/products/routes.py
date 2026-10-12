@@ -401,8 +401,10 @@ def add():
                             used_product_codes.add(next_product_code)
                             automatic_code += 1
 
-                db.session.commit()
+                # IDs are already assigned by flush. Reading expired products after
+                # commit otherwise reloads every product and its stock/barcodes.
                 created_product_ids = [product.id for product in created_products]
+                db.session.commit()
                 print_url = url_for("products.bulk_labels", product_ids=created_product_ids)
                 message = (
                     f"{len(created_products)} ürün birim olarak stoğa eklendi. Etiketler hazırlandı."

@@ -607,7 +607,7 @@ def get_daily_report(start_date, end_date=None):
     end = end_of_day(end_date)
 
     sales = (
-        Sale.query.options(joinedload(Sale.items).joinedload(SaleItem.product))
+        Sale.query.options(lazyload("*"), joinedload(Sale.items).joinedload(SaleItem.product))
         .filter(Sale.sale_date >= start, Sale.sale_date <= end)
         .all()
     )
@@ -647,7 +647,7 @@ def get_profit_report(start_date, end_date):
     end = end_of_day(end_date)
 
     sales = (
-        Sale.query.options(joinedload(Sale.items))
+        Sale.query.options(lazyload("*"), joinedload(Sale.items).joinedload(SaleItem.product))
         .filter(Sale.sale_date >= start, Sale.sale_date <= end)
         .all()
     )

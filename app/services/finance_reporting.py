@@ -4,7 +4,8 @@ from calendar import monthrange
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 
-from sqlalchemy import func
+from sqlalchemy import and_, case, func
+from sqlalchemy.orm import aliased
 
 from app.extensions import db
 from app.models import ExpenseVoucher, Sale, SalePayment, Store, SupplierInvoice
@@ -178,14 +179,19 @@ def build_finance_snapshot(*, site_id, store_ids, selected_month=None):
         .order_by(FinanceAccount.store_id.asc(), FinanceAccount.name.asc())
         .all()
     )
-    all_movements = FinanceMovement.query.filter(
+    movement_scope = (
         FinanceMovement.site_id == site_id,
         FinanceMovement.store_id.in_(store_ids),
-    ).execution_options(skip_tenant_scope=True).all()
-    balances = {account.id: Decimal("0.00") for account in accounts}
-    for movement in all_movements:
-        if movement.account_id in balances:
-            balances[movement.account_id] += _signed_amount(movement)
+    )
+    signed_amount = case(
+        (FinanceMovement.direction == "in", FinanceMovement.amount),
+        else_=-FinanceMovement.amount,
+    )
+    # Historical balances stay exact without materializing the entire ledger.
+    balances = dict(db.session.query(
+        FinanceMovement.account_id, func.sum(signed_amount),
+    ).filter(*movement_scope).group_by(FinanceMovement.account_id)
+        .execution_options(skip_tenant_scope=True).all())
 
     account_rows = [
         {
@@ -197,12 +203,24 @@ def build_finance_snapshot(*, site_id, store_ids, selected_month=None):
 
     start_at = istanbul_day_start_utc(month_start)
     end_at = istanbul_day_start_utc(month_end + timedelta(days=1))
-    month_movements = [
-        movement
-        for movement in all_movements
-        if start_at <= movement.occurred_at < end_at
-    ]
-    movement_by_id = {movement.id: movement for movement in all_movements}
+    original = aliased(FinanceMovement)
+    # Corrections can refer to a previous month; resolve their type in this query.
+    effective_type = case(
+        (FinanceMovement.movement_type == "reversal",
+         func.coalesce(original.movement_type, FinanceMovement.movement_type)),
+        else_=FinanceMovement.movement_type,
+    )
+    month_movements = db.session.query(
+        FinanceMovement.occurred_at, FinanceMovement.direction, FinanceMovement.amount,
+        FinanceMovement.is_overhead, effective_type.label("movement_type"),
+        FinanceMovement.reversal_of_id,
+    ).outerjoin(original, and_(
+        original.id == FinanceMovement.reversal_of_id,
+        original.site_id == FinanceMovement.site_id,
+        original.store_id == FinanceMovement.store_id,
+    )).filter(*movement_scope, FinanceMovement.occurred_at >= start_at,
+              FinanceMovement.occurred_at < end_at).execution_options(skip_tenant_scope=True).all()
+    movement_by_id = {}
     daily = {
         row["date"]: {"gross": Decimal("0.00"), "net": Decimal("0.00")}
         for row in empty_chart

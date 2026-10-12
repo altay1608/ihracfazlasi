@@ -165,7 +165,7 @@ def dashboard():
         store_ids=[store_id],
         selected_month=today,
     )
-    selected_month_snapshot = build_finance_snapshot(
+    selected_month_snapshot = today_snapshot if month_start == today.replace(day=1) else build_finance_snapshot(
         site_id=site_id,
         store_ids=[store_id],
         selected_month=month_start,
