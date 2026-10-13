@@ -212,15 +212,13 @@ def dashboard():
         Sale.query.filter(
             Sale.site_id == site_id,
             Sale.store_id == store_id,
-            Sale.payment_status.in_(("OPEN", "PARTIAL")),
+            Sale.order_status.notin_(("CANCELLED", "RETURNED")),
             or_(
                 Sale.payment_method == "Veresiye",
                 Sale.payments.any(payment_method="Veresiye"),
             ),
-            Sale.payment_due_date.isnot(None),
         )
         .order_by(Sale.payment_due_date.asc(), Sale.id.asc())
-        .limit(200)
         .all()
     )
     credit_due_rows = []
@@ -229,9 +227,9 @@ def dashboard():
         if summary["remaining"] > 0:
             credit_due_rows.append({"sale": sale, **summary})
     credit_due_summary = {
-        "overdue": sum(1 for row in credit_due_rows if row["sale"].payment_due_date < today),
+        "overdue": sum(1 for row in credit_due_rows if row["sale"].payment_due_date and row["sale"].payment_due_date < today),
         "today": sum(1 for row in credit_due_rows if row["sale"].payment_due_date == today),
-        "next_7": sum(1 for row in credit_due_rows if today < row["sale"].payment_due_date <= today + timedelta(days=7)),
+        "next_7": sum(1 for row in credit_due_rows if row["sale"].payment_due_date and today < row["sale"].payment_due_date <= today + timedelta(days=7)),
     }
     recent_credit_collections = (
         CreditSaleCollection.query.options(joinedload(CreditSaleCollection.sale))

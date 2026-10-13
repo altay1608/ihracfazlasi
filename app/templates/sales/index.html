@@ -8,6 +8,10 @@
 {% set effective_end_date = end_date if end_date is defined else effective_start_date %}
 <section class="panel">
     <form method="get" class="filter-bar">
+        {% if can('sales.customer.view') %}
+        <input type="search" name="customer" value="{{ customer_search or '' }}" placeholder="Müşteri adı / telefon ile fiş bul" aria-label="Müşteri adı veya telefon">
+        <select name="all_dates" aria-label="Müşteri arama dönemi"><option value="1" {{ 'selected' if all_dates or not customer_search else '' }}>Müşteri için tüm tarihler</option><option value="0" {{ 'selected' if customer_search and not all_dates else '' }}>Seçili tarih aralığı</option></select>
+        {% endif %}
         <input type="date" name="date_from" value="{{ effective_start_date.isoformat() }}" aria-label="Başlangıç tarihi">
         <input type="date" name="date_to" value="{{ effective_end_date.isoformat() }}" aria-label="Bitiş tarihi">
         <button type="submit" class="ghost-button">Filtrele</button>
@@ -17,7 +21,7 @@
 <section class="panel">
     <div class="section-heading">
         <div>
-            <p class="eyebrow">{{ effective_start_date|tr_date }} - {{ effective_end_date|tr_date }}</p>
+            <p class="eyebrow">{% if all_dates %}Müşteri araması · Tüm tarihler{% else %}{{ effective_start_date|tr_date }} - {{ effective_end_date|tr_date }}{% endif %}</p>
             <h2>Sipariş satırları</h2>
         </div>
         <span class="status-badge">{{ order_lines|length }} satır</span>

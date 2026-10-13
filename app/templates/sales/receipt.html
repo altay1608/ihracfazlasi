@@ -65,8 +65,10 @@
         </section>
 
         <section class="thermal-totals" aria-label="Tutar özeti">
+            <div class="thermal-total-row"><span>İndirim Öncesi (KDV Dahil)</span><strong>{{ receipt.before_discount|default(sale.total_amount)|currency }}</strong></div>
+            {% if receipt.discount_gross|default(0) > 0 %}<div class="thermal-total-row"><span>İndirim (KDV Dahil)</span><strong>−{{ receipt.discount_gross|currency }}</strong></div>{% endif %}
             <div class="thermal-total-row">
-                <span>Ara Toplam</span>
+                <span>İndirim Sonrası (KDV Hariç)</span>
                 <strong>{{ receipt.net_subtotal|currency }}</strong>
             </div>
             <div class="thermal-total-row thermal-vat-row">

@@ -90,8 +90,8 @@
                         <tr>
                             <th>Ürün</th>
                             <th>Adet</th>
-                            <th>Birim Fiyat</th>
-                            <th>Toplam</th>
+                            <th>Birim Fiyat (KDV Dahil)</th>
+                            <th>Toplam (KDV Dahil)</th>
                             <th></th>
                         </tr>
                     </thead>
@@ -112,7 +112,7 @@
                 </div>
             </div>
             <div class="summary-box">
-                <div class="summary-row"><span>Ara Toplam</span><strong id="subtotalAmount">₺0,00</strong></div>
+                <div class="summary-row"><span>Ara Toplam (KDV Dahil)</span><strong id="subtotalAmount">₺0,00</strong></div>
                 <div class="summary-row">
                     <span>İndirim Tutarı</span>
                     <div class="summary-input-wrap">
@@ -125,7 +125,7 @@
                         <input id="discountRateInput" class="summary-input summary-readonly" type="text" value="%0,00" readonly>
                     </div>
                 </div>
-                <div class="summary-row"><span>KDV (%{{ (vat_rate * 100)|int }})</span><strong id="vatAmount">₺0,00</strong></div>
+                <div class="summary-row"><span>Toplama Dahil KDV (%{{ (vat_rate * 100)|int }})</span><strong id="vatAmount">₺0,00</strong></div>
                 <div class="summary-row grand-total"><span>Genel Toplam</span><strong id="grandTotalAmount">₺0,00</strong></div>
             </div>
             <label for="paymentMethod">Ödeme Yöntemi</label>
@@ -185,6 +185,6 @@ window.posConfig = {
     initialPayments: {{ (initial_payments or [])|tojson }}
 };
 </script>
-<script src="{{ url_for('static', filename='js/pos.js', v='20260919-split-payments-v1') }}"></script>
+<script src="{{ url_for('static', filename='js/pos.js', v='20261013-vat-credit-v2') }}"></script>
 {% endblock %}
 

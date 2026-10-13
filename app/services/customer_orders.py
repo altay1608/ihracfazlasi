@@ -154,7 +154,11 @@ def prepare_customer_order(order):
         )
 
     order.order_status = ORDER_STATUS_DELIVERED
-    order.payment_status = "OPEN" if order.payment_method == "Veresiye" else PAYMENT_STATUS_PAID
+    has_credit = order.payment_method == "Veresiye" or any(
+        payment.payment_method == "Veresiye" and payment.amount > 0
+        for payment in getattr(order, "payments", ())
+    )
+    order.payment_status = "OPEN" if has_credit else PAYMENT_STATUS_PAID
     order.currency_code = order.currency_code or "TRY"
     return order
 

@@ -10,6 +10,7 @@ from app.data import TR_LOCATIONS
 from app.extensions import db
 from app.models import Product, Sale, SaleItem, SalePayment
 from app.services.customer_orders import prepare_customer_order
+from app.services.access_control import has_permission
 from app.services.finance import credit_sale_summary, sync_sale_finance
 from app.services.inventory_history import record_inventory_movement
 from app.services.product_inventory import release_barcodes_from_sale, reserve_barcodes_for_sale, round_customer_price
@@ -166,6 +167,10 @@ def calculate_sale_breakdown(sale):
 def build_sale_receipt_context(sale):
     now = now_in_istanbul()
     breakdown = calculate_sale_breakdown(sale)
+    before_discount = quantize_amount(sum((
+        (getattr(item, "unit_price", None) * item.quantity if getattr(item, "unit_price", None) is not None else item.line_total + item.discount_amount)
+        for item in sale.items if getattr(item, "line_type", "sale") == "sale"
+    ), Decimal("0.00")) * VAT_MULTIPLIER)
     line_items = []
     for item in sale.items:
         item_name = getattr(item, "product_name_snapshot", None) or item.product.name
@@ -209,6 +214,8 @@ def build_sale_receipt_context(sale):
         "store": STORE_INFO,
         "net_subtotal": breakdown["net_subtotal"],
         "vat_amount": breakdown["vat_amount"],
+        "before_discount": before_discount,
+        "discount_gross": max(before_discount - breakdown["gross_total"], Decimal("0.00")),
         "line_items": line_items,
         "print_time": now.strftime("%H:%M"),
         "payment_due_date": getattr(sale, "payment_due_date", None),
@@ -266,7 +273,7 @@ def get_sale_edit_discount_amount(sale):
             Decimal("0.00"),
         )
     )
-    gross_before_discount = round_customer_price(line_subtotal * VAT_MULTIPLIER)
+    gross_before_discount = quantize_amount(line_subtotal * VAT_MULTIPLIER)
     discount_amount = quantize_amount(gross_before_discount - (sale.total_amount or Decimal("0.00")))
     return max(discount_amount, Decimal("0.00"))
 
@@ -415,7 +422,9 @@ def apply_sale_payload(sale, payload):
 
     net_subtotal = quantize_amount(discountable_base - footer_discount_amount)
     vat_amount = quantize_amount(net_subtotal * VAT_RATE)
-    total_amount = round_customer_price(net_subtotal + vat_amount)
+    total_amount = quantize_amount(net_subtotal + vat_amount)
+    if requested_target_total not in (None, ""):
+        total_amount = min(requested_target_total, quantize_amount(discountable_base * VAT_MULTIPLIER))
     total_discount = quantize_amount(line_discount_total + footer_discount_amount)
 
     sale.total_amount = total_amount
@@ -434,23 +443,28 @@ def apply_sale_payload(sale, payload):
 @bp.route("/")
 def index():
     today = now_in_istanbul().date()
+    customer_search = request.args.get("customer", "").strip()[:150] if has_permission("sales.customer.view") else ""
+    all_dates = bool(customer_search) and request.args.get("all_dates", "1") == "1"
     start_date = parse_iso_date(request.args.get("date_from"), fallback=today)
     end_date = parse_iso_date(request.args.get("date_to"), fallback=start_date)
     if end_date < start_date:
         start_date, end_date = end_date, start_date
     payment_methods = get_payment_method_map(active_only=False)
-    sales = (
+    query = (
         Sale.query.options(
             joinedload(Sale.items).joinedload(SaleItem.product),
             joinedload(Sale.items).joinedload(SaleItem.product_barcodes),
         )
-        .filter(
+    )
+    if not all_dates:
+        query = query.filter(
             Sale.sale_date >= istanbul_day_start_utc(start_date),
             Sale.sale_date < istanbul_day_start_utc(end_date + timedelta(days=1)),
         )
-        .order_by(Sale.sale_date.desc())
-        .all()
-    )
+    if customer_search:
+        like = f"%{customer_search}%"
+        query = query.filter(or_(Sale.customer_name.ilike(like), Sale.customer_mobile.ilike(like), Sale.customer_phone.ilike(like)))
+    sales = query.order_by(Sale.sale_date.desc()).all()
     order_lines = [(sale, item) for sale in sales for item in sale.items]
     return render_template(
         "sales/index.html",
@@ -460,6 +474,8 @@ def index():
         end_date=end_date,
         payment_methods=payment_methods,
         vat_rate=float(VAT_RATE),
+        customer_search=customer_search,
+        all_dates=all_dates,
     )
 
 
@@ -793,7 +809,9 @@ def complete():
 
         net_subtotal = quantize_amount(discountable_base - footer_discount_amount)
         vat_amount = quantize_amount(net_subtotal * VAT_RATE)
-        total_amount = round_customer_price(net_subtotal + vat_amount)
+        total_amount = quantize_amount(net_subtotal + vat_amount)
+        if requested_target_total not in (None, ""):
+            total_amount = min(requested_target_total, quantize_amount(discountable_base * VAT_MULTIPLIER))
         total_discount = quantize_amount(line_discount_total + footer_discount_amount)
 
         sale.total_amount = total_amount

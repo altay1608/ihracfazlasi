@@ -414,10 +414,10 @@
         });
 
         subtotal = roundAmount(subtotal);
-        const grossBeforeDiscount = roundCustomerPrice(subtotal * (1 + vatRate));
+        const grossBeforeDiscount = roundAmount(subtotal * (1 + vatRate));
         const discountAmount = clamp(roundAmount(parseLocaleNumber(manualDiscountInput?.value || 0)), 0, grossBeforeDiscount);
         const discountRate = grossBeforeDiscount ? roundAmount((discountAmount / grossBeforeDiscount) * 100) : 0;
-        const grandTotal = roundCustomerPrice(grossBeforeDiscount - discountAmount);
+        const grandTotal = roundAmount(grossBeforeDiscount - discountAmount);
         const netSubtotal = roundAmount(grandTotal / (1 + vatRate));
         const vatAmount = roundAmount(grandTotal - netSubtotal);
 
@@ -426,7 +426,7 @@
 
     function updateSummary() {
         const summary = getSummary();
-        document.getElementById("subtotalAmount").textContent = formatCurrency(summary.subtotal);
+        document.getElementById("subtotalAmount").textContent = formatCurrency(summary.grossBeforeDiscount);
         document.getElementById("vatAmount").textContent = formatCurrency(summary.vatAmount);
         document.getElementById("grandTotalAmount").textContent = formatCurrency(summary.grandTotal);
         if (discountRateInput) {
@@ -475,7 +475,7 @@
             const lineType = item.line_type || "sale";
             const isPaidLine = lineType === "sale";
             const lineTotal = isPaidLine
-                ? roundAmount(Number(item.unit_price) * Number(item.quantity))
+                ? roundAmount(Number(item.unit_price) * Number(item.quantity) * (1 + vatRate))
                 : 0;
             const scannedPairs = (item.scanned_barcodes || []).map((barcodeValue, index) => {
                 const barcodeId = item.scanned_barcode_ids?.[index];
@@ -525,7 +525,7 @@
                     ${lineTypeEditor}
                 </td>
                 <td>${quantityEditor}</td>
-                <td>${isPaidLine ? formatCurrency(item.unit_price) : "-"}</td>
+                <td>${isPaidLine ? formatCurrency(roundAmount(Number(item.unit_price) * (1 + vatRate))) : "-"}</td>
                 <td>${isPaidLine ? formatCurrency(lineTotal) : `<strong>${lineType === "gift" ? "HEDİYE" : "ŞAHSİ KULLANIM"}</strong>`}</td>
                 <td>${removeButton}</td>
             `;
