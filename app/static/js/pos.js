@@ -752,6 +752,7 @@
     });
 
     completeButton?.addEventListener("click", async () => {
+        if (completeButton.disabled) return;
         if (cart.size === 0) {
             feedback.textContent = "Önce sepete ürün ekleyin.";
             return;
@@ -793,12 +794,10 @@
             scanned_barcodes: item.scanned_barcodes || []
         }));
 
+        completeButton.disabled = true;
         window.showBusy?.("Satış tamamlanıyor...");
         try {
-            const response = await fetch(window.posConfig.updateSaleUrl || window.posConfig.completeSaleUrl, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
+            const salePayload = {
                     payment_method: paymentMethod.value,
                     payment_due_date: paymentDueDate?.value || "",
                     payments: splitSummary?.payments || null,
@@ -806,9 +805,30 @@
                     footer_discount_amount: 0,
                     target_final_total: summary.grandTotal,
                     customer: getCustomerPayload()
-                })
+            };
+            const sendSale = () => fetch(window.posConfig.updateSaleUrl || window.posConfig.completeSaleUrl, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(salePayload)
             });
-            const data = await response.json();
+            let response = await sendSale();
+            let data = await response.json();
+            if (response.status === 409 && data.code === "profit_confirmation_required") {
+                window.hideBusy?.();
+                const details = (data.warnings || []).map((row) =>
+                    `${row.name}${row.variant ? ' / ' + row.variant : ''} (${row.quantity} adet): ` +
+                    `${formatCurrency(Number(row.charged_total))} — sınır ${formatCurrency(Number(row.minimum_total))}`
+                ).join("\n");
+                if (!window.confirm(`${data.message}\n\n${details}\n\nTutarlar KDV dâhil satır toplamıdır. İptal edersen satış kaydedilmez.`)) {
+                    if (receiptWindow && !receiptWindow.closed) receiptWindow.close();
+                    feedback.textContent = "Satış kaydedilmedi. Sepeti veya indirimi düzenleyebilirsiniz.";
+                    return;
+                }
+                salePayload.profit_warning_confirmed = true;
+                window.showBusy?.("Satış tamamlanıyor...");
+                response = await sendSale();
+                data = await response.json();
+            }
             if (!response.ok || !data.success) {
                 throw new Error(data.message || "Satış tamamlanamadı.");
             }
@@ -842,6 +862,7 @@
             feedback.textContent = error.message;
             showPosMessage("Satış Uyarısı", error.message);
         } finally {
+            completeButton.disabled = false;
             window.hideBusy?.();
         }
     });

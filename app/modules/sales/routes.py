@@ -12,6 +12,7 @@ from app.models import Product, Sale, SaleItem, SalePayment
 from app.services.customer_orders import prepare_customer_order
 from app.services.access_control import has_permission
 from app.services.finance import credit_sale_summary, sync_sale_finance
+from app.services.sale_profit_guard import ProfitConfirmationRequired, require_profit_confirmation
 from app.services.inventory_history import record_inventory_movement
 from app.services.product_inventory import release_barcodes_from_sale, reserve_barcodes_for_sale, round_customer_price
 from app.services.reference_data import get_payment_method_choices, get_payment_method_map
@@ -429,6 +430,7 @@ def apply_sale_payload(sale, payload):
 
     sale.total_amount = total_amount
     sale.total_discount = total_discount
+    require_profit_confirmation(sale, payload, VAT_MULTIPLIER)
     apply_sale_payments(sale, payload, total_amount)
 
     return {
@@ -703,6 +705,10 @@ def update(sale_id):
             )
         sync_sale_finance(sale)
         db.session.commit()
+    except ProfitConfirmationRequired as exc:
+        db.session.rollback()
+        return jsonify({"success": False, "code": "profit_confirmation_required",
+                        "message": str(exc), "warnings": exc.warnings}), 409
     except (ValueError, TypeError) as exc:
         db.session.rollback()
         return jsonify({"success": False, "message": str(exc)}), 400
@@ -816,6 +822,7 @@ def complete():
 
         sale.total_amount = total_amount
         sale.total_discount = total_discount
+        require_profit_confirmation(sale, payload, VAT_MULTIPLIER)
         apply_sale_payments(sale, payload, total_amount)
         sale.completed_at = datetime.utcnow()
         sale.updated_at = sale.completed_at
@@ -841,6 +848,10 @@ def complete():
             )
         sync_sale_finance(sale)
         db.session.commit()
+    except ProfitConfirmationRequired as exc:
+        db.session.rollback()
+        return jsonify({"success": False, "code": "profit_confirmation_required",
+                        "message": str(exc), "warnings": exc.warnings}), 409
     except (ValueError, TypeError) as exc:
         db.session.rollback()
         return jsonify({"success": False, "message": str(exc)}), 400
