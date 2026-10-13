@@ -2,6 +2,7 @@
 
 from datetime import datetime, time, timedelta
 from decimal import Decimal
+from sqlalchemy import case, func
 
 from app.extensions import db
 from app.models import (
@@ -75,8 +76,19 @@ def _daily_account_total(site_id, store_id, code, business_date):
 
 def closing_expectations(site_id, store_id, business_date):
     cash = FinanceAccount.query.filter_by(site_id=site_id, store_id=store_id, code="CASH").one_or_none()
+    # A historical closing must not include movements made on later days.
+    cash_balance = Decimal("0.00")
+    if cash:
+        cash_balance = db.session.query(func.coalesce(func.sum(case(
+            (FinanceMovement.direction == "in", FinanceMovement.amount),
+            else_=-FinanceMovement.amount,
+        )), 0)).filter(
+            FinanceMovement.site_id == site_id, FinanceMovement.store_id == store_id,
+            FinanceMovement.account_id == cash.id,
+            FinanceMovement.occurred_at < istanbul_day_start_utc(business_date + timedelta(days=1)),
+        ).scalar()
     return {
-        "cash": get_account_balance(cash) if cash else Decimal("0.00"),
+        "cash": quantize_amount(cash_balance),
         "card": _daily_account_total(site_id, store_id, "POS", business_date),
         "transfer": _daily_account_total(site_id, store_id, "BANK", business_date),
     }
@@ -98,6 +110,8 @@ def create_daily_closing(*, site_id, store_id, business_date, counted_cash, coun
         "card": _money(counted_card),
         "transfer": _money(counted_transfer),
     }
+    if any(not value.is_finite() for value in values.values()) or values["cash"] < 0:
+        raise FinanceConfigurationError("Tutarlar geçerli olmalı; nakit sayım negatif olamaz.")
     closing = existing or DailyCashClosing(site_id=site_id, store_id=store_id, business_date=business_date)
     closing.expected_cash, closing.counted_cash = expected["cash"], values["cash"]
     closing.cash_difference = quantize_amount(values["cash"] - expected["cash"])

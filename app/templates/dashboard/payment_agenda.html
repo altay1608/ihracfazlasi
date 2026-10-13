@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block page_title %}Ödeme ve Tahsilat Ajandası{% endblock %}
+{% block content %}
+<section class="panel">
+{% include "finance/_nav.html" %}
+<h2>Gecikenler, bugün ve önümüzdeki 7 gün</h2>
+<p>Bu ekran hatırlatma içindir; kendiliğinden ödeme veya tahsilat yapmaz. Vadesiz kayıtlar da listelenir. Tekrarlayan borçlar için Dönemsel Borçlar ekranındaki oluşturulmuş kayıtlar esas alınır.</p>
+<div class="table-wrap"><table><thead><tr><th>Durum</th><th>Tarih</th><th>İşlem</th><th>Kişi / Açıklama</th><th>Tutar</th><th>Detay</th></tr></thead><tbody>
+{% for row in rows %}<tr><td>{{ 'Vade yok' if not row.due else ('Gecikmiş' if row.due < today else ('Bugün' if row.due == today else 'Yaklaşıyor')) }}</td><td>{{ row.due|tr_date if row.due else 'Belirtilmemiş' }}</td><td>{{ row.kind }}</td><td>{{ row.name or '-' }}</td><td>{{ row.amount|currency }}</td><td><a href="{{ url_for(row.endpoint, **row.params) }}">Aç</a></td></tr>
+{% else %}<tr><td colspan="6">Bu dönemde bekleyen kayıt bulunmuyor.</td></tr>{% endfor %}
+</tbody></table></div></section>{% endblock %}

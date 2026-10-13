@@ -1,4 +1,5 @@
 <nav class="finance-tabs" aria-label="Finans Yönetimi bölümleri">
+    {% if can('finance.accounts.manage') %}<a href="{{ url_for('dashboard.payment_agenda') }}">Ödeme Ajandası</a><a href="{{ url_for('finance_ops.corrections') }}">İşlem Düzeltme</a>{% endif %}
     {% if can('finance.ledger.view') %}<a href="{{ url_for('finance_ops.dashboard') }}" class="{% if request.endpoint == 'finance_ops.dashboard' %}active{% endif %}">Finans Merkezi</a>{% endif %}
     {% if can('finance.manual.create') %}<a href="{{ url_for('finance_ops.expenses') }}" class="{% if request.endpoint == 'finance_ops.expenses' %}active{% endif %}">Masraf Fişleri</a>{% endif %}
     {% if can('finance.current.manage') %}<a href="{{ url_for('finance_ops.supplier_invoices') }}" class="{% if request.endpoint == 'finance_ops.supplier_invoices' %}active{% endif %}">Alış Faturaları</a>{% endif %}

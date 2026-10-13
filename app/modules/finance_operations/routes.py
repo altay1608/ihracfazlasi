@@ -23,6 +23,7 @@ from app.models import (
     SupplierInvoice,
 )
 from app.services.access_control import permission_required
+from app.services.finance_corrections import cancelled_collection_ids
 from app.services.finance_operations import (
     closing_expectations,
     create_daily_closing,
@@ -58,6 +59,44 @@ MAX_DOCUMENT_BYTES = 5 * 1024 * 1024
 
 def _scope():
     return get_active_site_id(), get_active_store_id()
+
+
+@bp.route("/corrections", methods=["GET", "POST"])
+@permission_required("finance.accounts.manage")
+def corrections():
+    from app.models.finance import FinanceTransfer, FinanceMovement
+    from app.services.finance_corrections import cancel_finance_document, cancelled_collection_ids
+    site_id, store_id = _scope()
+    if request.method == "POST":
+        _csrf()
+        try:
+            cancel_finance_document(site_id, store_id, request.form.get("kind"),
+                int(request.form.get("record_id", "0")), request.form.get("reason"))
+            db.session.commit()
+            flash("Düzeltme kaydedildi. Asıl kayıt silinmedi; ters kayıt oluşturuldu.", "success")
+        except (ValueError, TypeError) as exc:
+            db.session.rollback()
+            flash(str(exc), "error")
+        return redirect(url_for("finance_ops.corrections"))
+    reversals = FinanceMovement.query.with_entities(FinanceMovement.source_type, FinanceMovement.source_id,
+        FinanceMovement.reversal_of_id).filter_by(site_id=site_id, store_id=store_id).filter(FinanceMovement.reversal_of_id.isnot(None)).all()
+    reversed_ids = {row.reversal_of_id for row in reversals}
+    reversed_transfers = {row.source_id for row in reversals if row.source_type == "transfer"}
+    cancelled = cancelled_collection_ids(site_id, store_id)
+    linked = db.session.query(CreditSaleCollection.finance_transfer_id).filter_by(site_id=site_id, store_id=store_id)
+    rows = []
+    for row in FinanceTransfer.query.filter_by(site_id=site_id, store_id=store_id).filter(
+        FinanceTransfer.id.notin_(linked)).order_by(FinanceTransfer.id.desc()).limit(100).all():
+        rows.append(dict(kind="transfer", label="Hesap transferi", id=row.id, date=row.occurred_at,
+            description=row.description, amount=row.amount, cancelled=row.id in reversed_transfers))
+    for row in CreditSaleCollection.query.filter_by(site_id=site_id, store_id=store_id).order_by(CreditSaleCollection.id.desc()).limit(100).all():
+        rows.append(dict(kind="collection", label="Veresiye tahsilatı", id=row.id, date=row.occurred_at,
+            description=f"Satış #{row.sale.document_no} · {row.sale.customer_name or ''} · {row.payment_method}",
+            amount=row.amount, cancelled=row.id in cancelled))
+    for row in ExpenseVoucher.query.filter_by(site_id=site_id, store_id=store_id, status="approved").order_by(ExpenseVoucher.id.desc()).limit(100).all():
+        rows.append(dict(kind="expense", label="Masraf fişi", id=row.id, date=row.created_at,
+            description=row.description, amount=row.gross_amount, cancelled=row.movement_id in reversed_ids))
+    return render_template("finance_operations/corrections.html", rows=sorted(rows, key=lambda row: row["date"], reverse=True))
 
 
 def _csrf():
@@ -253,6 +292,7 @@ def dashboard():
         credit_due_rows=credit_due_rows,
         credit_due_summary=credit_due_summary,
         recent_credit_collections=recent_credit_collections,
+        cancelled_credit_collection_ids=cancelled_collection_ids(site_id, store_id, [row.id for row in recent_credit_collections]),
         credit_collection_methods=CREDIT_COLLECTION_METHODS,
         collection_now=now_in_istanbul().strftime("%Y-%m-%dT%H:%M"),
         pos_document_summary=pos_document_summary,

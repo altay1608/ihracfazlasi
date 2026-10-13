@@ -10,6 +10,11 @@
 
 {% block content %}
 <section class="lobby-page">
+    <div class="panel inline-actions">
+        {% if can('finance.accounts.manage') %}<a class="ghost-button" href="{{ url_for('finance_ops.daily_closing') }}">Gün Sonu Kasa</a><a class="ghost-button" href="{{ url_for('dashboard.payment_agenda') }}">Ödeme Ajandası</a>{% endif %}
+        {% if can('products.access') %}<a class="ghost-button" href="{{ url_for('dashboard.slow_stock_page') }}">Satılmayan Ürünler</a>{% endif %}
+        {% if can('sales.customer.view') and can('sales.access') %}<a class="ghost-button" href="{{ url_for('dashboard.customer_history_page') }}">Müşteri Geçmişi</a>{% endif %}
+    </div>
     <div class="lobby-hero panel">
         <div>
             <p class="lobby-kicker">Atölye Telemetrisi</p>

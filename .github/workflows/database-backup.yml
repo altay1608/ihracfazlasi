@@ -1,0 +1,37 @@
+name: Private database backup
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * *'
+permissions:
+  contents: read
+concurrency:
+  group: database-backup
+  cancel-in-progress: false
+jobs:
+  backup:
+    if: vars.ENABLE_DATABASE_BACKUP == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install 'SQLAlchemy>=2.0,<3' 'boto3>=1.35,<2'
+      - name: Use matching PostgreSQL client
+        run: |
+          docker pull postgres:17
+          mkdir -p /tmp/backup-bin
+          printf '#!/bin/sh\nexec docker run --rm --network host -e PGPASSWORD -e PGSSLMODE -e PGCHANNELBINDING -v "$PWD:$PWD" -w "$PWD" postgres:17 pg_dump "$@"\n' > /tmp/backup-bin/pg_dump
+          printf '#!/bin/sh\nexec docker run --rm -v "$PWD:$PWD" -w "$PWD" postgres:17 pg_restore "$@"\n' > /tmp/backup-bin/pg_restore
+          chmod +x /tmp/backup-bin/pg_dump /tmp/backup-bin/pg_restore
+          echo /tmp/backup-bin >> "$GITHUB_PATH"
+      - name: Backup and verify upload
+        env:
+          DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+          BACKUP_S3_BUCKET: ${{ secrets.BACKUP_S3_BUCKET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.BACKUP_AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.BACKUP_AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ vars.BACKUP_AWS_REGION }}
+        run: python scripts/run_backup_job.py

@@ -1,8 +1,9 @@
 from datetime import timedelta
 
-from flask import Blueprint, render_template
+from flask import Blueprint, render_template, request
 
-from app.services.access_control import has_permission
+from app.services.access_control import has_permission, permission_required
+from app.services.store_tools import due_agenda, slow_stock, customer_history
 from app.services.lobby_finance import build_lobby_finance
 from app.services.identity_access import get_active_site_id, get_active_store_id
 from app.services.reporting import (
@@ -15,6 +16,32 @@ from app.utils import now_in_istanbul
 
 
 bp = Blueprint("dashboard", __name__)
+
+
+@bp.get("/payment-agenda")
+@permission_required("finance.accounts.manage")
+def payment_agenda():
+    today = now_in_istanbul().date()
+    return render_template("dashboard/payment_agenda.html", today=today,
+        rows=due_agenda(get_active_site_id(), get_active_store_id(), today))
+
+
+@bp.get("/slow-stock")
+@permission_required("products.access")
+def slow_stock_page():
+    days = request.args.get("days", 60, type=int)
+    days = days if days in (30, 60, 90, 180) else 60
+    return render_template("dashboard/slow_stock.html", days=days,
+        rows=slow_stock(get_active_site_id(), get_active_store_id(), now_in_istanbul().date(), days))
+
+
+@bp.get("/customer-history")
+@permission_required("sales.access")
+@permission_required("sales.customer.view")
+def customer_history_page():
+    phone = request.args.get("phone", "").strip()[:40]
+    return render_template("dashboard/customer_history.html", phone=phone,
+        **customer_history(get_active_site_id(), get_active_store_id(), phone))
 
 
 @bp.route("/")

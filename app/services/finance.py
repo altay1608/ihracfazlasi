@@ -1466,6 +1466,9 @@ def create_manual_movement(
 def reverse_movement(movement, reason, occurred_at=None):
     """Correct an immutable movement by appending its exact opposite."""
     _require_activation(movement.site_id, movement.store_id)
+    movement = FinanceMovement.query.filter_by(id=movement.id, site_id=movement.site_id,
+        store_id=movement.store_id).with_for_update().one()
+    ensure_finance_period_open(movement.site_id, movement.store_id, occurred_at or datetime.utcnow())
     normalized_reason = str(reason or "").strip()
     if not normalized_reason:
         raise FinanceConfigurationError("Ters kayıt nedeni zorunludur.")
@@ -1559,8 +1562,11 @@ def credit_sale_total(sale):
 
 
 def credit_sale_collected(sale):
+    from app.services.finance_corrections import cancelled_collection_ids
+    collections = list(getattr(sale, "credit_collections", ()))
+    cancelled = cancelled_collection_ids(sale.site_id, sale.store_id, [row.id for row in collections]) if collections and getattr(sale, "site_id", None) else set()
     return _money(sum(
-        (_money(collection.amount) for collection in getattr(sale, "credit_collections", ())),
+        (_money(collection.amount) for collection in collections if collection.id not in cancelled),
         Decimal("0.00"),
     ))
 
@@ -1570,11 +1576,15 @@ def credit_sale_remaining(sale):
 
 
 def credit_sale_summary(sale):
+    from app.services.finance_corrections import cancelled_collection_ids
     total = credit_sale_total(sale)
-    collected = credit_sale_collected(sale)
+    collections = list(getattr(sale, "credit_collections", ()))
+    cancelled = cancelled_collection_ids(sale.site_id, sale.store_id, [row.id for row in collections]) if collections and getattr(sale, "site_id", None) else set()
+    collected = _money(sum((_money(row.amount) for row in collections if row.id not in cancelled), Decimal("0.00")))
     return {
         "total": total,
         "collected": collected,
+        "cancelled_ids": cancelled,
         "remaining": max(total - collected, Decimal("0.00")),
     }
 
