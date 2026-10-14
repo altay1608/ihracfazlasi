@@ -5,6 +5,7 @@
 
 {% block content %}
 <section class="panel">
+    <p><a class="ghost-button" href="{{ url_for('products.stock_lookup') }}">Barkodla Stok Sorgula</a></p>
     <form method="get" class="filter-bar">
         <input type="text" name="search" value="{{ request.args.get('search', '') }}" placeholder="Ürün adı, ürün kodu, barkod veya varyant ara">
         <select name="category">

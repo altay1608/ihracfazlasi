@@ -22,7 +22,7 @@ from app.models import (
     Variant,
 )
 from app.services.barcodes import generate_code128_svg
-from app.services.access_control import has_permission
+from app.services.access_control import has_permission, permission_required
 from app.services.identity_access import get_active_site_id, get_active_store_id
 from app.services.inventory_history import record_inventory_movement
 from app.services.product_inventory import (
@@ -679,6 +679,32 @@ def update_stock(product_id):
             "critical_threshold": product.effective_critical_stock_threshold,
         }
     )
+
+
+@bp.get("/stock-lookup")
+@permission_required("products.access")
+def stock_lookup():
+    code = request.args.get("barcode", "").strip()
+    product = inventory = unit = None
+    site_id, store_id = get_active_site_id(), get_active_store_id()
+    if code and len(code) <= 64:
+        unit = ProductBarcode.query.filter_by(site_id=site_id, store_id=store_id, barcode=code).first()
+        query = db.session.query(Product, StoreInventory).join(
+            StoreInventory, StoreInventory.product_id == Product.id
+        ).filter(Product.site_id == site_id, StoreInventory.site_id == site_id,
+                 StoreInventory.store_id == store_id)
+        if unit:
+            query = query.filter(Product.id == unit.product_id)
+        else:
+            query = query.filter(or_(Product.product_code == code, Product.barcode == code))
+        result = query.first()
+        if result:
+            product, inventory = result
+    response = current_app.make_response(render_template("products/stock_lookup.html",
+        code=code[:64], searched=bool(code), product=product, inventory=inventory, unit=unit,
+        get_customer_sale_price=get_customer_sale_price))
+    response.headers["Cache-Control"] = "no-store, private"
+    return response
 
 
 @bp.route("/barcode/<string:barcode>")

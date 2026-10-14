@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Barkodla Stok Sorgula{% endblock %}
+{% block page_title %}Barkodla Stok Sorgula{% endblock %}
+{% block content %}
+<section class="panel" style="max-width:680px;margin:auto">
+    <p><a href="{{ url_for('products.index') }}">← Envantere dön</a></p>
+    <h2>Ürünü okut, stok bilgisini gör</h2>
+    <p>Yalnızca sorgulama yapar. Stoktan düşmez ve satış oluşturmaz.</p>
+    <form method="get" id="stockLookupForm" action="{{ url_for('products.stock_lookup') }}">
+        <label for="lookupBarcode">Etiketteki tam barkod veya ürün kodu</label>
+        <input id="lookupBarcode" name="barcode" value="{{ code }}" maxlength="64" required autocomplete="off" autocapitalize="off" spellcheck="false" style="width:100%;font-size:18px;margin:12px 0">
+        <button type="submit" class="primary-button">Sorgula</button>
+        <button type="button" class="ghost-button" id="startStockCamera">Kamerayı aç</button>
+        <button type="button" class="ghost-button" id="stopStockCamera" hidden>Kamerayı kapat</button>
+    </form>
+    <p id="stockCameraStatus" role="status" aria-live="polite"></p>
+    <video id="stockCamera" muted playsinline hidden style="width:100%;max-height:360px;object-fit:cover;border-radius:12px" aria-label="Barkod kamera görüntüsü"></video>
+    {% if product %}
+    <article aria-label="Ürün sonucu">
+        <h2>{{ product.name }}</h2>
+        <p>Ürün kodu: {{ product.product_code }} · Kategori: {{ product.category }}</p>
+        <p>Beden: <strong>{{ product.variant or 'Bedensiz' }}</strong></p>
+        {% if can('products.column.sale_vat') %}<p>KDV dâhil satış: <strong>{{ get_customer_sale_price(product)|currency }}</strong></p>{% endif %}
+        {% if can('products.column.stock') %}
+        <p>Bu mağazadaki adet: <strong>{{ inventory.stock_quantity }}</strong></p>
+        {% if unit and product.barcode_mode != 'shared' %}<p>Okutulan etiket: <strong>{{ {'available': 'Stokta', 'sold': 'Satılmış', 'supplier_returned': 'Toptancıya iade edilmiş'}.get(unit.status, 'Stokta kullanılabilir değil') }}</strong></p>{% endif %}
+        {% endif %}
+        {% if can('products.column.purchase_price') %}<p>Alış (KDV hariç): {{ product.purchase_price|currency }}</p>{% endif %}
+        <p class="helper-text">Adet yalnızca bu ürün kaydı içindir. Aynı isimli ürünler ve diğer bedenler otomatik birleştirilmez.</p>
+    </article>
+    {% elif searched %}<p role="alert">Bu mağazada bu barkoda ait ürün bulunamadı. Etiketteki uzantıyı da kontrol edin.</p>{% endif %}
+</section>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/stock_lookup.js', v='20261014-1') }}" defer></script>{% endblock %}
