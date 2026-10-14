@@ -12,7 +12,7 @@ from app.models import FinanceActivation, Package, Site, Store, SystemSetting
 
 DELIVERY_RESET_VERSION = "customer_delivery_operational_reset_20260916_v2"
 AUTOMATIC_SCHEMA_VERSION = "automatic_schema_bootstrap_20261003_v6"
-DEPLOYMENT_READY_VERSION = "deployment_ready_20261003_v4"
+DEPLOYMENT_READY_VERSION = "deployment_ready_20261013_v5"
 
 
 def ensure_deployment_ready():
@@ -26,6 +26,11 @@ def ensure_deployment_ready():
         db.create_all()
 
     ensure_automatic_pos_schema()
+    from app.models import SupplierReturn
+    with db.engine.begin() as connection:
+        if db.engine.dialect.name == "postgresql":
+            connection.execute(text("SELECT pg_advisory_xact_lock(13102026)"))
+        SupplierReturn.__table__.create(connection, checkfirst=True)
     ensure_deployment_store()
     # Deployment upgrades must never reset customer data, even if an old
     # delivery-reset marker is missing. Resets are explicit operations only.

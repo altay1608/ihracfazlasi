@@ -17,6 +17,7 @@ from app.models import (
     ProductBarcode,
     RetailMultiplier,
     SupplierInvoiceLine,
+    SupplierReturn,
     StoreInventory,
     Variant,
 )
@@ -68,6 +69,8 @@ def get_product_delete_block_message(product):
     )
     if approved_count_exists:
         return "Bu ürün onaylanmış stok sayımında bulunduğu için silinemez."
+    if SupplierReturn.query.filter_by(product_id=product.id, site_id=product.site_id).first():
+        return "Toptancıya iade geçmişi olan ürün silinemez."
     return None
 
 
@@ -245,10 +248,15 @@ def title_case_product_name(value):
 
 
 def render_bulk_multiplier_modal(product_ids):
+    products = Product.query.filter(Product.id.in_(product_ids)).order_by(Product.id).all()
+    multipliers = RetailMultiplier.query.all()
     return render_template(
         "products/_bulk_multiplier_modal.html",
         product_ids=product_ids,
         multiplier_choices=get_retail_multiplier_choices(),
+        preview_rows=[{"name": p.name, "code": p.product_code, "variant": p.variant or "-",
+                       "old": str(p.sale_price), "prices": {str(m.id): str(compute_sale_price(p.purchase_price, m.multiplier)) for m in multipliers}}
+                      for p in products],
     )
 
 
@@ -612,6 +620,8 @@ def bulk_multiplier():
 
     if request.method == "POST":
         multiplier_id = request.form.get("retail_multiplier_id", "").strip()
+        if request.form.get("preview_confirmed") != multiplier_id or not multiplier_id:
+            return jsonify({"success": False, "message": "Önce eski/yeni fiyatları kontrol edip onaylayın."}), 400
         multiplier = get_multiplier_by_id(multiplier_id)
         if not multiplier:
             return jsonify({"success": False, "message": "Geçerli bir perakende çarpanı seçin."}), 400

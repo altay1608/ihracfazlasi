@@ -5,7 +5,7 @@ from decimal import Decimal, InvalidOperation
 from hmac import compare_digest
 
 from flask import Blueprint, abort, flash, jsonify, redirect, render_template, request, session, url_for
-from sqlalchemy import case
+from sqlalchemy import case, func
 from sqlalchemy.orm import joinedload
 
 from app.extensions import db
@@ -480,6 +480,7 @@ def settle_pos_reconciliation(reconciliation_id):
 @bp.get("/current-accounts")
 @permission_required("finance.current.view")
 def current_accounts():
+    from app.models import SupplierReturn
     site_id, store_id = _active_scope()
     accounts = CurrentAccount.query.filter_by(site_id=site_id).order_by(CurrentAccount.name.asc()).all()
     entries = CurrentEntry.query.filter_by(site_id=site_id, store_id=store_id).order_by(CurrentEntry.status.asc(), CurrentEntry.due_date.asc()).all()
@@ -511,6 +512,8 @@ def current_accounts():
         })
     context = _form_context(site_id, store_id)
     context.update(
+        supplier_return_totals=dict(db.session.query(SupplierReturn.current_entry_id, func.sum(SupplierReturn.amount)).filter_by(
+            site_id=site_id, store_id=store_id, mode="debt").group_by(SupplierReturn.current_entry_id).all()),
         current_accounts=accounts,
         entries=entries,
         current_totals=totals,

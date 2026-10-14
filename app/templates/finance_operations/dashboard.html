@@ -47,7 +47,7 @@
     </section>
     <section class="finance-tool">
         <div class="section-heading">
-            <div><p class="eyebrow">OTOMATİK SATIŞ VE GİDER TAKİBİ</p><h2>Günlük Gerçek Net Kâr</h2></div>
+            <div><p class="eyebrow">OTOMATİK SATIŞ VE GİDER TAKİBİ</p><h2>Günlük Kâr: Planlanan ve Gerçekleşen</h2></div>
             <form method="get" class="finance-filter-row">
                 <label>Ay
                     <select name="month" onchange="this.form.submit()">
@@ -62,17 +62,23 @@
             <article class="finance-balance-card"><span>KDV Hariç Satış</span><strong>{{ daily_operating.net_sales|currency }}</strong><small>İadeler düşülmüş</small></article>
             <article class="finance-balance-card"><span>KDV Hariç Maliyet</span><strong>{{ daily_operating.net_cost|currency }}</strong><small>Satılan ürünlerin alışı</small></article>
             <article class="finance-balance-card"><span>Brüt Ürün Kârı</span><strong>{{ daily_operating.gross_profit|currency }}</strong><small>KDV hariç satış - maliyet</small></article>
-            <article class="finance-balance-card finance-balance-total"><span>Bugünkü Net Sonuç</span><strong class="{{ 'money-in' if daily_operating.net_operating_profit >= 0 else 'money-out' }}">{{ daily_operating.net_operating_profit|currency }}</strong><small>Brüt kâr - günlük genel gider</small></article>
+            <article class="finance-balance-card finance-balance-total"><span>Planlanan Gidere Göre Sonuç</span><strong class="{{ 'money-in' if daily_operating.net_operating_profit >= 0 else 'money-out' }}">{{ daily_operating.net_operating_profit|currency }}</strong><small>Brüt kâr - günlük genel gider</small></article>
             <article class="finance-balance-card"><span>Başa Baş İçin Gereken Kâr</span><strong>{{ daily_operating.break_even_remaining|currency }}</strong><small>{{ 'Günlük gider karşılandı' if daily_operating.break_even_remaining == 0 else 'Satışlarla kapanacak tutar' }}</small></article>
         </div>
+        <div class="finance-balance-grid">
+            <article class="finance-balance-card"><span>Bugün Kaydedilen Gerçek Gider</span><strong>{{ actual_daily_expenses.overhead|currency }}</strong><small>Onaylı gider hareketleri eksi ters kayıtlar</small></article>
+            <article class="finance-balance-card"><span>Bugünkü POS Komisyonu</span><strong>{{ actual_daily_expenses.commission|currency }}</strong></article>
+            <article class="finance-balance-card finance-balance-total"><span>Gerçekleşen Gider Sonrası Sonuç</span><strong>{{ actual_daily_result|currency }}</strong><small>Brüt ürün kârı − gerçek gider − POS komisyonu</small></article>
+        </div>
+        <p class="helper-text">Planlanan giderli ve gerçekleşen giderli sonuçlar alternatif karşılaştırmalardır; birbirinden tekrar düşülmez. Gerçekleşen gider, ödeme hareketindeki KDV dâhil tutardır; bu sonuç vergi beyannamesi kârı değildir. Cari borç ödemeleri ve hesap transferleri gider sayılmaz.</p>
         {% if today_snapshot.overhead == 0 %}
-        <p class="helper-text"><strong>Bu ay için genel gider planı girilmemiş.</strong> Günün gerçek net sonucunu görmek için <a href="{{ url_for('finance.overheads', month=today.strftime('%Y-%m')) }}">Genel Gider Planı</a> ekranından maaş, kira, elektrik, su ve internet tutarlarını bir kez ekleyin.</p>
+        <p class="helper-text"><strong>Bu ay için genel gider planı girilmemiş.</strong> Planlanan gider payını hesaplamak için <a href="{{ url_for('finance.overheads', month=today.strftime('%Y-%m')) }}">Genel Gider Planı</a> ekranından maaş, kira, elektrik, su ve internet tutarlarını bir kez ekleyin.</p>
         {% else %}
         <p class="helper-text">{{ today.strftime('%m.%Y') }} genel gider planı {{ today_snapshot.overhead|currency }}; {{ today_snapshot.month_end.day }} takvim gününe bölünerek bugün {{ daily_operating.overhead|currency }} pay ayrıldı. Bu pay kasa çıkışı değildir; masraf fişleriyle ikinci kez düşülmez.</p>
         {% endif %}
 
         <div class="finance-table-section panel">
-            <div class="section-heading"><div><p class="eyebrow">BUGÜNKÜ DAĞILIM</p><h2>Ürün Bazlı Net Kâr</h2></div></div>
+            <div class="section-heading"><div><p class="eyebrow">BUGÜNKÜ DAĞILIM</p><h2>Ürün Bazlı Kâr (Planlanan Gider Payıyla)</h2></div></div>
             <div class="table-wrap"><table data-enhanced-table><thead><tr><th>Ürün</th><th>Adet</th><th>KDV Hariç Satış</th><th>KDV Hariç Maliyet</th><th>Brüt Kâr</th><th>Genel Gider Payı</th><th>Net Kâr</th></tr></thead><tbody>
                 {% for row in daily_operating.product_rows %}<tr><td>{{ row.name }}{% if row.variant %} / {{ row.variant }}{% endif %}</td><td>{{ row.quantity }}</td><td>{{ row.net_sales|currency }}</td><td>{{ row.net_cost|currency }}</td><td>{{ row.gross_profit|currency }}</td><td>{{ row.allocated_overhead|currency }}</td><td><strong class="{{ 'money-in' if row.net_profit >= 0 else 'money-out' }}">{{ row.net_profit|currency }}</strong></td></tr>{% else %}<tr><td colspan="7" class="empty-state">Bugün henüz satış yok. Gün {{ daily_operating.overhead|currency }} genel gider payıyla ekside başladı.</td></tr>{% endfor %}
             </tbody></table></div>

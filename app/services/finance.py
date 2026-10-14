@@ -1013,7 +1013,7 @@ def settle_current_entry(
         id=entry_id,
         site_id=site_id,
         store_id=store_id,
-    ).first()
+    ).with_for_update().first()
     if entry is None:
         raise FinanceConfigurationError("Cari kayıt bulunamadı.")
     settlement_amount = _money(amount)

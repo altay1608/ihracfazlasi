@@ -74,6 +74,7 @@
     <div>
         {{ form.purchase_price.label }}
         {{ form.purchase_price(step="0.01") }}
+        {% if not product %}<p data-purchase-total aria-live="polite">Toplam alış hesaplanıyor…</p><small>Adet × birim alış; borç veya ödeme kaydı oluşturmaz.</small>{% endif %}
         {% for error in form.purchase_price.errors %}<p class="form-error">{{ error }}</p>{% endfor %}
     </div>
     <div>

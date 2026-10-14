@@ -40,6 +40,7 @@ def build_lobby_finance(site_id, store_id, today):
         CurrentAccount.name.label("person"), func.sum(signed).label("amount"),
     ).group_by(effective_type, direction, FinanceMovement.is_overhead, FinanceAccount.name, FinanceCategory.name, CurrentAccount.name).all()
     labels = {
+        "supplier_return": "Toptancıdan ürün iade bedeli",
         "sale": "Satış hareketi", "exchange_sale": "Değişim satışı",
         "return": "İade", "manual": "Manuel gelir / gider",
         "pos_commission": "Banka komisyonu", "transfer": "Hesaplar arası aktarım",

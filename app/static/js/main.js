@@ -401,7 +401,22 @@ function initializeReturnForms(root = document) {
 }
 
 function initializeProductForms(root = document) {
-    root.querySelectorAll('form[action*="/products/"]').forEach((form) => {
+    root.querySelectorAll("[data-bulk-price-preview]").forEach((form) => {
+        if (form.dataset.previewBound) return;
+        form.dataset.previewBound = "1";
+        const select = form.querySelector('[name="retail_multiplier_id"]');
+        const confirm = form.querySelector("[data-price-confirm]");
+        select.addEventListener("change", () => {
+            confirm.checked = false;
+            confirm.value = select.value;
+            form.querySelectorAll("[data-preview-prices]").forEach((row) => {
+                const value = JSON.parse(row.dataset.previewPrices)[select.value];
+                row.querySelector("[data-new-price]").textContent = value === undefined ? "Çarpan seçin" :
+                    new Intl.NumberFormat("tr-TR", {style: "currency", currency: "TRY"}).format(Number(value));
+            });
+        });
+    });
+    root.querySelectorAll('form[action*="/products/"], form[data-product-entry]').forEach((form) => {
         if (form.dataset.productFormBound === "1") {
             return;
         }
@@ -415,6 +430,17 @@ function initializeProductForms(root = document) {
         const variantNoneCheckbox = form.querySelector("[data-variant-none-checkbox]");
         const globalStockField = form.querySelector("[data-global-stock-field]");
         const variantTotal = form.querySelector("[data-variant-quantity-total]");
+        const purchaseTotal = form.querySelector("[data-purchase-total]");
+        const stockInput = form.querySelector('[name="stock_quantity"]');
+        const updatePurchaseTotal = () => {
+            if (!purchaseTotal) return;
+            const quantity = variantNoneCheckbox?.checked || !variantRows.length ? Math.max(0, Number(stockInput?.value) || 0) :
+                variantRows.reduce((sum, row) => sum + (row.querySelector('[data-variant-checkbox]')?.checked ? Math.min(999, Math.max(0, parseInt(row.querySelector('[data-variant-quantity-input]')?.value, 10) || 0)) : 0), 0);
+            const total = Math.max(0, parseLocaleNumber(purchaseInput?.value || "0")) * quantity;
+            purchaseTotal.textContent = `${quantity} adet · Toplam alış (KDV hariç): ${new Intl.NumberFormat("tr-TR", {style: "currency", currency: "TRY"}).format(total)}`;
+        };
+        form.addEventListener("input", updatePurchaseTotal);
+        form.addEventListener("change", updatePurchaseTotal);
 
         if (variantRows.length) {
             const clampVariantQuantity = (value) => Math.min(999, Math.max(0, Number.parseInt(value, 10) || 0));
@@ -431,6 +457,7 @@ function initializeProductForms(root = document) {
                 if (globalStockField) {
                     globalStockField.hidden = !variantNoneCheckbox?.checked;
                 }
+                updatePurchaseTotal();
             };
 
             const setVariantQuantity = (row, nextValue) => {
@@ -482,6 +509,7 @@ function initializeProductForms(root = document) {
         }
 
         if (productNameInput) {
+            updatePurchaseTotal();
             const normalizeProductName = (event) => {
                 if (event?.isComposing) {
                     return;

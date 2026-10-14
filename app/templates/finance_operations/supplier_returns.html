@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block page_title %}Toptancıya Ürün İadesi{% endblock %}
+{% block content %}<section class="finance-page">{% include "finance/_nav.html" %}
+<form method="post" class="panel finance-form-grid" data-confirm-submit data-confirm-title="Toptancıya iade" data-confirm-message="Stok azalacak ve seçilen borç/hesap güncellenecek. Onaylıyor musunuz?">
+<input type="hidden" name="csrf_token" value="{{ session.get('auth_csrf_token','') }}"><input type="hidden" name="request_key" value="{{ request_key }}">
+<p class="finance-full">Her kayıtta bir ürün/beden iade edilir. İade tutarını toptancıyla anlaşılan toplam tutar olarak girin. Borçtan düşme kasayı değiştirmez; para iadesi satış geliri sayılmaz. İade belgesi yerine geçmez.</p>
+<label>Toptancı<select name="supplier_id" required>{% for s in suppliers %}<option value="{{ s.id }}">{{ s.name }}</option>{% endfor %}</select></label>
+<label>Ürün<select name="product_id" required>{% for p in products %}<option value="{{ p.id }}">{{ p.product_code }} — {{ p.name }} / {{ p.variant or '-' }}</option>{% endfor %}</select></label>
+<label>Adet<input type="number" name="quantity" min="1" max="999" value="1" required></label>
+<label>İade toplam tutarı (TL)<input type="number" name="amount" min="0.01" step="0.01" required></label>
+<label class="finance-full">Birim barkodları<textarea name="barcodes" placeholder="Her adedin tam barkodunu ayrı satıra okutun. Ortak barkodlu ürünlerde boş bırakılabilir."></textarea></label>
+<label>İşlem<select name="mode"><option value="debt">Toptancı borcundan düş</option><option value="refund">Nakit / banka iadesi al</option></select></label>
+<label>Borçtan düşülecek kayıt<select name="current_entry_id"><option value="">Para iadesinde seçmeyin</option>{% for d in debts %}<option value="{{ d.id }}">{{ supplier_names.get(d.current_account_id, '-') }} — #{{ d.id }} / {{ d.remaining_amount|currency }} — {{ d.description or '' }}</option>{% endfor %}</select></label>
+<label>Para iadesinin geldiği hesap<select name="account_id"><option value="">Borçtan düşmede seçmeyin</option>{% for a in accounts %}<option value="{{ a.id }}">{{ a.name }}</option>{% endfor %}</select></label>
+<label>Açıklama<input name="reason" minlength="5" maxlength="500" required></label><button class="primary-button">İadeyi Kaydet</button></form>
+<div class="panel table-wrap"><h2>Son 100 İade</h2><table><thead><tr><th>Tarih</th><th>Toptancı</th><th>Ürün</th><th>Adet</th><th>Tutar</th><th>İşlem</th><th>Açıklama</th></tr></thead><tbody>{% for r in rows %}<tr><td>{{ r.created_at|tr_datetime }}</td><td>{{ r.supplier.name }}</td><td>{{ r.product_name }}</td><td>{{ r.quantity }}</td><td>{{ r.amount|currency }}</td><td>{{ 'Borçtan düşüldü (#' ~ r.current_entry_id ~ ')' if r.mode == 'debt' else 'Para iadesi alındı' }}</td><td>{{ r.reason }}</td></tr>{% else %}<tr><td colspan="7">İade yok.</td></tr>{% endfor %}</tbody></table></div></section>{% endblock %}

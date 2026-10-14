@@ -35,6 +35,7 @@ from app.services.finance_operations import (
     settle_personnel_advance,
 )
 from app.services.finance_reporting import (
+    actual_expenses_between,
     build_finance_snapshot,
     build_monthly_card_document_summary,
     build_operating_profit_summary,
@@ -59,6 +60,41 @@ MAX_DOCUMENT_BYTES = 5 * 1024 * 1024
 
 def _scope():
     return get_active_site_id(), get_active_store_id()
+
+
+@bp.route("/supplier-returns", methods=["GET", "POST"])
+@permission_required("finance.current.manage")
+@permission_required("products.access")
+@permission_required("products.action.stock")
+def supplier_returns():
+    from uuid import uuid4
+    from app.models import SupplierReturn, StoreInventory
+    from app.services.supplier_returns import create_supplier_return
+    site_id, store_id = _scope()
+    if request.method == "POST":
+        _csrf()
+        try:
+            create_supplier_return(site_id=site_id, store_id=store_id,
+                supplier_id=int(request.form.get("supplier_id", 0)), product_id=int(request.form.get("product_id", 0)),
+                quantity=int(request.form.get("quantity", 0)), amount=_money(request.form.get("amount")),
+                mode=request.form.get("mode"), reason=request.form.get("reason"), request_key=request.form.get("request_key"),
+                current_entry_id=int(request.form.get("current_entry_id") or 0),
+                account_id=int(request.form.get("account_id") or 0), barcodes=request.form.get("barcodes", "").split())
+            db.session.commit()
+            flash("Toptancı iadesi kaydedildi; stok ve seçilen finans işlemi birlikte güncellendi.", "success")
+            return redirect(url_for("finance_ops.supplier_returns"))
+        except (ValueError, TypeError, InvalidOperation, IntegrityError) as exc:
+            db.session.rollback()
+            flash("Kayıt çakıştı; geçmişi kontrol edin." if isinstance(exc, IntegrityError) else str(exc), "error")
+    products = Product.query.join(StoreInventory, StoreInventory.product_id == Product.id).filter(
+        Product.site_id == site_id, StoreInventory.site_id == site_id, StoreInventory.store_id == store_id,
+        StoreInventory.stock_quantity > 0).order_by(Product.name).all()
+    return render_template("finance_operations/supplier_returns.html", request_key=str(uuid4()), products=products,
+        suppliers=CurrentAccount.query.filter_by(site_id=site_id, account_category="supplier", is_active=True).all(),
+        supplier_names={s.id: s.name for s in CurrentAccount.query.filter_by(site_id=site_id, account_category="supplier").all()},
+        debts=CurrentEntry.query.filter_by(site_id=site_id, store_id=store_id, entry_type="payable").filter(CurrentEntry.remaining_amount > 0).all(),
+        accounts=FinanceAccount.query.filter_by(site_id=site_id, store_id=store_id, is_active=True).filter(FinanceAccount.account_type.in_(["cash", "bank"])).all(),
+        rows=SupplierReturn.query.options(joinedload(SupplierReturn.supplier)).filter_by(site_id=site_id, store_id=store_id).order_by(SupplierReturn.id.desc()).limit(100).all())
 
 
 @bp.route("/corrections", methods=["GET", "POST"])
@@ -213,6 +249,8 @@ def dashboard():
         daily_profit,
         today_snapshot["planned_daily_overhead"],
     )
+    actual_daily_expenses = actual_expenses_between(site_id, store_id, today, today)
+    actual_daily_result = quantize_amount(daily_operating["gross_profit"] - actual_daily_expenses["total"])
     monthly_operating = build_operating_profit_summary(
         monthly_profit,
         selected_month_snapshot["overhead"],
@@ -287,6 +325,7 @@ def dashboard():
         daily_sales=daily_sales, daily_profit=daily_profit,
         monthly_sales=monthly_sales, monthly_profit=monthly_profit,
         daily_operating=daily_operating, monthly_operating=monthly_operating,
+        actual_daily_expenses=actual_daily_expenses, actual_daily_result=actual_daily_result,
         today_snapshot=today_snapshot, selected_month_snapshot=selected_month_snapshot,
         selected_month=month_start, month_options=month_choice_options(month_start),
         credit_due_rows=credit_due_rows,

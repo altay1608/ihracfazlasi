@@ -10,6 +10,7 @@ from app.utils import quantize_amount
 
 
 TRANSACTION_TYPES = {
+    "supplier_return_out": ("SUPPLIER-RET", "Toptancıya Ürün İadesi"),
     "opening_balance": ("OPENING-BAL", "Başlangıç Stok Devri"),
     "product_opening": ("PRODUCT-REC", "Ürün Kartı Açılış Stoğu"),
     "manual_in": ("MANUAL-ADD", "Manuel Stok Artışı"),

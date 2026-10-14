@@ -41,11 +41,13 @@ from .identity import (
     UserStoreAccess,
 )
 from .product import Product, ProductBarcode, StoreInventory
+from .supplier_return import SupplierReturn
 from .reference import Category, PaymentMethod, RetailMultiplier, ReturnReason, Variant
 from .return_ import Return, ReturnItem
 from .sale import CreditSaleCollection, CustomerOrder, CustomerOrderLine, Sale, SaleItem, SalePayment
 
 __all__ = [
+    "SupplierReturn",
     "AuthThrottle",
     "Category",
     "CustomerOrder",

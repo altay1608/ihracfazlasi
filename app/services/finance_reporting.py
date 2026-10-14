@@ -415,6 +415,23 @@ def build_operating_profit_summary(profit_report, overhead_amount):
     }
 
 
+def actual_expenses_between(site_id, store_id, start_date, end_date):
+    """Cash-recorded expenses, net of reversal entries, never planned budgets."""
+    original = aliased(FinanceMovement)
+    effective = case((FinanceMovement.reversal_of_id.isnot(None), original.movement_type), else_=FinanceMovement.movement_type)
+    signed = case((FinanceMovement.direction == "out", FinanceMovement.amount), else_=-FinanceMovement.amount)
+    overhead, commission = db.session.query(
+        func.coalesce(func.sum(case((FinanceMovement.is_overhead.is_(True), signed), else_=0)), 0),
+        func.coalesce(func.sum(case(((effective == "pos_commission") & FinanceMovement.is_overhead.is_(False), signed), else_=0)), 0),
+    ).outerjoin(original, original.id == FinanceMovement.reversal_of_id).filter(
+        FinanceMovement.site_id == site_id, FinanceMovement.store_id == store_id,
+        FinanceMovement.occurred_at >= istanbul_day_start_utc(start_date),
+        FinanceMovement.occurred_at < istanbul_day_start_utc(end_date + timedelta(days=1)),
+    ).one()
+    return {"overhead": quantize_amount(overhead), "commission": quantize_amount(commission),
+            "total": quantize_amount(overhead + commission)}
+
+
 def _signed_amount(movement):
     return movement.amount if movement.direction == "in" else -movement.amount
 

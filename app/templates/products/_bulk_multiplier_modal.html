@@ -2,6 +2,7 @@
     method="post"
     class="styled-form"
     data-ajax-form
+    data-bulk-price-preview
     data-refresh-target="#products-table-section"
     action="{{ url_for('products.bulk_multiplier') }}"
 >
@@ -21,6 +22,12 @@
             <p class="input-hint">{{ product_ids|length }} ürün için sadece çarpan güncellenir; kategori ve beden değişmez.</p>
         </div>
     </div>
+
+    <p>Fiyatlar sistemdeki KDV hariç satış fiyatlarıdır. Yeni fiyatlar yalnızca bundan sonraki satışları etkiler; eski fişler değişmez.</p>
+    <div class="table-wrap"><table><thead><tr><th>Ürün / Beden</th><th>Eski fiyat</th><th>Yeni fiyat</th></tr></thead><tbody>
+    {% for row in preview_rows %}<tr data-preview-prices='{{ row.prices|tojson }}'><td>{{ row.code }} — {{ row.name }} / {{ row.variant }}</td><td>{{ row.old|float|currency }}</td><td data-new-price>Çarpan seçin</td></tr>{% endfor %}
+    </tbody></table></div>
+    <label><input type="checkbox" name="preview_confirmed" value="" required data-price-confirm> Eski ve yeni fiyatları kontrol ettim.</label>
 
     <div class="modal-inline-actions">
         <button type="button" class="ghost-button" data-close-modal>Vazgeç</button>
