@@ -10,6 +10,8 @@ class ReturnForm(FlaskForm):
     original_sale_id = HiddenField(validators=[DataRequired()])
     reason = SelectField("İade / Değişim Nedeni", validators=[DataRequired()], choices=[])
     note = TextAreaField("Açıklama / Not")
+    payment_method = SelectField('İade / fark ödeme yöntemi', choices=[('', 'Ödeme yöntemi seçin'), ('Nakit', 'Nakit'), ('Kredi Kartı', 'Kredi Kartı'), ('Havale/EFT', 'Havale/EFT')])
+    debt_target = SelectField('Müşteri borcundan düş', choices=[('', 'Borçtan düşme yok')], validate_choice=False)
     type = SelectField(
         "İşlem Tipi",
         choices=[(key, label) for key, label in RETURN_TYPES.items()],

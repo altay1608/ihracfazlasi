@@ -1,7 +1,11 @@
 from collections import defaultdict
 from decimal import Decimal
 
-from flask import Blueprint, flash, jsonify, redirect, render_template, request, url_for
+from flask import Blueprint, current_app, flash, jsonify, redirect, render_template, request, url_for
+from itsdangerous import URLSafeTimedSerializer, BadSignature
+from app.services.return_settlement import debt_choices, settlement_plan, post_settlement
+from app.services.identity_access import get_active_site_id, get_active_store_id
+from app.services.access_control import has_permission
 from sqlalchemy.orm import joinedload
 
 from app.extensions import db
@@ -38,7 +42,8 @@ def get_return_listing():
     )
 
 
-def render_return_form(form, sale=None, status_code=200):
+def render_return_form(form, sale=None, status_code=200, preview=None, confirmation=None):
+    form.debt_target.choices = [('', 'Borçtan düşme yok')] + (debt_choices(sale) if has_permission('finance.current.manage') else [])
     template_name = "returns/_create_modal.html" if is_modal_request() else "returns/form.html"
     return (
         render_template(
@@ -46,6 +51,7 @@ def render_return_form(form, sale=None, status_code=200):
             form=form,
             sale=sale,
             return_types=RETURN_TYPES,
+            preview=preview, confirmation=confirmation,
         ),
         status_code,
     )
@@ -228,7 +234,7 @@ def create():
                 joinedload(Sale.items).joinedload(SaleItem.product),
                 joinedload(Sale.items).joinedload(SaleItem.product_barcodes),
             )
-            .filter_by(document_no=int(lookup_sale_id))
+            .filter_by(document_no=int(lookup_sale_id), site_id=get_active_site_id(), store_id=get_active_store_id())
             .first()
         )
         if sale and not form.original_sale_id.data:
@@ -242,7 +248,7 @@ def create():
                 joinedload(Sale.items).joinedload(SaleItem.product),
                 joinedload(Sale.items).joinedload(SaleItem.product_barcodes),
             )
-            .filter_by(document_no=int(form.original_sale_id.data))
+            .filter_by(document_no=int(form.original_sale_id.data), site_id=get_active_site_id(), store_id=get_active_store_id())
             .first()
         )
 
@@ -252,7 +258,7 @@ def create():
                 joinedload(Sale.items).joinedload(SaleItem.product),
                 joinedload(Sale.items).joinedload(SaleItem.product_barcodes),
             )
-            .filter_by(document_no=int(form.original_sale_id.data))
+            .filter_by(document_no=int(form.original_sale_id.data), site_id=get_active_site_id(), store_id=get_active_store_id())
             .first()
         )
         if not sale:
@@ -271,6 +277,42 @@ def create():
             return render_return_form(form, sale=sale, status_code=400)
 
         try:
+            # Serialize return and debt collection against the same sale rows.
+            lock_ids = [sale.id]
+            debt_key = form.debt_target.data or ''
+            if debt_key and not has_permission('finance.current.manage'):
+                raise ValueError('Cari borçtan düşme yetkiniz yok.')
+            if debt_key.startswith('sale:') and debt_key[5:].isdigit():
+                lock_ids.append(int(debt_key[5:]))
+            Sale.query.filter(Sale.site_id == sale.site_id, Sale.store_id == sale.store_id,
+                Sale.id.in_(lock_ids)).order_by(Sale.id).with_for_update().all()
+            # Reload quantities after acquiring the lock: another return may have completed.
+            for item in sale.items:
+                db.session.refresh(item)
+            item_map = {item.id: item for item in sale.items}
+            validate_unit_barcode_selections(line_inputs, form.type.data)
+            gross = calculate_line_gross_refund_allocations(item_map, line_inputs)
+            returned = quantize_amount(sum(gross.values(), Decimal('0.00')))
+            replacement = Decimal('0.00')
+            if form.type.data == 'degisim':
+                for line in line_inputs:
+                    records = resolve_replacement_barcodes(line['replacement_product_lookup'], line['quantity'])
+                    replacement += get_customer_gross_amount(records[0].product.sale_price * line['quantity'])
+            plan, debt = settlement_plan(sale, returned, quantize_amount(replacement), debt_key, form.payment_method.data, lock=True)
+            signed_data = dict(sale_id=sale.id, site_id=sale.site_id, store_id=sale.store_id,
+                lines=line_inputs, type=form.type.data, reason=form.reason.data, note=form.note.data, plan=plan)
+            signer = URLSafeTimedSerializer(current_app.config['SECRET_KEY'], salt='return-preview-v1')
+            try:
+                confirmed = signer.loads(request.form.get('settlement_confirmation', ''), max_age=600) == signed_data
+            except BadSignature:
+                confirmed = False
+            if not confirmed:
+                token = signer.dumps(signed_data)
+                db.session.rollback()
+                html, status = render_return_form(form, sale, preview=plan, confirmation=token)
+                if is_ajax_request():
+                    return jsonify(success=False, html=html), status
+                return html, status
             return_record, stock_movements = build_return_record(
                 sale,
                 form.type.data,
@@ -292,7 +334,7 @@ def create():
                     barcode_values=movement["barcode_values"],
                     note=movement.get("note"),
                 )
-            sync_return_finance(return_record)
+            post_settlement(return_record, plan, debt)
             db.session.commit()
             if is_ajax_request():
                 return jsonify(
@@ -330,11 +372,15 @@ def receipt(return_id):
         .first_or_404()
     )
     receipt = build_return_receipt_context(return_record)
+    from app.models import ReturnSettlement
+    settlement = ReturnSettlement.query.filter_by(return_id=return_record.id,
+        site_id=return_record.site_id, store_id=return_record.store_id).first()
     return render_template(
         "returns/receipt.html",
         return_record=return_record,
         return_types=RETURN_TYPES,
         receipt=receipt,
+        settlement=settlement,
     )
 
 

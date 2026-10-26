@@ -103,4 +103,6 @@ __all__ = [
     "UserSiteRole",
     "UserStoreAccess",
     "Variant",
+    "ReturnSettlement",
 ]
+from .return_settlement import ReturnSettlement

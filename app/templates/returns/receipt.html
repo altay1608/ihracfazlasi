@@ -67,6 +67,11 @@
             <span>NET SONUÇ</span>
             <strong>{{ receipt.total_refund|currency }}</strong>
         </div>
+        {% if settlement %}
+        <p>Yöntem: {{ settlement.payment_method }}</p>
+        <p>Cari / veresiye borcundan düşülen: {{ settlement.credit_amount|currency }}</p>
+        <p>{{ 'Tahsil edilen fark' if settlement.cash_amount < 0 else 'Müşteriye ödenen' }}: {{ (settlement.cash_amount|abs)|currency }}</p>
+        {% endif %}
         <div class="thermal-line">------------------------------------------</div>
 
         <div class="thermal-policy">

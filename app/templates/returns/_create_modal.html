@@ -19,6 +19,18 @@
         data-ajax-form
     >
         {{ form.hidden_tag() }}
+        {% if confirmation %}<input type="hidden" name="settlement_confirmation" value="{{ confirmation }}">{% endif %}
+        {% if preview %}
+        <section class="panel" role="status" aria-live="polite">
+            <h2>Fiyat farkı kontrolü — henüz kaydedilmedi</h2>
+            <p>İade ürünleri (KDV dahil): {{ preview.returned|float|currency }}</p>
+            <p>Yeni ürünler (KDV dahil): {{ preview.replacement|float|currency }}</p>
+            <p><strong>{% if preview.net|float > 0 %}Müşteriye iade farkı: {{ preview.net|float|currency }}{% elif preview.net|float < 0 %}Müşteriden tahsil edilecek fark: {{ (preview.net|float * -1)|currency }}{% else %}Fiyat farkı yok.{% endif %}</strong></p>
+            <p>Borçtan düşülecek: {{ preview.credit|float|currency }}</p>
+            <p>{{ 'Tahsil edilecek' if preview.cash|float < 0 else 'Müşteriye ödenecek' }}: {{ (preview.cash|float|abs)|currency }} · {{ preview.method }}</p>
+            <p>Kontrol edip aşağıdan onaylayın. Bilgiler değişirse tekrar önizleme gösterilir.</p>
+        </section>
+        {% endif %}
         <div class="form-grid">
             <div>
                 {{ form.type.label }}
@@ -29,6 +41,12 @@
                 {{ form.reason.label }}
                 {{ form.reason() }}
                 {% for error in form.reason.errors %}<p class="form-error">{{ error }}</p>{% endfor %}
+            </div>
+            <div class="full-span">
+                {{ form.debt_target.label }} {{ form.debt_target() }}
+                <p class="helper-text">Aynı satışın veresiye borcu veya telefon bilgisi eşleşen müşterinin seçtiğiniz borcu azalır. Borcu aşan tutar aşağıdaki yöntemle ödenir.</p>
+                {{ form.payment_method.label }} {{ form.payment_method() }}
+                {% for error in form.payment_method.errors %}<p class="form-error">{{ error }}</p>{% endfor %}
             </div>
             <div class="full-span">
                 {{ form.note.label }}
@@ -110,7 +128,7 @@
 
         <div class="modal-inline-actions">
             <button type="button" class="ghost-button" data-close-modal>Vazgeç</button>
-            {{ form.submit(class_="primary-button") }}
+            <button type="submit" class="primary-button">{{ 'Onayla ve Kaydet' if preview else 'Farkı Kontrol Et' }}</button>
         </div>
     </form>
 </section>

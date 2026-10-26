@@ -811,24 +811,8 @@
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(salePayload)
             });
-            let response = await sendSale();
-            let data = await response.json();
-            if (response.status === 409 && data.code === "profit_confirmation_required") {
-                window.hideBusy?.();
-                const details = (data.warnings || []).map((row) =>
-                    `${row.name}${row.variant ? ' / ' + row.variant : ''} (${row.quantity} adet): ` +
-                    `${formatCurrency(Number(row.charged_total))} — sınır ${formatCurrency(Number(row.minimum_total))}`
-                ).join("\n");
-                if (!window.confirm(`${data.message}\n\n${details}\n\nTutarlar KDV dâhil satır toplamıdır. İptal edersen satış kaydedilmez.`)) {
-                    if (receiptWindow && !receiptWindow.closed) receiptWindow.close();
-                    feedback.textContent = "Satış kaydedilmedi. Sepeti veya indirimi düzenleyebilirsiniz.";
-                    return;
-                }
-                salePayload.profit_warning_confirmed = true;
-                window.showBusy?.("Satış tamamlanıyor...");
-                response = await sendSale();
-                data = await response.json();
-            }
+            const response = await sendSale();
+            const data = await response.json();
             if (!response.ok || !data.success) {
                 throw new Error(data.message || "Satış tamamlanamadı.");
             }

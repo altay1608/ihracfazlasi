@@ -588,6 +588,10 @@ def sync_return_finance(return_record, refund_account_id=None):
     """Post return outflow and exchange replacement inflow as separate entries."""
     if return_record.id is None:
         db.session.flush()
+    from app.models import ReturnSettlement
+    if ReturnSettlement.query.filter_by(return_id=return_record.id, site_id=return_record.site_id,
+            store_id=return_record.store_id).first():
+        return None  # Explicit settlements must not be posted a second time by legacy sync.
     activation = get_finance_activation(return_record.site_id, return_record.store_id)
     occurred_at = return_record.return_date or datetime.utcnow()
     if activation is None or _as_naive_utc(occurred_at) < _as_naive_utc(activation.activated_at):
@@ -1572,20 +1576,24 @@ def credit_sale_collected(sale):
 
 
 def credit_sale_remaining(sale):
-    return max(credit_sale_total(sale) - credit_sale_collected(sale), Decimal("0.00"))
+    from app.services.return_settlement import sale_credit_offsets
+    return max(credit_sale_total(sale) - credit_sale_collected(sale) - sale_credit_offsets(sale), Decimal("0.00"))
 
 
 def credit_sale_summary(sale):
+    from app.services.return_settlement import sale_credit_offsets
     from app.services.finance_corrections import cancelled_collection_ids
     total = credit_sale_total(sale)
     collections = list(getattr(sale, "credit_collections", ()))
     cancelled = cancelled_collection_ids(sale.site_id, sale.store_id, [row.id for row in collections]) if collections and getattr(sale, "site_id", None) else set()
     collected = _money(sum((_money(row.amount) for row in collections if row.id not in cancelled), Decimal("0.00")))
+    return_offset = sale_credit_offsets(sale)
     return {
         "total": total,
         "collected": collected,
         "cancelled_ids": cancelled,
-        "remaining": max(total - collected, Decimal("0.00")),
+        "return_offset": return_offset,
+        "remaining": max(total - collected - return_offset, Decimal("0.00")),
     }
 
 

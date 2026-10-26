@@ -47,7 +47,7 @@
             <thead><tr><th>Cari</th><th>Tür</th><th>Vade</th><th data-summary="currency">Tutar</th><th data-summary="currency">Tahsil Edilen / Ödenen</th><th data-summary="currency">Ürün İadesiyle Düşülen</th><th data-summary="currency">Kalan</th><th>Durum</th><th data-no-filter="true" data-no-sort="true">Tahsilat / Ödeme</th></tr></thead>
             <tbody>
             {% for entry in entries %}
-            {% set returned_amount = supplier_return_totals.get(entry.id, 0) %}
+            {% set returned_amount = supplier_return_totals.get(entry.id, 0) + customer_return_totals.get(entry.id, 0) %}
             {% set settled_amount = entry.amount - entry.remaining_amount - returned_amount %}
             <tr class="{% if entry.remaining_amount == 0 %}finance-row-settled{% elif entry.due_date and entry.due_date < today %}finance-row-overdue{% elif entry.due_date and entry.due_date == today %}finance-row-due{% endif %}">
                 <td>{% for current in current_accounts if current.id == entry.current_account_id %}{{ current.code }} - {{ current.name }}{% endfor %}</td>
