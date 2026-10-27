@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { unstable_cache } from "next/cache";
 import { Metadata } from "next";
 import ProductGrid from "@/components/product/ProductGrid";
 import ProductFilters from "@/components/product/ProductFilters";
@@ -60,7 +61,7 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
   };
 }
 
-async function getCategories(): Promise<Category[]> {
+async function queryCategories(): Promise<Category[]> {
   try {
     const categories = await prisma.category.findMany({
       where: { isActive: true },
@@ -76,12 +77,12 @@ async function getCategories(): Promise<Category[]> {
       ...c,
       productCount: c._count.products,
     }));
-  } catch {
-    return [];
+  } catch (error) {
+    throw error;
   }
 }
 
-async function getProducts(params: {
+async function queryProducts(params: {
   kategori?: string;
   beden?: string;
   siralama?: string;
@@ -164,10 +165,18 @@ async function getProducts(params: {
       })),
       total,
     };
-  } catch {
-    return { products: [], total: 0 };
+  } catch (error) {
+    throw error;
   }
 }
+
+// Public catalog only: never cache sessions, admin data or checkout operations.
+// Arguments (search, size, sort and page) are part of the cache key.
+const cachedCategories = unstable_cache(queryCategories, ["store-categories-v1"], { revalidate: 15 });
+const cachedProducts = unstable_cache(queryProducts, ["store-listing-v1"], { revalidate: 15 });
+const getCategories = () => cachedCategories().catch((): Category[] => []);
+const getProducts = (params: Parameters<typeof queryProducts>[0]) =>
+  cachedProducts(params).catch(() => ({ products: [] as Product[], total: 0 }));
 
 function LoadingGrid() {
   return (

@@ -32,7 +32,7 @@ export default function ProductCard({ product }: ProductCardProps) {
   };
 
   return (
-    <Link href={`/urunler/${slug}-${product.id}`} className="group block w-full">
+    <Link href={`/urunler/${slug}-${product.id}`} prefetch={false} className="group block w-full">
       {/* Image Container */}
       <div className="relative aspect-[3/4] bg-gray-100 rounded-xl sm:rounded-apple overflow-hidden mb-2 sm:mb-4">
         {primaryImage ? (

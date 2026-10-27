@@ -2,6 +2,7 @@ import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { cache } from "react";
+import { unstable_cache } from "next/cache";
 import { categoryIntro, serializeJsonLd } from "@/lib/seo";
 import ProductGrid from "@/components/product/ProductGrid";
 import { prisma } from "@/lib/prisma";
@@ -26,7 +27,7 @@ const getCategory = cache(async (slug: string): Promise<Category | null> => {
   }
 });
 
-async function getCategoryProducts(categoryId: number): Promise<Product[]> {
+async function queryCategoryProducts(categoryId: number): Promise<Product[]> {
   try {
     const products = await prisma.product.findMany({
       where: {
@@ -47,10 +48,13 @@ async function getCategoryProducts(categoryId: number): Promise<Product[]> {
         p.images.find((img) => img.isPrimary)?.imageUrl || p.images[0]?.imageUrl,
       totalStock: p.variants.reduce((sum, v) => sum + v.stock, 0),
     }));
-  } catch {
-    return [];
+  } catch (error) {
+    throw error;
   }
 }
+
+const cachedCategoryProducts = unstable_cache(queryCategoryProducts, ["store-category-products-v1"], { revalidate: 15 });
+const getCategoryProducts = (categoryId: number) => cachedCategoryProducts(categoryId).catch((): Product[] => []);
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;

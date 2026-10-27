@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { shouldLoadDecorativeVideo } from "@/lib/media-preferences";
 
 export default function Hero() {
   const [loadVideo, setLoadVideo] = useState(false);
@@ -11,7 +12,7 @@ export default function Hero() {
   // Keep the first paint light: load the large desktop video only after the
   // page is interactive. Mobile devices never request this file.
   useEffect(() => {
-    if (isMobile) {
+    if (isMobile || !shouldLoadDecorativeVideo()) {
       setLoadVideo(false);
       return;
     }

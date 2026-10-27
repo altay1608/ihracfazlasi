@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { animate, stagger } from "animejs";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { shouldLoadDecorativeVideo } from "@/lib/media-preferences";
 
 export default function PromoVideo() {
   const sectionRef = useRef<HTMLElement>(null);
@@ -13,7 +14,7 @@ export default function PromoVideo() {
   // The promo section is far below the fold. Do not spend bandwidth on its
   // video until the visitor is close to seeing it.
   useEffect(() => {
-    if (isMobile || !sectionRef.current) {
+    if (isMobile || !shouldLoadDecorativeVideo() || !sectionRef.current) {
       setLoadVideo(false);
       return;
     }
