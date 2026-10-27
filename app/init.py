@@ -214,6 +214,8 @@ def register_request_csrf_guard(app):
 def register_security_headers(app):
     @app.after_request
     def add_security_headers(response):
+        # This Flask application is the private store management system, not the storefront.
+        response.headers["X-Robots-Tag"] = "noindex, nofollow, noarchive"
         response.headers.setdefault("X-Frame-Options", "DENY")
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
         response.headers.setdefault("Referrer-Policy", "same-origin")

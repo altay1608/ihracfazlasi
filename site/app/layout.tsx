@@ -5,7 +5,8 @@ import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import Providers from "@/components/Providers";
 import ClientWidgets from "@/components/ClientWidgets";
-import { SITE_CONFIG, STORE_INFO, BRANDS } from "@/lib/constants";
+import { SITE_CONFIG, STORE_INFO } from "@/lib/constants";
+import { serializeJsonLd } from "@/lib/seo";
 
 const inter = Inter({
   subsets: ["latin", "latin-ext"],
@@ -28,7 +29,7 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_CONFIG.url || "https://ihracfazlasigiyim.com"),
   title: {
-    default: `${SITE_CONFIG.name} | Dünya Markaları Erkek Giyim - Bursa İnegöl`,
+    default: "İhraç Fazlası Giyim İnegöl | Erkek Giyim",
     template: `%s | ${SITE_CONFIG.shortName}`,
   },
   description: SITE_CONFIG.description,
@@ -63,9 +64,7 @@ export const metadata: Metadata = {
     description: SITE_CONFIG.description,
     images: [
       {
-        url: "/og-image.jpg",
-        width: 1200,
-        height: 630,
+        url: "/logo.png",
         alt: SITE_CONFIG.name,
       },
     ],
@@ -74,7 +73,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: `${SITE_CONFIG.name} | Dünya Markaları Erkek Giyim`,
     description: SITE_CONFIG.description,
-    images: ["/og-image.jpg"],
+    images: ["/logo.png"],
   },
   robots: {
     index: true,
@@ -89,6 +88,7 @@ export const metadata: Metadata = {
 const jsonLd = {
   "@context": "https://schema.org",
   "@type": "ClothingStore",
+  "@id": `${SITE_CONFIG.url}/#store`,
   name: STORE_INFO.name,
   description: SITE_CONFIG.description,
   url: SITE_CONFIG.url,
@@ -112,19 +112,9 @@ const jsonLd = {
     opens: "10:00",
     closes: "22:00",
   },
-  aggregateRating: {
-    "@type": "AggregateRating",
-    ratingValue: STORE_INFO.googleRating,
-    reviewCount: STORE_INFO.googleReviews,
-    bestRating: 5,
-    worstRating: 1,
-  },
   priceRange: "₺₺",
   image: `${SITE_CONFIG.url}/logo.png`,
-  brand: BRANDS.map((brand) => ({
-    "@type": "Brand",
-    name: brand,
-  })),
+  sameAs: ["https://www.instagram.com/ihrac.fazlasigiyiminegol1/"],
 };
 
 export default function RootLayout({
@@ -142,7 +132,7 @@ export default function RootLayout({
         />
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+          dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
         />
       </head>
       <body className="min-h-screen flex flex-col bg-white dark:bg-[#0a0a0a] text-foreground dark:text-white transition-colors">

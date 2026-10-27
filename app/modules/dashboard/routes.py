@@ -5,14 +5,16 @@ from flask import Blueprint, render_template, request
 from app.services.access_control import has_permission, permission_required
 from app.services.store_tools import due_agenda, slow_stock, customer_history
 from app.services.lobby_finance import build_lobby_finance
+from app.services.finance_reporting import actual_expenses_between, build_operating_profit_summary
 from app.services.identity_access import get_active_site_id, get_active_store_id
 from app.services.reporting import (
     ZERO,
     get_daily_turnover,
     get_dashboard_metrics,
     get_top_products,
+    get_profit_report,
 )
-from app.utils import now_in_istanbul
+from app.utils import now_in_istanbul, quantize_amount
 
 
 bp = Blueprint("dashboard", __name__)
@@ -51,6 +53,10 @@ def index():
     show_finance = has_permission("dashboard.column.finance")
     show_trend = has_permission("dashboard.column.sales_trend")
     metrics = get_dashboard_metrics(today) if show_finance or show_trend else {}
+    if show_finance:
+        operating = build_operating_profit_summary(get_profit_report(today, today), ZERO)
+        expenses = actual_expenses_between(get_active_site_id(), get_active_store_id(), today, today)
+        metrics["net_profit"] = quantize_amount(operating["gross_profit"] - expenses["total"])
     turnover = get_daily_turnover(min(month_start, today - timedelta(days=6)), today) if show_finance or show_trend else []
     chart_data = [{"label": row["date"].strftime("%d.%m"), "value": float(row["revenue"])} for row in turnover[-7:]]
     top_products = get_top_products() if show_trend else []

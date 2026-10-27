@@ -1,33 +1,31 @@
 import { MetadataRoute } from "next";
 import { prisma } from "@/lib/prisma";
 import { slugify } from "@/lib/utils";
+import { SITE_CONFIG } from "@/lib/constants";
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://ihracfazlasigiyim.com";
+const SITE_URL = SITE_CONFIG.url;
+export const revalidate = 3600;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Statik sayfalar
   const staticPages: MetadataRoute.Sitemap = [
     {
       url: SITE_URL,
-      lastModified: new Date(),
       changeFrequency: "daily",
       priority: 1,
     },
     {
       url: `${SITE_URL}/urunler`,
-      lastModified: new Date(),
       changeFrequency: "daily",
       priority: 0.9,
     },
     {
       url: `${SITE_URL}/hakkimizda`,
-      lastModified: new Date(),
       changeFrequency: "monthly",
       priority: 0.6,
     },
     {
       url: `${SITE_URL}/sss`,
-      lastModified: new Date(),
       changeFrequency: "monthly",
       priority: 0.5,
     },
@@ -52,8 +50,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "weekly" as const,
       priority: 0.8,
     }));
-  } catch {
-    // Veritabanı hatası durumunda boş array
+  } catch (error) {
+    // Preserve the previous ISR sitemap instead of publishing an incomplete one.
+    throw error;
   }
 
   // Kategori sayfaları
@@ -63,18 +62,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       where: { isActive: true },
       select: {
         slug: true,
-        createdAt: true,
       },
     });
 
     categoryPages = categories.map((category) => ({
       url: `${SITE_URL}/kategori/${category.slug}`,
-      lastModified: category.createdAt,
       changeFrequency: "weekly" as const,
       priority: 0.7,
     }));
-  } catch {
-    // Veritabanı hatası durumunda boş array
+  } catch (error) {
+    throw error;
   }
 
   return [...staticPages, ...productPages, ...categoryPages];

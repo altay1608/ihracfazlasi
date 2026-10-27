@@ -5,6 +5,7 @@ import ProductFilters from "@/components/product/ProductFilters";
 import { prisma } from "@/lib/prisma";
 import { SITE_CONFIG, BRANDS } from "@/lib/constants";
 import type { Product, Category } from "@/types";
+import { pageNumber } from "@/lib/seo";
 
 // ISR: Revalidate every 60 seconds
 export const revalidate = 60;
@@ -25,7 +26,7 @@ interface PageProps {
 // Dinamik metadata - pagination için doğru canonical
 export async function generateMetadata({ searchParams }: PageProps): Promise<Metadata> {
   const params = await searchParams;
-  const page = parseInt(params.sayfa || "1");
+  const page = pageNumber(params.sayfa);
   const hasFilters = params.kategori || params.beden || params.siralama || params.arama;
 
   // Sayfa 1 ve filtre yoksa ana URL, değilse query string ile
@@ -88,7 +89,7 @@ async function getProducts(params: {
   sayfa?: string;
 }): Promise<{ products: Product[]; total: number }> {
   try {
-    const page = parseInt(params.sayfa || "1");
+    const page = pageNumber(params.sayfa);
     const limit = 12;
     const skip = (page - 1) * limit;
 
@@ -189,7 +190,7 @@ export default async function ProductsPage({ searchParams }: PageProps) {
     getProducts(params),
   ]);
 
-  const page = parseInt(params.sayfa || "1");
+  const page = pageNumber(params.sayfa);
   const limit = 12;
   const totalPages = Math.ceil(total / limit);
 

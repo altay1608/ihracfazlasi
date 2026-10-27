@@ -1,6 +1,7 @@
 import { MetadataRoute } from "next";
+import { SITE_CONFIG } from "@/lib/constants";
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://ihracfazlasigiyim.com";
+const SITE_URL = SITE_CONFIG.url;
 
 export default function robots(): MetadataRoute.Robots {
   return {
@@ -10,16 +11,7 @@ export default function robots(): MetadataRoute.Robots {
         allow: "/",
         disallow: [
           "/api/",
-          "/sepet",
-          "/sepet/",
-          "/admin/",
-          "/favoriler",
-          "/favoriler/",
-          // Filtreli ve parametre iceren sayfalar
-          "/urunler?*",
-          // Eski URL formatlari (redirect edilecek ama indexlenmemeli)
-          "/*?product*",
-          "/*?category*",
+          // Authenticated pages and public filters remain crawlable so Google can read noindex.
         ],
       },
     ],

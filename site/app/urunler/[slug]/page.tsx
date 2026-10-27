@@ -1,5 +1,7 @@
 import { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
+import { cache } from "react";
+import { serializeJsonLd } from "@/lib/seo";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import ProductGallery from "@/components/product/ProductGallery";
@@ -25,11 +27,11 @@ interface PageProps {
 function extractIdFromSlug(slug: string): number | null {
   const parts = slug.split("-");
   const lastPart = parts[parts.length - 1];
-  const id = parseInt(lastPart);
-  return isNaN(id) ? null : id;
+  const id = Number(lastPart);
+  return /^\d+$/.test(lastPart) && Number.isSafeInteger(id) && id > 0 ? id : null;
 }
 
-async function getProduct(slug: string): Promise<Product | null> {
+const getProduct = cache(async (slug: string): Promise<Product | null> => {
   const id = extractIdFromSlug(slug);
   if (!id) return null;
 
@@ -54,7 +56,7 @@ async function getProduct(slug: string): Promise<Product | null> {
   } catch {
     return null;
   }
-}
+});
 
 async function getRelatedProducts(productId: number, categoryId: number | null): Promise<Product[]> {
   try {
@@ -137,6 +139,9 @@ export default async function ProductDetailPage({ params }: PageProps) {
     notFound();
   }
 
+  const canonicalSlug = `${slugify(product.name)}-${product.id}`;
+  if (slug !== canonicalSlug) permanentRedirect(`/urunler/${canonicalSlug}`);
+
   const relatedProducts = await getRelatedProducts(product.id, product.categoryId);
 
   // WhatsApp message for this product
@@ -152,10 +157,6 @@ export default async function ProductDetailPage({ params }: PageProps) {
     description: product.description || `${product.name} - İhraç fazlası orijinal ürün`,
     image: product.images?.map(img => img.imageUrl) || [],
     sku: product.sku,
-    brand: {
-      "@type": "Brand",
-      name: product.name.split(" ")[0], // First word is usually brand
-    },
     offers: {
       "@type": "Offer",
       url: productUrl,
@@ -209,12 +210,12 @@ export default async function ProductDetailPage({ params }: PageProps) {
       {/* Product Schema */}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(productSchema) }}
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(productSchema) }}
       />
       {/* Breadcrumb Schema */}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(breadcrumbSchema) }}
       />
 
       <div className="section-sm">

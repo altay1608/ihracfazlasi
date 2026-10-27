@@ -1,8 +1,7 @@
 // Site bilgileri
 const getBaseUrl = () => {
-  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
-  if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL;
-  return "";
+  // Canonicals must never use a temporary deployment hostname.
+  return (process.env.NEXT_PUBLIC_SITE_URL || "https://ihracfazlasigiyim.com").replace(/\/+$/, "");
 };
 
 export const SITE_CONFIG = {

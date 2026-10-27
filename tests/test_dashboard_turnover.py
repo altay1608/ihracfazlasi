@@ -142,6 +142,16 @@ class DashboardTurnoverTests(unittest.TestCase):
         turnover.assert_not_called()
         metrics.assert_not_called()
 
+    def test_lobby_net_profit_deducts_recorded_expenses_and_commission(self):
+        with patch("app.modules.dashboard.routes.get_profit_report", return_value={
+            "revenue_after_discount": Decimal("2200"), "cost": Decimal("1100"), "products": []
+        }), patch("app.modules.dashboard.routes.actual_expenses_between", return_value={
+            "total": Decimal("250")
+        }), patch("app.modules.dashboard.routes.render_template", return_value="ok") as render:
+            response = self.client.get("/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(render.call_args.kwargs["metrics"]["net_profit"], Decimal("750.00"))
+
     def test_dashboard_metrics_midnight_and_no_unused_relationship_queries(self):
         sale = self.sale(datetime(2026, 10, 1, 0, 1), "110")
         sale.items.append(SaleItem(product=self.product, quantity=1, unit_price=Decimal("100")))

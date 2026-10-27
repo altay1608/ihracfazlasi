@@ -40,7 +40,7 @@
                 <span>Bugünkü işlem</span>
                 <strong>Satış listesine git</strong>
             </div>
-            <p class="lobby-link-note">{{ metrics.discount|currency }} toplam indirim</p>
+            {% if can('dashboard.column.finance') %}<p class="lobby-link-note">{{ metrics.net_profit|currency }} bugünkü net kâr</p>{% endif %}
         </a>
         {% endif %}
 
@@ -55,7 +55,8 @@
                 <span>Bugünkü ciro</span>
                 <strong>Günlük ciroları aç</strong>
             </div>
-            <p class="lobby-link-note">{{ metrics.profit|currency }} tahmini kâr</p>
+            <p class="lobby-link-note">{{ metrics.net_profit|currency }} bugünkü net kâr</p>
+            <p class="helper-text">KDV hariç; ürün maliyeti, kayıtlı gider ve komisyon sonrası.</p>
         </a>
         {% endif %}
 

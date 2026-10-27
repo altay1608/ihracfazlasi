@@ -62,8 +62,18 @@ class AuthTests(unittest.TestCase):
         response = self.client.get("/login")
 
         self.assertEqual(response.headers["X-Frame-Options"], "DENY")
+        self.assertEqual(response.headers["X-Robots-Tag"], "noindex, nofollow, noarchive")
         self.assertEqual(response.headers["X-Content-Type-Options"], "nosniff")
         self.assertIn("frame-ancestors 'none'", response.headers["Content-Security-Policy"])
+
+    def test_management_redirects_and_authenticated_pages_are_not_indexable(self):
+        for path in ("/", "/products", "/finance"):
+            response = self.client.get(path)
+            self.assertEqual(response.headers["X-Robots-Tag"], "noindex, nofollow, noarchive")
+        self.login()
+        response = self.client.get("/")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("noindex", response.headers["X-Robots-Tag"])
 
     def test_login_lists_store_features_without_package_prices(self):
         response = self.client.get("/login")
