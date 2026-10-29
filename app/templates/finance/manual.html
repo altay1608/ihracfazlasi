@@ -1,22 +1,22 @@
 {% extends "base.html" %}
 {% from "_ui_icons.html" import reverse_icon %}
-{% block title %}Manuel Finans Hareketi{% endblock %}
-{% block page_title %}Manuel Finans Hareketi{% endblock %}
+{% block title %}Diğer Para Giriş / Çıkışı{% endblock %}
+{% block page_title %}Diğer Para Giriş / Çıkışı{% endblock %}
 {% block topbar_actions %}{% endblock %}
 {% block content %}
 <section class="finance-page">
-    {% include "finance/_nav.html" %}
+    {% include "finance/_nav.html" %}<p class="finance-tool helper-text">Bu ekran diğer para giriş / çıkışları içindir. Satışlar otomatik kaydedilir. Toptancı ödemesini Borçlar ve Alacaklar, müşteri veresiye ödemesini Veresiye Tahsilatı, kasa–banka aktarımını Para Aktar ekranından yapın. Aynı parayı iki kez kaydetmeyin.</p>
     <form method="post" class="finance-tool finance-form-grid finance-form-wide" data-manual-finance-form>
         <input type="hidden" name="csrf_token" value="{{ session.get('auth_csrf_token', '') }}">
         <label>İşlem Tarihi<input type="datetime-local" name="occurred_at" value="{{ now_value }}" required></label>
         <label>Hesap<select name="account_id" required>{% for account in accounts %}<option value="{{ account.id }}">{{ account.name }}</option>{% endfor %}</select></label>
-        <label>Yön<select name="direction" required data-manual-direction><option value="in">Gelir</option><option value="out">Gider</option></select></label>
+        <label>Yön<select name="direction" required data-manual-direction><option value="in">Para girişi</option><option value="out">Para çıkışı</option></select></label>
         <label>Kategori<select name="category_id" required data-manual-category>{% for category in categories if not category.is_system or category.code in ['MANUAL_IN','MANUAL_OUT'] %}<option value="{{ category.id }}" data-direction="{{ category.direction }}" data-default-overhead="{{ '1' if category.default_is_overhead else '0' }}">{{ category.name }}</option>{% endfor %}</select></label>
         <label>Tutar<input type="number" name="amount" min="0.01" step="0.01" required></label>
         <label>Belge No<input type="text" name="document_no" maxlength="100"></label>
         <label>Cari (isteğe bağlı)<select name="current_account_id"><option value="">Cari yok</option>{% for current in current_accounts %}<option value="{{ current.id }}">{{ current.code }} - {{ current.name }}</option>{% endfor %}</select></label>
         <input type="hidden" name="is_overhead_mode" value="default" data-overhead-mode>
-        <label class="finance-check finance-overhead-check"><input type="checkbox" name="is_overhead" value="1" data-manual-overhead><span>Genel Gider</span></label>
+        <label class="finance-check finance-overhead-check"><input type="checkbox" name="is_overhead" value="1" data-manual-overhead><span>Kâr hesabında işletme gideri olarak düş</span></label>
         <p class="helper-text finance-overhead-message finance-full" data-overhead-message hidden>Bu hareket kaydedildiğinde fiili genel gidere dahil edilir.</p>
         <label class="finance-full">Açıklama<textarea name="description" rows="3" required></textarea></label>
         <button class="primary-button" type="submit">Hareketi Kaydet</button>

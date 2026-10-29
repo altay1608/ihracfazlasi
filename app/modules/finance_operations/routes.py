@@ -24,6 +24,7 @@ from app.models import (
 )
 from app.services.access_control import permission_required
 from app.services.finance_corrections import cancelled_collection_ids
+from app.services.finance_overview import build_money_overview
 from app.services.finance_operations import (
     closing_expectations,
     create_daily_closing,
@@ -231,6 +232,8 @@ def dashboard():
     except (TypeError, ValueError):
         selected_month = today.replace(day=1)
     month_start, month_end = month_bounds(selected_month)
+    overview_end = min(month_end, today) if month_start <= today else month_end
+    money_overview = build_money_overview(site_id, store_id, month_start, overview_end)
     daily_sales, _ = get_daily_report(today)
     daily_profit = get_profit_report(today, today)
     monthly_sales, _ = get_daily_report(month_start, month_end)
@@ -261,11 +264,7 @@ def dashboard():
         selected_month=month_start,
         as_of=today,
     )
-    accounts = FinanceAccount.query.filter_by(site_id=site_id, store_id=store_id, is_active=True).all()
-    balances = []
-    from app.services.finance import get_account_balance
-    for account in accounts:
-        balances.append({"account": account, "balance": get_account_balance(account)})
+    balances = money_overview["accounts"]
     pending_approvals = FinanceApproval.query.filter_by(site_id=site_id, store_id=store_id, status="pending").count()
     open_payables = db.session.query(func.coalesce(func.sum(CurrentEntry.remaining_amount), 0)).filter_by(
         site_id=site_id, store_id=store_id, entry_type="payable"
@@ -319,6 +318,7 @@ def dashboard():
     recent_closing = DailyCashClosing.query.filter_by(site_id=site_id, store_id=store_id).order_by(DailyCashClosing.business_date.desc()).first()
     return render_template(
         "finance_operations/dashboard.html", balances=balances,
+        money_overview=money_overview, overview_end=overview_end,
         pending_approvals=pending_approvals, open_payables=open_payables,
         recent_expenses=recent_expenses, recent_closing=recent_closing,
         expectations=closing_expectations(site_id, store_id, today), payable_aging=payable_aging, today=today,

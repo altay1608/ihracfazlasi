@@ -534,9 +534,9 @@ class FinanceModuleTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         page = response.get_data(as_text=True)
-        self.assertIn("Masraf Fişi ve Belge Yönetimi", page)
+        self.assertIn("Masraf Gir ve Geçmişi Gör", page)
         self.assertIn("Diğer Modüller", page)
-        self.assertIn("Diğer Finans İşlemleri", page)
+        self.assertIn("Belgeler ve Kontroller", page)
 
     def test_expense_receipt_form_creates_approved_expense_and_movement(self):
         activate_finance(

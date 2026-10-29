@@ -1,60 +1,85 @@
 {% extends "base.html" %}
-{% block title %}Finans Merkezi | İhraç Fazlası Giyim{% endblock %}
-{% block page_title %}Finans ve Ön Muhasebe{% endblock %}
+{% block title %}Finans Özeti | İhraç Fazlası Giyim{% endblock %}
+{% block page_title %}Finans Özeti{% endblock %}
+{% block topbar_actions %}{% endblock %}
 {% block content %}
-<section class="finance-page finance-workspace">
+<section class="finance-page finance-workspace finance-clear">
     {% include "finance/_nav.html" %}
-    <div class="finance-quick-grid">
-        {% if can('finance.manual.create') %}
-        <a href="{{ url_for('finance_ops.expenses') }}"><strong>Masraf Gir</strong><span>Fiş veya fatura ekleyin</span></a>
-        {% endif %}
-        {% if can('finance.current.manage') %}
-        <a href="{{ url_for('finance_ops.supplier_invoices') }}"><strong>Tedarikçi Faturası</strong><span>Borç ve stok girişini kaydedin</span></a>
-        {% endif %}
-        {% if can('finance.manual.create') %}
-        <a href="{{ url_for('finance_ops.personnel') }}"><strong>Personel İşlemi</strong><span>Avans veya mağaza harcaması</span></a>
-        {% endif %}
-        {% if can('finance.accounts.manage') %}
-        <a href="{{ url_for('finance_ops.daily_closing') }}"><strong>Gün Sonu Kapat</strong><span>Kasa ve vardiya teslimi</span></a>
-        {% endif %}
-        {% if can('finance.current.manage') %}
-        <a href="{{ url_for('finance.current_accounts') }}"><strong>Borç Öde</strong><span>Cari borç ve tahsilat işlemleri</span></a>
-        {% endif %}
-        {% if can('finance.transfer.create') %}
-        <a href="{{ url_for('finance.transfers') }}"><strong>Para Transferi</strong><span>Kasa, banka ve POS hesapları</span></a>
-        {% endif %}
-    </div>
-    <div class="finance-balance-grid">
-        {% for row in balances %}<article class="finance-balance-card"><span>{{ row.account.name }}</span><strong>{{ row.balance|currency }}</strong><small>{{ row.account.display_code }}</small></article>{% endfor %}
-        <article class="finance-balance-card finance-balance-total"><span>Açık Tedarikçi Borcu</span><strong>{{ open_payables|currency }}</strong><small>Ödenecek cari bakiye</small></article>
-        <article class="finance-balance-card {% if pending_approvals %}finance-alert-card{% endif %}"><span>Bekleyen Onay</span><strong>{{ pending_approvals }}</strong><small><a href="{{ url_for('finance_ops.approvals') }}">Onay merkezine git</a></small></article>
-    </div>
-    <section class="finance-tool {% if pos_document_summary.should_remind %}finance-alert-card{% endif %}">
-        <div class="section-heading">
-            <div><p class="eyebrow">AYLIK POS EVRAK TAKİBİ</p><h2>Kart Satışı ve Kaydedilen Belgeler</h2></div>
-            {% if pos_document_summary.should_remind %}<span class="status-badge warning">Ay sonu kontrolü</span>{% endif %}
-        </div>
-        {% if pos_document_summary.should_remind %}
-        <div class="finance-notice"><div><strong>Bu ayın POS evrak kontrolü tamamlanmadı.</strong><span>Kalan {{ pos_document_summary.remaining|currency }} için alış veya masraf belgelerini kontrol edin. Bu bilgi muhasebe evrak takibine yardımcıdır; vergisel uygunluğu mali müşavirinizle doğrulayın.</span></div></div>
-        {% endif %}
+    <section class="finance-tool" id="overview">
+        <p class="eyebrow">BUGÜNKÜ DURUM · {{ today|tr_date }}</p><h2>Param nerede?</h2>
+        <p class="helper-text">Bu bakiyeler tüm kayıtların güncel sonucudur. Aşağıdaki ay seçimi bu bakiyeleri değiştirmez.</p>
         <div class="finance-balance-grid">
-            <article class="finance-balance-card"><span>Kredi Kartı Satışları</span><strong>{{ pos_document_summary.card_total|currency }}</strong><small>{{ pos_document_summary.month_start.strftime('%m.%Y') }}</small></article>
-            <article class="finance-balance-card"><span>Tedarikçi Faturaları</span><strong>{{ pos_document_summary.supplier_document_total|currency }}</strong><small><a href="{{ url_for('finance_ops.supplier_invoices') }}">Fatura ekle veya görüntüle</a></small></article>
-            <article class="finance-balance-card"><span>Masraf Belgeleri</span><strong>{{ pos_document_summary.expense_document_total|currency }}</strong><small>{% if can('finance.manual.create') %}<a href="{{ url_for('finance_ops.expenses') }}">Masraf belgesi ekle</a>{% else %}Görüntüleme yetkisi yok{% endif %}</small></article>
-            <article class="finance-balance-card finance-balance-total"><span>Kaydedilen Belge Toplamı</span><strong>{{ pos_document_summary.document_total|currency }}</strong><small>{% if pos_document_summary.remaining > 0 %}Kontrol edilecek fark: {{ pos_document_summary.remaining|currency }}{% elif pos_document_summary.surplus > 0 %}Belge fazlası: {{ pos_document_summary.surplus|currency }}{% else %}Tutarlar eşit{% endif %}</small></article>
+            <article class="finance-balance-card finance-balance-total"><span>Kasa + banka</span><strong>{{ money_overview.available_money|currency }}</strong><small>Sistemde kayıtlı kullanılabilir para</small></article>
+            <article class="finance-balance-card"><span>Nakit kasa</span><strong>{{ money_overview.cash_balance|currency }}</strong><small>Kasada bulunması beklenen tutar</small></article>
+            <article class="finance-balance-card"><span>Banka / EFT</span><strong>{{ money_overview.bank_balance|currency }}</strong><small>Banka hesabında bulunması beklenen tutar</small></article>
         </div>
-        <p class="helper-text">Bu ekran yalnız evrak tamlık kontrolüdür. Kart tahsilatı ile alış/masraf belgelerinin birebir eşit olması gerektiğine dair hukuki karar vermez.</p>
+        <div class="finance-balance-grid">
+            <article class="finance-balance-card"><span>POS'tan gelecek</span><strong>{{ money_overview.pos_receivable|currency }}</strong><small>Henüz bankaya aktarılmamış kart bakiyesi</small></article>
+            <article class="finance-balance-card"><span>Veresiye hesap bakiyesi</span><strong>{{ money_overview.credit_receivable|currency }}</strong><small>Hazır para değildir. <a href="#credit-sales">Müşteri listesini aç</a></small></article>
+            <article class="finance-balance-card"><span>Toptancılara borcum</span><strong>{{ open_payables|currency }}</strong><small>{% if can('finance.current.view') %}<a href="{{ url_for('finance.current_accounts') }}">Borçları ve ödemeleri gör</a>{% else %}Ödenmemiş borç kayıtları{% endif %}</small></article>
+            {% if money_overview.business_card_balance %}<article class="finance-balance-card"><span>İşletme kartı bakiyesi</span><strong>{{ money_overview.business_card_balance|currency }}</strong><small>Eksi tutar ödenecek kart borcudur.</small></article>{% endif %}
+        </div>
+        <p class="helper-text">Hazır para, alacak ve borç birbirinden ayrıdır. Gerçek kasa/banka farkını bulmak için bu tutarları sayım ve banka ekstresiyle karşılaştırın.</p>
+        <details class="finance-disclosure"><summary>Hesapların tamamını göster</summary><div class="finance-summary-list">{% for row in money_overview.accounts %}<span>{{ row.account.name }}{% if not row.account.is_active %} (kapalı hesap){% endif %}<strong>{{ row.balance|currency }}</strong></span>{% endfor %}</div></details>
     </section>
-    <section class="finance-tool">
-        <div class="section-heading">
-            <div><p class="eyebrow">OTOMATİK SATIŞ VE GİDER TAKİBİ</p><h2>Günlük Kâr: Planlanan ve Gerçekleşen</h2></div>
+    <section class="finance-tool"><p class="eyebrow">İŞLEM SEÇİN</p><h2>Ne yapmak istiyorsunuz?</h2>
+        <div class="finance-quick-grid">
+            {% if can('finance.manual.create') %}<a href="{{ url_for('finance_ops.expenses') }}"><strong>Masraf gir</strong><span>Kargo, elektrik, kira gibi harcamalar</span></a>{% endif %}
+            {% if can('finance.current.manage') %}<a href="{{ url_for('finance.current_accounts') }}"><strong>Toptancı borcu / ödeme</strong><span>Mal aldığınız yere borç ekleyin veya ödeyin</span></a><a href="#credit-sales"><strong>Veresiye tahsil et</strong><span>Müşterinin satış borcundan ödeme alın</span></a>{% endif %}
+            {% if can('finance.transfer.create') %}<a href="{{ url_for('finance.transfers') }}"><strong>Para aktar</strong><span>Kasa → banka gibi kendi hesaplarınız arasında</span></a>{% endif %}
+        </div>
+        <p class="helper-text">Her gerçek ödemeyi yalnız bir kez kaydedin. Satışlar otomatik işlenir; tekrar gelir eklemeniz gerekmez.</p>
+    </section>
+    <section class="finance-tool" id="month-summary">
+        <div class="section-heading"><div><p class="eyebrow">{{ selected_month|tr_date }} – {{ overview_end|tr_date }}</p><h2>Ayın para hareketleri</h2></div>
             <form method="get" class="finance-filter-row">
                 <label>Ay
-                    <select name="month" onchange="this.form.submit()">
+                    <select name="month" >
                         {% for option in month_options %}<option value="{{ option.value }}" {% if option.value == selected_month.strftime('%Y-%m') %}selected{% endif %}>{{ option.label }}</option>{% endfor %}
                     </select>
                 </label>
-            </form>
+            <button class="ghost-button" type="submit">Ayı Göster</button></form>
+        </div>
+        <div class="finance-balance-grid">
+            <article class="finance-balance-card finance-balance-total"><span>Finans defterindeki net ciro</span><strong>{{ money_overview.period.net_turnover|currency }}</strong><small>KDV dâhil, indirim ve iadeler sonrası. Veresiye satışlar dâhil.</small></article>
+            <article class="finance-balance-card"><span>Ödeme ve diğer çıkışlar</span><strong>{{ money_overview.period.payments_total|currency }}</strong><small>Aşağıdaki dört kalemin toplamı; kâr hesabı değildir.</small></article>
+        </div>
+        <div class="finance-summary-list">
+            <span>Toptancı / cari borç ödemeleri <strong>{{ money_overview.period.supplier_payments|currency }}</strong></span>
+            <span>Manuel masraflar ve diğer çekimler <strong>{{ money_overview.period.manual_outflows|currency }}</strong></span>
+            <span>Dönemsel borç ödemeleri <strong>{{ money_overview.period.obligation_payments|currency }}</strong></span>
+            <span>POS komisyonları <strong>{{ money_overview.period.pos_commissions|currency }}</strong></span>
+        </div>
+        <p class="helper-text">Tutarlar finans kayıt tarihine göredir; iptal/ters kayıtlar düşülür. Kasa–banka aktarımları ve veresiye tahsilatları yeni ciro değildir. İadeler cirodan düşüldüğü için yukarıdaki ödeme toplamında tekrar sayılmaz. Açılış ve bakiye düzeltmeleri bu dört kaleme dâhil değildir.</p>
+        <p class="helper-text">Ciro − ödeme farkı kâr değildir: toptancı ödemesi geçmiş borca ait olabilir, manuel çıkış ortak çekimi olabilir, veresiye henüz tahsil edilmemiş olabilir.</p>
+        <a class="ghost-button" href="{{ url_for('finance.index',date_from=selected_month.isoformat(),date_to=overview_end.isoformat()) }}">Bu ayın tüm hareketlerini incele</a>
+    </section>
+    <section class="finance-tool"><p class="eyebrow">BUGÜN · {{ today|tr_date }}</p><h2>Bugünkü sonuç</h2><div class="finance-balance-grid">
+        <article class="finance-balance-card"><span>Ürünlerden brüt kâr</span><strong>{{ daily_operating.gross_profit|currency }}</strong><small>KDV hariç satış − satılan ürün maliyeti</small></article>
+        <article class="finance-balance-card"><span>Kaydedilen gider + komisyon</span><strong>{{ actual_daily_expenses.total|currency }}</strong><small>Genel gider olarak işaretlenen kayıtlar + POS komisyonu</small></article>
+        <article class="finance-balance-card finance-balance-total"><span>Gider sonrası sonuç</span><strong>{{ actual_daily_result|currency }}</strong><small>Brüt kâr − kaydedilen gider − komisyon</small></article>
+    </div><p class="helper-text">Kâr raporundaki satış/maliyet hesabına dayanır. Eksik girilen giderler sonucu etkiler; bu tutar kasa bakiyesi veya vergi beyannamesi kârı değildir.</p></section>
+    <section id="credit-sales" class="finance-tool {% if credit_due_summary.overdue or credit_due_summary.today %}finance-alert-card{% endif %}">
+        <p class="eyebrow">MÜŞTERİDEN GELECEK PARA</p><h2>Veresiye tahsil et</h2>
+        <p class="helper-text">Satışta veresiye seçilen borçlar burada otomatik görünür. Müşteri ödeme yaptığında ilgili fişten “Ödeme Al” seçin. Aynı ödeme için ayrıca cari tahsilat veya manuel gelir girmeyin.</p>
+        <div class="finance-summary-list"><span>Vadesi Geçen <strong class="money-out">{{ credit_due_summary.overdue }} kayıt</strong></span><span>Bugün <strong>{{ credit_due_summary.today }} kayıt</strong></span><span>Önümüzdeki 7 Gün <strong>{{ credit_due_summary.next_7 }} kayıt</strong></span></div>
+        {% if credit_due_rows %}
+        <div class="table-wrap"><table class="finance-table"><thead><tr><th>Fiş</th><th>Müşteri</th><th>Vade</th><th>Veresiye</th><th>Tahsil Edilen</th><th>Kalan</th><th>Durum</th><th data-no-filter="true" data-no-sort="true">Tahsilat</th></tr></thead><tbody>
+        {% for row in credit_due_rows %}{% set sale = row.sale %}<tr>
+            <td><a href="{{ url_for('sales.detail', sale_id=sale.id) }}">#{{ sale.document_no }}</a></td>
+            <td>{{ sale.customer_name or sale.customer_mobile or sale.customer_phone or 'Müşteri adı girilmemiş' }}</td>
+            <td>{{ sale.payment_due_date|tr_date if sale.payment_due_date else 'Vade belirtilmemiş' }}</td>
+            <td>{{ row.total|currency }}</td><td>{{ row.collected|currency }}{% if row.return_offset %}<br><small>İadeyle düşülen: {{ row.return_offset|currency }}</small>{% endif %}</td><td><strong>{{ row.remaining|currency }}</strong></td>
+            <td>{% if sale.payment_due_date and sale.payment_due_date < today %}<span class="status-badge danger">Vadesi geçti</span>{% elif sale.payment_due_date == today %}<span class="status-badge warning">Bugün</span>{% elif row.collected > 0 %}<span class="status-badge warning">Kısmi ödendi</span>{% else %}<span class="status-badge success">Bekliyor</span>{% endif %}</td>
+            <td>{% if can('finance.current.manage') %}<details class="credit-collection-action"><summary class="primary-button">Ödeme Al</summary><form method="post" action="{{ url_for('finance_ops.collect_credit_sale', sale_id=sale.id) }}" class="finance-inline-action"><input type="hidden" name="csrf_token" value="{{ session.get('auth_csrf_token', '') }}"><select name="payment_method" required aria-label="Tahsilat yöntemi">{% for method in credit_collection_methods %}<option value="{{ method }}">{{ method }}</option>{% endfor %}</select><input type="number" name="amount" min="0.01" max="{{ row.remaining }}" step="0.01" value="{{ row.remaining }}" required aria-label="Tahsilat tutarı"><input type="datetime-local" name="occurred_at" value="{{ collection_now }}" required aria-label="Tahsilat tarihi ve saati"><button class="primary-button" type="submit">Kaydet</button></form></details>{% else %}<span class="muted">Yetki gerekli</span>{% endif %}</td>
+        </tr>{% endfor %}</tbody></table></div>
+        {% else %}<p class="helper-text">Açık veresiye ödemesi bulunmuyor.</p>{% endif %}
+        {% if recent_credit_collections %}<details class="finance-disclosure"><summary>Geçmiş veresiye tahsilatlarını göster</summary><div class="finance-table-section"><div class="section-heading"><div><p class="eyebrow">TAHSİLAT GEÇMİŞİ</p><h3>Son Veresiye Ödemeleri</h3></div></div><div class="table-wrap"><table class="finance-table"><thead><tr><th>Tarih</th><th>Fiş</th><th>Müşteri</th><th>Yöntem</th><th>Tutar</th><th>Durum</th></tr></thead><tbody>{% for collection in recent_credit_collections %}<tr><td>{{ collection.occurred_at|tr_datetime }}</td><td><a href="{{ url_for('sales.detail', sale_id=collection.sale_id) }}">#{{ collection.sale.document_no }}</a></td><td>{{ collection.sale.customer_name or collection.sale.customer_mobile or collection.sale.customer_phone or '-' }}</td><td>{{ collection.payment_method }}</td><td>{{ collection.amount|currency }}</td><td>{{ 'İptal / ters kayıt' if collection.id in cancelled_credit_collection_ids else 'Geçerli' }}</td></tr>{% endfor %}</tbody></table></div></div></details>{% endif %}
+    </section>
+    <details class="finance-disclosure"><summary>Kâr hesabı ve gider planı ayrıntıları</summary>    <section class="finance-tool">
+        <div class="section-heading">
+            <div><p class="eyebrow">OTOMATİK SATIŞ VE GİDER TAKİBİ</p><h2>Günlük Kâr: Planlanan ve Gerçekleşen</h2></div>
+
         </div>
         <div class="finance-balance-grid">
             <article class="finance-balance-card finance-alert-card"><span>Güne Başlangıç</span><strong>-{{ daily_operating.overhead|currency }}</strong><small>Aylık planın bugünkü payı</small></article>
@@ -93,23 +118,25 @@
         </div>
         <p class="helper-text">Satış, indirim, iade ve ürün maliyeti değişiklikleri hesaplara otomatik yansır. Günlük genel gider, o gün satılan ürünlere KDV hariç satış payları oranında dağıtılır.</p>
     </section>
-    <section id="credit-sales" class="finance-tool {% if credit_due_summary.overdue or credit_due_summary.today %}finance-alert-card{% endif %}">
-        <p class="eyebrow">VERESİYE HATIRLATMALARI</p><h2>Müşteri Ödeme Takibi</h2>
-        <div class="finance-summary-list"><span>Vadesi Geçen <strong class="money-out">{{ credit_due_summary.overdue }} kayıt</strong></span><span>Bugün <strong>{{ credit_due_summary.today }} kayıt</strong></span><span>Önümüzdeki 7 Gün <strong>{{ credit_due_summary.next_7 }} kayıt</strong></span></div>
-        {% if credit_due_rows %}
-        <div class="table-wrap"><table class="finance-table"><thead><tr><th>Fiş</th><th>Müşteri</th><th>Vade</th><th>Veresiye</th><th>Tahsil Edilen</th><th>Kalan</th><th>Durum</th><th data-no-filter="true" data-no-sort="true">Tahsilat</th></tr></thead><tbody>
-        {% for row in credit_due_rows %}{% set sale = row.sale %}<tr>
-            <td><a href="{{ url_for('sales.detail', sale_id=sale.id) }}">#{{ sale.document_no }}</a></td>
-            <td>{{ sale.customer_name or sale.customer_mobile or sale.customer_phone or 'Müşteri adı girilmemiş' }}</td>
-            <td>{{ sale.payment_due_date|tr_date if sale.payment_due_date else 'Vade belirtilmemiş' }}</td>
-            <td>{{ row.total|currency }}</td><td>{{ row.collected|currency }}{% if row.return_offset %}<br><small>İadeyle düşülen: {{ row.return_offset|currency }}</small>{% endif %}</td><td><strong>{{ row.remaining|currency }}</strong></td>
-            <td>{% if sale.payment_due_date and sale.payment_due_date < today %}<span class="status-badge danger">Vadesi geçti</span>{% elif sale.payment_due_date == today %}<span class="status-badge warning">Bugün</span>{% elif row.collected > 0 %}<span class="status-badge warning">Kısmi ödendi</span>{% else %}<span class="status-badge success">Bekliyor</span>{% endif %}</td>
-            <td>{% if can('finance.current.manage') %}<details class="credit-collection-action"><summary class="primary-button">Ödeme Al</summary><form method="post" action="{{ url_for('finance_ops.collect_credit_sale', sale_id=sale.id) }}" class="finance-inline-action"><input type="hidden" name="csrf_token" value="{{ session.get('auth_csrf_token', '') }}"><select name="payment_method" required aria-label="Tahsilat yöntemi">{% for method in credit_collection_methods %}<option value="{{ method }}">{{ method }}</option>{% endfor %}</select><input type="number" name="amount" min="0.01" max="{{ row.remaining }}" step="0.01" value="{{ row.remaining }}" required aria-label="Tahsilat tutarı"><input type="datetime-local" name="occurred_at" value="{{ collection_now }}" required aria-label="Tahsilat tarihi ve saati"><button class="primary-button" type="submit">Kaydet</button></form></details>{% else %}<span class="muted">Yetki gerekli</span>{% endif %}</td>
-        </tr>{% endfor %}</tbody></table></div>
-        {% else %}<p class="helper-text">Açık veresiye ödemesi bulunmuyor.</p>{% endif %}
-        {% if recent_credit_collections %}<div class="finance-table-section"><div class="section-heading"><div><p class="eyebrow">TAHSİLAT GEÇMİŞİ</p><h3>Son Veresiye Ödemeleri</h3></div></div><div class="table-wrap"><table class="finance-table"><thead><tr><th>Tarih</th><th>Fiş</th><th>Müşteri</th><th>Yöntem</th><th>Tutar</th><th>Durum</th></tr></thead><tbody>{% for collection in recent_credit_collections %}<tr><td>{{ collection.occurred_at|tr_datetime }}</td><td><a href="{{ url_for('sales.detail', sale_id=collection.sale_id) }}">#{{ collection.sale.document_no }}</a></td><td>{{ collection.sale.customer_name or collection.sale.customer_mobile or collection.sale.customer_phone or '-' }}</td><td>{{ collection.payment_method }}</td><td>{{ collection.amount|currency }}</td><td>{{ 'İptal / ters kayıt' if collection.id in cancelled_credit_collection_ids else 'Geçerli' }}</td></tr>{% endfor %}</tbody></table></div></div>{% endif %}
+</details>
+    <details class="finance-disclosure"><summary>Alış faturaları ve masraf belgeleri</summary>    <section class="finance-tool {% if pos_document_summary.should_remind %}finance-alert-card{% endif %}">
+        <div class="section-heading">
+            <div><p class="eyebrow">AYLIK POS EVRAK TAKİBİ</p><h2>Kart Satışı ve Kaydedilen Belgeler</h2></div>
+            {% if pos_document_summary.should_remind %}<span class="status-badge warning">Ay sonu kontrolü</span>{% endif %}
+        </div>
+        {% if pos_document_summary.should_remind %}
+        <div class="finance-notice"><div><strong>Bu ayın POS evrak kontrolü tamamlanmadı.</strong><span>Kalan {{ pos_document_summary.remaining|currency }} için alış veya masraf belgelerini kontrol edin. Bu bilgi muhasebe evrak takibine yardımcıdır; vergisel uygunluğu mali müşavirinizle doğrulayın.</span></div></div>
+        {% endif %}
+        <div class="finance-balance-grid">
+            <article class="finance-balance-card"><span>Kredi Kartı Satışları</span><strong>{{ pos_document_summary.card_total|currency }}</strong><small>{{ pos_document_summary.month_start.strftime('%m.%Y') }}</small></article>
+            <article class="finance-balance-card"><span>Tedarikçi Faturaları</span><strong>{{ pos_document_summary.supplier_document_total|currency }}</strong><small><a href="{{ url_for('finance_ops.supplier_invoices') }}">Fatura ekle veya görüntüle</a></small></article>
+            <article class="finance-balance-card"><span>Masraf Belgeleri</span><strong>{{ pos_document_summary.expense_document_total|currency }}</strong><small>{% if can('finance.manual.create') %}<a href="{{ url_for('finance_ops.expenses') }}">Masraf belgesi ekle</a>{% else %}Görüntüleme yetkisi yok{% endif %}</small></article>
+            <article class="finance-balance-card finance-balance-total"><span>Kaydedilen Belge Toplamı</span><strong>{{ pos_document_summary.document_total|currency }}</strong><small>{% if pos_document_summary.remaining > 0 %}Kontrol edilecek fark: {{ pos_document_summary.remaining|currency }}{% elif pos_document_summary.surplus > 0 %}Belge fazlası: {{ pos_document_summary.surplus|currency }}{% else %}Tutarlar eşit{% endif %}</small></article>
+        </div>
+        <p class="helper-text">Bu ekran yalnız evrak tamlık kontrolüdür. Kart tahsilatı ile alış/masraf belgelerinin birebir eşit olması gerektiğine dair hukuki karar vermez.</p>
     </section>
-    <section class="finance-tool"><p class="eyebrow">VADE TAKİBİ</p><h2>Tedarikçi Borç Yaşlandırması</h2><div class="finance-summary-list"><span>Vadesi Geçen <strong class="money-out">{{ payable_aging.overdue|currency }}</strong></span><span>Önümüzdeki 7 Gün <strong>{{ payable_aging.next_7|currency }}</strong></span><span>8–30 Gün İçinde <strong>{{ payable_aging.next_30|currency }}</strong></span></div></section>
+</details>
+    <details class="finance-disclosure"><summary>Gün sonu, vadeler ve son masraf belgeleri</summary>    <section class="finance-tool"><p class="eyebrow">VADE TAKİBİ</p><h2>Tedarikçi Borç Yaşlandırması</h2><div class="finance-summary-list"><span>Vadesi Geçen <strong class="money-out">{{ payable_aging.overdue|currency }}</strong></span><span>Önümüzdeki 7 Gün <strong>{{ payable_aging.next_7|currency }}</strong></span><span>8–30 Gün İçinde <strong>{{ payable_aging.next_30|currency }}</strong></span></div></section>
     <div class="finance-two-column">
         <section class="finance-tool"><p class="eyebrow">BUGÜN</p><h2>Kontrol Özeti</h2>
             <div class="finance-summary-list"><span>Beklenen Kasa <strong>{{ expectations.cash|currency }}</strong></span><span>Kart Hareketi <strong>{{ expectations.card|currency }}</strong></span><span>Havale Hareketi <strong>{{ expectations.transfer|currency }}</strong></span></div>
@@ -119,5 +146,7 @@
             <div class="finance-summary-list">{% for item in recent_expenses %}<span>{{ item.description }} <strong>{{ item.gross_amount|currency }}</strong></span>{% else %}<span>Henüz masraf kaydı yok.</span>{% endfor %}</div>
         </section>
     </div>
+</details>
+    {% if pending_approvals %}<p class="finance-notice">{{ pending_approvals }} işlem onay bekliyor. {% if can('finance.accounts.manage') %}<a href="{{ url_for('finance_ops.approvals') }}">Onayları aç</a>{% endif %}</p>{% endif %}
 </section>
 {% endblock %}

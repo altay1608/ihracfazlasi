@@ -1,52 +1,25 @@
 {% extends "base.html" %}
-{% from "_ui_icons.html" import save_icon %}
-{% block title %}Cari Takip{% endblock %}
-{% block page_title %}Cari Takip{% endblock %}
+{% block title %}Borçlar ve Alacaklar{% endblock %}
+{% block page_title %}Borçlar ve Alacaklar{% endblock %}
 {% block topbar_actions %}{% endblock %}
 {% block content %}
-<section class="finance-page">
-    {% include "finance/_nav.html" %}
-    <div class="finance-two-column">
-        <form method="post" action="{{ url_for('finance.create_current_account_route') }}" class="finance-tool finance-form-grid">
-            <input type="hidden" name="csrf_token" value="{{ session.get('auth_csrf_token', '') }}">
-            <div class="finance-full"><p class="eyebrow">Kart</p><h2>Yeni Cari</h2></div>
-            <label>Kategori<select name="account_category" required>{% for value, config in current_account_categories.items() %}<option value="{{ value }}">{{ config.label }} · {{ config.prefix }} serisi</option>{% endfor %}</select></label>
-            <label>Ad<input type="text" name="name" maxlength="180" required></label>
-            <label>Vergi/VKN<input type="text" name="tax_no" maxlength="30"></label>
-            <label>Telefon<input type="text" name="phone" maxlength="40"></label>
-            <label>E-posta<input type="email" name="email" maxlength="180"></label>
-            <label>Not<input type="text" name="note" maxlength="500"></label>
-            <p class="helper-text finance-full">Cari kodu seçilen kategoriye göre site içinde otomatik oluşturulur.</p>
-            <button class="primary-button" type="submit">Cari Oluştur</button>
-        </form>
-        <form method="post" action="{{ url_for('finance.create_current_entry_route') }}" class="finance-tool finance-form-grid" data-current-entry-form>
-            <input type="hidden" name="csrf_token" value="{{ session.get('auth_csrf_token', '') }}">
-            <div class="finance-full"><p class="eyebrow">Planlama</p><h2>Borç / Alacak Kaydı</h2></div>
-            {% set default_entry_type = 'payable' if current_accounts and current_accounts[0].account_category == 'supplier' else 'receivable' %}
-            <label>Cari<select name="current_account_id" required data-current-account-select>{% for current in current_accounts %}<option value="{{ current.id }}" data-account-category="{{ current.account_category }}">{{ current.code }} - {{ current.name }}</option>{% endfor %}</select></label>
-            <label>Tür<select data-current-entry-type-display disabled><option value="receivable" {% if default_entry_type == 'receivable' %}selected{% endif %}>Alacağımız</option><option value="payable" {% if default_entry_type == 'payable' %}selected{% endif %}>Borcumuz</option></select><input type="hidden" name="entry_type" value="{{ default_entry_type }}" data-current-entry-type></label>
-            <label>Tutar<input type="number" name="amount" min="0.01" step="0.01" required></label>
-            <label>Vade<input type="date" name="due_date"></label>
-            <label class="finance-full">Açıklama<input type="text" name="description" maxlength="500"></label>
-            <p class="helper-text finance-full" data-current-entry-guidance></p>
-            <button class="primary-button" type="submit">Kaydı Oluştur</button>
-        </form>
-    </div>
-
+<section class="finance-page finance-clear">
+{% include "finance/_nav.html" %}
+{% set payables = entries|selectattr('entry_type', 'equalto', 'payable')|selectattr('remaining_amount', 'gt', 0)|list %}
+{% set receivables = entries|selectattr('entry_type', 'equalto', 'receivable')|selectattr('remaining_amount', 'gt', 0)|list %}
+{% set closed = entries|selectattr('remaining_amount', 'le', 0)|list %}
+<section class="finance-tool"><p class="eyebrow">KİME BORCUM VAR, KİMDEN ALACAĞIM VAR?</p><h2>Borç ve ödeme takibi</h2>
+<div class="finance-balance-grid"><article class="finance-balance-card"><span>Ödenecek borçlar</span><strong>{{ payables|sum(attribute='remaining_amount')|currency }}</strong><small>{{ payables|length }} açık kayıt</small></article><article class="finance-balance-card"><span>Elle kaydedilmiş alacaklar</span><strong>{{ receivables|sum(attribute='remaining_amount')|currency }}</strong><small>Satıştan doğan veresiye ayrı ekrandadır.</small></article></div>
+<p class="helper-text">Borç eklemek para çıkışı oluşturmaz. Bir borcun “Ödeme yap” düğmesi, hem borcu azaltır hem seçtiğiniz finans hesabından tutarı düşer.</p>
+{% if can('finance.ledger.view') %}<a class="ghost-button" href="{{ url_for('finance_ops.dashboard', _anchor='credit-sales') }}">Satıştan doğan veresiye borçlarını / tahsilatlarını aç</a>{% endif %}
+</section>
+{% macro entry_table(rows, heading, table_id) %}
     <div class="finance-table-section panel">
-        <div class="section-heading"><div><p class="eyebrow">Perakende Dışı</p><h2>Cari Bakiyeler</h2></div></div>
-        <div class="table-wrap"><table id="currentAccountsTable" data-enhanced-table data-table-key="finance-current-accounts-v2" data-export-name="cari-bakiyeler">
-            <thead><tr><th>Kod</th><th>Kategori</th><th>Cari</th><th>İletişim</th><th data-summary="currency">Net Bakiye</th></tr></thead>
-            <tbody>{% for current in current_accounts %}<tr><td>{{ current.code }}</td><td>{{ current_account_categories.get(current.account_category, {}).get('label', current.account_category) }}</td><td>{{ current.name }}</td><td>{{ current.phone or current.email or '-' }}</td><td class="{% if current_totals.get(current.id, 0) >= 0 %}money-in{% else %}money-out{% endif %}" data-summary-value="{{ current_totals.get(current.id, 0) }}">{{ current_totals.get(current.id, 0)|currency }}</td></tr>{% else %}<tr><td colspan="5" class="empty-state">Cari kart yok.</td></tr>{% endfor %}</tbody>
-        </table></div>
-    </div>
-
-    <div class="finance-table-section panel">
-        <div class="section-heading"><div><p class="eyebrow">Açık Kalemler</p><h2>Borç / Alacak Hareketleri</h2></div></div>
-        <div class="table-wrap"><table id="currentEntriesTable" data-enhanced-table data-table-key="finance-current-entries-v2" data-export-name="cari-hareketler">
+        <div class="section-heading"><div><p class="eyebrow">Açık Kalemler</p><h2>{{ heading }}</h2></div></div>
+        <div class="table-wrap"><table id="{{ table_id }}" data-enhanced-table data-table-key="{{ table_id }}-v3" data-export-name="cari-hareketler">
             <thead><tr><th>Cari</th><th>Tür</th><th>Vade</th><th data-summary="currency">Tutar</th><th data-summary="currency">Tahsil Edilen / Ödenen</th><th data-summary="currency">Ürün İadesiyle Düşülen</th><th data-summary="currency">Kalan</th><th>Durum</th><th data-no-filter="true" data-no-sort="true">Tahsilat / Ödeme</th></tr></thead>
             <tbody>
-            {% for entry in entries %}
+            {% for entry in rows %}
             {% set returned_amount = supplier_return_totals.get(entry.id, 0) + customer_return_totals.get(entry.id, 0) %}
             {% set settled_amount = entry.amount - entry.remaining_amount - returned_amount %}
             <tr class="{% if entry.remaining_amount == 0 %}finance-row-settled{% elif entry.due_date and entry.due_date < today %}finance-row-overdue{% elif entry.due_date and entry.due_date == today %}finance-row-due{% endif %}">
@@ -58,19 +31,61 @@
                 <td data-summary-value="{{ returned_amount }}">{{ returned_amount|currency }}</td>
                 <td data-summary-value="{{ entry.remaining_amount }}">{{ entry.remaining_amount|currency }}</td>
                 <td>{{ current_status_labels.get(entry.status, entry.status) }}</td>
-                <td>{% if entry.remaining_amount > 0 %}<form method="post" action="{{ url_for('finance.settle_current_entry_route', entry_id=entry.id) }}" class="finance-inline-action"><input type="hidden" name="csrf_token" value="{{ session.get('auth_csrf_token', '') }}"><select name="finance_account_id" required>{% for account in accounts %}<option value="{{ account.id }}">{{ account.name }}</option>{% endfor %}</select><input type="number" name="amount" max="{{ entry.remaining_amount }}" min="0.01" step="0.01" required placeholder="Tutar"><input type="datetime-local" name="occurred_at" value="{{ now_value }}" required title="Ödeme tarihi ve saati"><button class="icon-action-button" type="submit" title="Tahsilat veya ödemeyi kaydet" data-tooltip="Kaydet" aria-label="Tahsilat veya ödemeyi kaydet">{{ save_icon() }}</button></form>{% else %}<span class="status-badge success">Kapalı</span>{% endif %}</td>
+                <td>{% if entry.remaining_amount > 0 and can('finance.current.manage') %}<details><summary class="ghost-button">{{ 'Ödeme yap' if entry.entry_type == 'payable' else 'Tahsilat al' }}</summary><p class="helper-text">{{ 'Tutar seçtiğiniz hesaptan düşer, bu borç azalır.' if entry.entry_type == 'payable' else 'Tutar seçtiğiniz hesaba eklenir, bu alacak azalır.' }} Aynı işlemi ayrıca masraf veya gelir olarak kaydetmeyin.</p><form method="post" action="{{ url_for('finance.settle_current_entry_route', entry_id=entry.id) }}" class="finance-inline-action"><input type="hidden" name="csrf_token" value="{{ session.get('auth_csrf_token', '') }}"><select name="finance_account_id" aria-label="Ödemenin hesabı" required>{% for account in accounts %}<option value="{{ account.id }}">{{ account.name }}</option>{% endfor %}</select><input type="number" name="amount" max="{{ entry.remaining_amount }}" min="0.01" step="0.01" required placeholder="Tutar" aria-label="Ödeme tutarı"><input type="datetime-local" name="occurred_at" value="{{ now_value }}" required title="Ödeme tarihi ve saati"><button class="primary-button" type="submit">{{ 'Ödemeyi kaydet' if entry.entry_type == 'payable' else 'Tahsilatı kaydet' }}</button></form></details>{% else %}<span class="status-badge">{{ 'Kapalı' if entry.remaining_amount <= 0 else 'Ödeme yetkisi gerekli' }}</span>{% endif %}</td>
             </tr>
             {% else %}<tr><td colspan="9" class="empty-state">Cari hareket yok.</td></tr>{% endfor %}
             </tbody>
         </table></div>
     </div>
 
-    <div class="finance-table-section panel">
+{% endmacro %}
+{{ entry_table(payables, 'Ödenecek borçlar', 'supplierOpenEntries') }}
+{% if receivables %}{{ entry_table(receivables, 'Elle kaydedilmiş müşteri alacakları', 'customerOpenEntries') }}{% endif %}
+{% if can('finance.current.manage') %}<details class="finance-disclosure"><summary>Yeni kişi / firma veya borç / alacak ekle</summary>    <div class="finance-two-column">
+        <form method="post" action="{{ url_for('finance.create_current_account_route') }}" class="finance-tool finance-form-grid">
+            <input type="hidden" name="csrf_token" value="{{ session.get('auth_csrf_token', '') }}">
+            <div class="finance-full"><p class="eyebrow">Kart</p><h2>Yeni kişi / firma</h2></div>
+            <label>Kategori<select name="account_category" required>{% for value, config in current_account_categories.items() %}<option value="{{ value }}">{{ config.label }} · {{ config.prefix }} serisi</option>{% endfor %}</select></label>
+            <label>Ad<input type="text" name="name" maxlength="180" required></label>
+            <label>Vergi/VKN<input type="text" name="tax_no" maxlength="30"></label>
+            <label>Telefon<input type="text" name="phone" maxlength="40"></label>
+            <label>E-posta<input type="email" name="email" maxlength="180"></label>
+            <label>Not<input type="text" name="note" maxlength="500"></label>
+            <p class="helper-text finance-full">Cari kodu seçilen kategoriye göre site içinde otomatik oluşturulur.</p>
+            <button class="primary-button" type="submit">Kişi / Firma Ekle</button>
+        </form>
+        <form method="post" action="{{ url_for('finance.create_current_entry_route') }}" class="finance-tool finance-form-grid" data-current-entry-form>
+            <input type="hidden" name="csrf_token" value="{{ session.get('auth_csrf_token', '') }}">
+            <div class="finance-full"><p class="eyebrow">ÖDEME DEĞİL, BORÇ KAYDI</p><h2>Yeni borç / alacak kaydı</h2></div>
+            {% set default_entry_type = 'payable' if current_accounts and current_accounts[0].account_category == 'supplier' else 'receivable' %}
+            <label>Kişi / firma<select name="current_account_id" required data-current-account-select>{% for current in current_accounts %}<option value="{{ current.id }}" data-account-category="{{ current.account_category }}">{{ current.code }} - {{ current.name }}</option>{% endfor %}</select></label>
+            <label>Tür<select data-current-entry-type-display disabled><option value="receivable" {% if default_entry_type == 'receivable' %}selected{% endif %}>Alacağımız</option><option value="payable" {% if default_entry_type == 'payable' %}selected{% endif %}>Borcumuz</option></select><input type="hidden" name="entry_type" value="{{ default_entry_type }}" data-current-entry-type></label>
+            <label>Tutar<input type="number" name="amount" min="0.01" step="0.01" required></label>
+            <label>Vade<input type="date" name="due_date"></label>
+            <label class="finance-full">Açıklama<input type="text" name="description" maxlength="500"></label>
+            <p class="helper-text finance-full" data-current-entry-guidance></p>
+            <p class="helper-text finance-full">Bu işlem kasadan para düşürmez. Ödeme yaptığınızda aşağıdaki borç satırından “Ödeme yap” seçin. Satış ekranındaki veresiye borcunu burada tekrar oluşturmayın.</p><button class="primary-button" type="submit">Borç / Alacak Kaydet</button>
+        </form>
+    </div>
+
+</details>{% endif %}
+<details class="finance-disclosure"><summary>Kapanmış borçlar ve alacaklar ({{ closed|length }})</summary>{{ entry_table(closed, 'Kapanmış kayıtlar', 'closedCurrentEntries') }}</details>
+<details class="finance-disclosure"><summary>Kayıtlı kişi ve firmalar</summary>    <div class="finance-table-section panel">
+        <div class="section-heading"><div><p class="eyebrow">Perakende Dışı</p><h2>Cari Bakiyeler</h2></div></div>
+        <div class="table-wrap"><table id="currentAccountsTable" data-enhanced-table data-table-key="finance-current-accounts-v2" data-export-name="cari-bakiyeler">
+            <thead><tr><th>Kod</th><th>Kategori</th><th>Cari</th><th>İletişim</th><th data-summary="currency">Net Bakiye (+ alacak / − borç)</th></tr></thead>
+            <tbody>{% for current in current_accounts %}<tr><td>{{ current.code }}</td><td>{{ current_account_categories.get(current.account_category, {}).get('label', current.account_category) }}</td><td>{{ current.name }}</td><td>{{ current.phone or current.email or '-' }}</td><td class="{% if current_totals.get(current.id, 0) >= 0 %}money-in{% else %}money-out{% endif %}" data-summary-value="{{ current_totals.get(current.id, 0) }}">{{ current_totals.get(current.id, 0)|currency }}</td></tr>{% else %}<tr><td colspan="5" class="empty-state">Cari kart yok.</td></tr>{% endfor %}</tbody>
+        </table></div>
+    </div>
+
+</details>
+<details class="finance-disclosure"><summary>Geçmiş ödemeler ve tahsilatlar</summary>    <div class="finance-table-section panel">
         <div class="section-heading"><div><p class="eyebrow">Ödeme Geçmişi</p><h2>Tedarikçi Ödemeleri ve Müşteri Tahsilatları</h2></div></div>
         <div class="table-wrap"><table data-enhanced-table data-table-key="finance-current-settlements-v1" data-export-name="cari-odeme-gecmisi">
             <thead><tr><th>Tarih</th><th>Cari</th><th>İşlem</th><th>Finans Hesabı</th><th data-summary="currency">Tutar</th></tr></thead>
             <tbody>{% for row in settlement_rows %}<tr><td>{{ row.settlement.occurred_at|tr_datetime }}</td><td>{{ row.current_account.name if row.current_account else '-' }}</td><td>{{ 'Tedarikçi ödemesi' if row.entry.entry_type == 'payable' else 'Müşteri tahsilatı' }}</td><td>{{ row.finance_account.name if row.finance_account else '-' }}</td><td data-summary-value="{{ row.settlement.amount }}">{{ row.settlement.amount|currency }}</td></tr>{% else %}<tr><td colspan="5" class="empty-state">Henüz cari ödeme veya tahsilat kaydı yok.</td></tr>{% endfor %}</tbody>
         </table></div>
     </div>
+</details>
 </section>
 {% endblock %}

@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Kasa Defteri | İhraç Fazlası Giyim{% endblock %}
-{% block page_title %}Finans Yönetimi{% endblock %}
+{% block page_title %}Para Hareketleri{% endblock %}
 {% block topbar_actions %}{% endblock %}
 {% block content %}
 <section class="finance-page">
@@ -22,12 +22,13 @@
         </article>
         {% endfor %}
         <article class="finance-balance-card finance-balance-total">
-            <span>Konsolide Bakiye</span>
+            <span>Hesap bakiyeleri toplamı</span>
             <strong>{{ snapshot.consolidated_balance|currency }}</strong>
-            <small>Seçili kapsam</small>
+            <small>Alacaklar dâhil; kullanılabilir para değildir.</small>
         </article>
     </div>
 
+    <p class="helper-text">Üstteki bakiyeler günceldir. Tarih filtresi yalnız aşağıdaki hareketleri süzer. Bir transferin çıkışı ve girişi ayrı satırlardır; iki ayrı masraf değildir. Veresiye hesabına giriş, henüz tahsil edilmiş para değildir.</p>
     <form method="get" class="finance-filter-row">
         <label>Başlangıç<input type="date" name="date_from" value="{{ date_from.isoformat() }}"></label>
         <label>Bitiş<input type="date" name="date_to" value="{{ date_to.isoformat() }}"></label>
@@ -46,7 +47,8 @@
     </form>
 
     <div class="finance-table-section panel">
-        <div class="section-heading"><div><p class="eyebrow">Değiştirilemez Kayıt</p><h2>Kasa Hareketleri</h2></div></div>
+        <div class="section-heading"><div><p class="eyebrow">İŞLEM GEÇMİŞİ</p><h2>Girişler, çıkışlar ve aktarımlar</h2></div></div>
+        {% if movements|length >= 500 %}<p class="helper-text">En yeni 500 hareket gösteriliyor. Daha eski kayıtları görmek için tarih aralığını daraltın; ekrandan yapılan dışa aktarma yalnız listelenen kayıtları kapsar.</p>{% endif %}
         <div class="table-wrap">
             <table id="financeLedgerTable" class="finance-table" data-enhanced-table data-table-key="finance-ledger-v2" data-export-name="kasa-defteri">
                 <thead><tr><th>Tarih</th><th>Mağaza</th><th>Hesap</th><th>Kategori</th><th>Açıklama</th><th>Belge</th><th data-summary="currency">Giriş</th><th data-summary="currency">Çıkış</th></tr></thead>
