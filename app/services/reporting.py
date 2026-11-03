@@ -164,6 +164,9 @@ def build_profit_product_rows(sales, return_items=None):
 
         item_discount_weights = []
         for item in sale_items:
+            # Owner withdrawals are tracked at cost in inventory history, not as sales losses.
+            if getattr(item, "line_type", "sale") == "personal":
+                continue
             is_paid_line = getattr(item, "line_type", "sale") == "sale"
             item_base_net = quantize_amount(item.unit_price * item.quantity) if is_paid_line else ZERO
             item_line_discount = quantize_amount(item.discount_amount or 0) if is_paid_line else ZERO
@@ -219,6 +222,8 @@ def build_profit_product_rows(sales, return_items=None):
                 )
 
     for return_item in return_items or []:
+        if getattr(getattr(return_item, "original_sale_item", None), "line_type", None) == "personal":
+            continue
         product_id, item_name, item_variant = get_return_product_identity(return_item)
         key = (product_id, item_name, item_variant)
         if Decimal(return_item.refund_amount or 0) > ZERO and key not in grouped_rows:
@@ -400,7 +405,11 @@ def get_return_records_for_sales(start, end, sale_ids):
         return []
 
     return (
-        Return.query.options(lazyload("*"), joinedload(Return.items).joinedload(ReturnItem.product))
+        Return.query.options(
+            lazyload("*"),
+            joinedload(Return.items).joinedload(ReturnItem.product),
+            joinedload(Return.items).joinedload(ReturnItem.original_sale_item),
+        )
         .filter(
             Return.return_date >= start,
             Return.return_date <= end,

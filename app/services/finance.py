@@ -259,7 +259,9 @@ def sync_sale_finance(sale):
     """Post or revise one completed sale in the activated store ledger."""
     if sale.id is None:
         db.session.flush()
-    if getattr(sale, "payments", None):
+    if getattr(sale, "payments", None) or (
+        sale.payment_method == "Ödeme Alınmadı" and _money(sale.total_amount) == 0
+    ):
         return _sync_allocated_sale_finance(sale)
     activation = get_finance_activation(sale.site_id, sale.store_id)
     if activation is None:

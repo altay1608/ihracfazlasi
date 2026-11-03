@@ -16,7 +16,7 @@
     <section class="thermal-slip">
         <header class="thermal-header">
             <div class="thermal-brand">{{ receipt.store.name|upper }}</div>
-            <div class="thermal-document-type">SATIŞ BİLGİ FİŞİ</div>
+            <div class="thermal-document-type">{{ 'STOK ÇIKIŞ BİLGİ FİŞİ' if receipt.non_sale_only else 'SATIŞ BİLGİ FİŞİ' }}</div>
             {% if receipt.store.address_line_1 or receipt.store.address_line_2 or receipt.store.address_line_3 %}
             <div class="thermal-store-address">
                 {% if receipt.store.address_line_1 %}<div>{{ receipt.store.address_line_1 }}</div>{% endif %}
@@ -43,7 +43,7 @@
 
         <section class="thermal-section thermal-products-section">
             <div class="thermal-section-heading">
-                <span>SATILAN ÜRÜNLER</span>
+                <span>{{ 'ÜRÜN ÇIKIŞI' if receipt.non_sale_only else 'SATILAN ÜRÜNLER' }}</span>
                 <span>{{ receipt.line_items|length }} KALEM</span>
             </div>
             <div class="thermal-product-list">
@@ -56,7 +56,8 @@
                         <span>KDV %{{ item.vat_rate }}</span>
                         <strong>{{ item.gross_total|currency }}</strong>
                         {% else %}
-                        <strong>{{ item.line_type_label|upper }}</strong>
+                        <strong>{{ item.line_type_label|replace('i', 'İ')|upper }}</strong>
+                        {% if item.line_type == 'personal' %}<span>Ödeme alınmadı</span>{% endif %}
                         {% endif %}
                     </div>
                 </article>
@@ -79,6 +80,7 @@
                 <span>GENEL TOPLAM</span>
                 <strong>{{ sale.total_amount|currency }}</strong>
             </div>
+            {% if receipt.non_sale_only %}<div class="thermal-payment-row"><strong>ÖDEME ALINMADI</strong></div>{% endif %}
             {% for payment in receipt.payments %}
             <div class="thermal-payment-row">
                 <span>{{ payment_methods.get(payment.payment_method, payment.payment_method) }}</span>

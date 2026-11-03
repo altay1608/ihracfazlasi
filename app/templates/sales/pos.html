@@ -128,6 +128,8 @@
                 <div class="summary-row"><span>Toplama Dahil KDV (%{{ (vat_rate * 100)|int }})</span><strong id="vatAmount">₺0,00</strong></div>
                 <div class="summary-row grand-total"><span>Genel Toplam</span><strong id="grandTotalAmount">₺0,00</strong></div>
             </div>
+            <p class="input-hint">Kendiniz için aldığınız üründe, ürün satırındaki işlem türünü <strong>Şahsi Kullanım / İşletme Sahibi</strong> seçin. Stok düşer; ödeme veya veresiye oluşmaz. Karışık sepette yalnızca normal satış ürünlerinin bedeli alınır.</p>
+            <p id="noPaymentNotice" class="input-hint" role="status" hidden><strong>Ödeme alınmayacak.</strong> Bu sepet yalnızca hediye veya şahsi çıkış içeriyor. Kasa, banka ve müşteri borcuna tutar işlenmez.</p>
             <label for="paymentMethod">Ödeme Yöntemi</label>
             <select id="paymentMethod" {% if line_edits_locked %}disabled{% endif %}>
                 {% for value, label in payment_methods.items() %}
@@ -185,6 +187,6 @@ window.posConfig = {
     initialPayments: {{ (initial_payments or [])|tojson }}
 };
 </script>
-<script src="{{ url_for('static', filename='js/pos.js', v='20261025-no-profit-floor') }}"></script>
+<script src="{{ url_for('static', filename='js/pos.js', v='20261103-personal-out') }}"></script>
 {% endblock %}
 

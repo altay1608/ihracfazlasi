@@ -40,6 +40,18 @@
     </article>
 </section>
 
+{% set personal_items = sale.items|selectattr('line_type', 'equalto', 'personal')|list %}
+{% if personal_items %}
+<section class="panel">
+    <h2>İşletme Sahibinin Aldığı Ürünler</h2>
+    <p>Şahsi kullanım için stoktan çıkarıldı. Bu ürünler için ödeme alınmadı, veresiye veya satış cirosu oluşturulmadı.</p>
+    {% if can('products.column.purchase_price') %}
+    <ul>{% for item in personal_items %}<li>{{ item.product_name_snapshot }}{% if item.product_variant_snapshot %} / {{ item.product_variant_snapshot }}{% endif %} — {{ item.quantity }} adet · Kayıtlı alış maliyeti (KDV hariç): {{ (item.unit_cost_snapshot * item.quantity)|currency }}</li>{% endfor %}</ul>
+    <p class="muted">Bu maliyet satış kârından düşülmez; şahsi stok çıkışı olarak ayrıca takip edilir.</p>
+    {% endif %}
+</section>
+{% endif %}
+
 <section class="content-grid">
     <article class="panel">
         <div class="summary-box sale-breakdown">

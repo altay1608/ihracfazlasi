@@ -37,6 +37,11 @@ LINE_TYPES = {
 }
 SPLIT_PAYMENT_VALUE = "__split__"
 SPLIT_PAYMENT_LABEL = "Parçalı Ödeme"
+NO_PAYMENT_LABEL = "Ödeme Alınmadı"
+
+
+def is_non_sale_cart(items):
+    return bool(items) and all(item.get("line_type") in {"personal", "gift"} for item in items)
 
 
 def normalize_line_type(value):
@@ -202,7 +207,8 @@ def build_sale_receipt_context(sale):
         }
         for payment in getattr(sale, "payments", [])
     ]
-    if not payment_rows:
+    non_sale_only = bool(sale.items) and all(getattr(item, "line_type", "sale") in {"personal", "gift"} for item in sale.items)
+    if not payment_rows and not non_sale_only:
         payment_rows = [{
             "payment_method": getattr(sale, "payment_method", "Nakit"),
             "amount": getattr(sale, "total_amount", breakdown["gross_total"]),
@@ -220,6 +226,7 @@ def build_sale_receipt_context(sale):
         "print_time": now.strftime("%H:%M"),
         "payment_due_date": getattr(sale, "payment_due_date", None),
         "payments": payment_rows,
+        "non_sale_only": non_sale_only,
     }
 
 
@@ -293,6 +300,15 @@ def parse_payment_due_date(payment_method, payload):
 
 def apply_sale_payments(sale, payload, total_amount):
     """Validate and store one or more payment allocations for a sale."""
+    # Decide from validated order lines, never from a client payment flag.
+    if sale.items and all(item.line_type in {"personal", "gift"} for item in sale.items):
+        if quantize_amount(total_amount) != Decimal("0.00"):
+            raise ValueError("Hediye veya şahsi çıkışta ödeme tutarı sıfır olmalıdır.")
+        sale.payments.clear()
+        sale.payment_method = NO_PAYMENT_LABEL
+        sale.payment_due_date = None
+        sale.payment_status = "PAID"
+        return []
     available_methods = dict(get_payment_method_choices(active_only=True))
     selected_method = str(payload.get("payment_method") or "").strip()
     raw_payments = payload.get("payments") if selected_method == SPLIT_PAYMENT_VALUE else None
@@ -355,7 +371,7 @@ def apply_sale_payload(sale, payload):
     items = payload.get("items") or []
     payment_methods = dict(get_payment_method_choices(active_only=True))
 
-    if payment_method not in payment_methods and payment_method != SPLIT_PAYMENT_VALUE:
+    if not is_non_sale_cart(items) and payment_method not in payment_methods and payment_method != SPLIT_PAYMENT_VALUE:
         raise ValueError("Geçerli bir ödeme yöntemi seçin.")
     if not items:
         raise ValueError("Sepet boş.")
@@ -686,6 +702,8 @@ def update(sale_id):
             release_barcodes_from_sale(sale_item, [barcode.barcode for barcode in sale_item.product_barcodes])
             db.session.delete(sale_item)
         db.session.flush()
+        # Deleted rows otherwise remain in the loaded relationship until expiration.
+        db.session.expire(sale, ["items"])
 
         summary = apply_sale_payload(sale, payload)
         sale.revision_no = int(sale.revision_no or 1) + 1
@@ -734,7 +752,7 @@ def complete():
     items = payload.get("items") or []
     payment_methods = dict(get_payment_method_choices(active_only=True))
 
-    if payment_method not in payment_methods and payment_method != SPLIT_PAYMENT_VALUE:
+    if not is_non_sale_cart(items) and payment_method not in payment_methods and payment_method != SPLIT_PAYMENT_VALUE:
         return jsonify({"success": False, "message": "Geçerli bir ödeme yöntemi seçin."}), 400
     if not items:
         return jsonify({"success": False, "message": "Sepet boş."}), 400

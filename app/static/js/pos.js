@@ -78,9 +78,25 @@
         }).format(Number(value || 0));
     }
 
+    function isNonSaleCart() {
+        return cart.size > 0 && Array.from(cart.values()).every((item) => ["personal", "gift"].includes(item.line_type));
+    }
+
     function syncPaymentDueDate() {
-        const isCredit = String(paymentMethod?.value || "").trim() === "Veresiye";
-        const isSplit = String(paymentMethod?.value || "").trim() === "__split__";
+        const noPayment = isNonSaleCart();
+        if (paymentMethod) {
+            paymentMethod.hidden = noPayment;
+            paymentMethod.disabled = lineEditsLocked || noPayment;
+        }
+        const paymentLabel = document.querySelector('label[for="paymentMethod"]');
+        if (paymentLabel) paymentLabel.hidden = noPayment;
+        const notice = document.getElementById("noPaymentNotice");
+        if (notice) notice.hidden = !noPayment;
+        if (completeButton && !window.posConfig?.saleEditMode) {
+            completeButton.textContent = noPayment ? "Ödemesiz Çıkışı Tamamla" : "Satışı Tamamla";
+        }
+        const isCredit = !noPayment && String(paymentMethod?.value || "").trim() === "Veresiye";
+        const isSplit = !noPayment && String(paymentMethod?.value || "").trim() === "__split__";
         if (paymentDueDateRow) {
             paymentDueDateRow.hidden = !isCredit;
         }
@@ -119,7 +135,7 @@
             splitPaymentRemaining.textContent = formatCurrency(remaining);
             splitPaymentRemaining.classList.toggle("is-error", Math.abs(remaining) > 0.009);
         }
-        const creditAmount = payments.find((payment) => payment.payment_method === "Veresiye")?.amount || 0;
+        const creditAmount = isNonSaleCart() ? 0 : (payments.find((payment) => payment.payment_method === "Veresiye")?.amount || 0);
         if (splitPaymentDueDateRow) {
             splitPaymentDueDateRow.hidden = creditAmount <= 0;
         }
@@ -432,9 +448,7 @@
         if (discountRateInput) {
             discountRateInput.value = formatPercent(summary.discountRate);
         }
-        if (String(paymentMethod?.value || "") === "__split__") {
-            updateSplitPaymentSummary();
-        }
+        syncPaymentDueDate();
     }
 
     function mutateQuantity(productId, quantity) {
@@ -512,7 +526,7 @@
                         <select data-action="line-type" aria-label="${escapeHtml(item.name)} işlem türü">
                             <option value="sale" ${lineType === "sale" ? "selected" : ""}>Normal Satış</option>
                             <option value="gift" ${lineType === "gift" ? "selected" : ""}>Hediye</option>
-                            <option value="personal" ${lineType === "personal" ? "selected" : ""}>Şahsi Kullanım</option>
+                            <option value="personal" ${lineType === "personal" ? "selected" : ""}>Şahsi Kullanım / İşletme Sahibi</option>
                         </select>
                     </label>
                 `;
@@ -609,7 +623,7 @@
         if (window.posConfig?.initialCustomer) {
             fillCustomerForm(window.posConfig.initialCustomer);
         }
-        if (window.posConfig?.initialPaymentMethod && paymentMethod) {
+        if (window.posConfig?.initialPaymentMethod && paymentMethod && Array.from(paymentMethod.options).some((option) => option.value === window.posConfig.initialPaymentMethod)) {
             paymentMethod.value = window.posConfig.initialPaymentMethod;
         }
         (window.posConfig?.initialPayments || []).forEach((payment) => {
@@ -759,7 +773,7 @@
         }
 
         const summary = getSummary();
-        const isSplitPayment = String(paymentMethod?.value || "") === "__split__";
+        const isSplitPayment = !isNonSaleCart() && String(paymentMethod?.value || "") === "__split__";
         const splitSummary = isSplitPayment ? updateSplitPaymentSummary() : null;
         if (splitSummary && Math.abs(splitSummary.remaining) > 0.009) {
             const message = "Parçalı ödeme toplamı satış tutarına eşit olmalıdır.";
@@ -798,8 +812,8 @@
         window.showBusy?.("Satış tamamlanıyor...");
         try {
             const salePayload = {
-                    payment_method: paymentMethod.value,
-                    payment_due_date: paymentDueDate?.value || "",
+                    payment_method: isNonSaleCart() ? "Ödeme Alınmadı" : paymentMethod.value,
+                    payment_due_date: isNonSaleCart() ? "" : (paymentDueDate?.value || ""),
                     payments: splitSummary?.payments || null,
                     items,
                     footer_discount_amount: 0,

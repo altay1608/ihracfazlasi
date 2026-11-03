@@ -109,6 +109,8 @@ class Sale(db.Model):
 
     @property
     def payment_status_label(self):
+        if self.payment_method == "Ödeme Alınmadı":
+            return "Ödeme Alınmadı"
         return {
             "PAID": "Ödendi",
             "OPEN": "Veresiye Açık",
