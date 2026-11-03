@@ -5,6 +5,7 @@ from flask import Blueprint, render_template, request
 from app.services.access_control import has_permission, permission_required
 from app.services.store_tools import due_agenda, slow_stock, customer_history
 from app.services.lobby_finance import build_lobby_finance
+from app.services.finance_overview import build_money_overview
 from app.services.finance_reporting import actual_expenses_between, build_operating_profit_summary
 from app.services.identity_access import get_active_site_id, get_active_store_id
 from app.services.reporting import (
@@ -62,6 +63,7 @@ def index():
     top_products = get_top_products() if show_trend else []
     month_total = sum((row["revenue"] for row in turnover if row["date"] >= month_start), ZERO)
     finance_summary = build_lobby_finance(get_active_site_id(), get_active_store_id(), today) if show_finance and has_permission("finance.ledger.view") else None
+    money_overview = build_money_overview(get_active_site_id(), get_active_store_id(), month_start, today) if finance_summary is not None else None
     if turnover:
         # Keep the headline, graph and daily list on the same turnover basis.
         metrics["revenue"] = turnover[-1]["revenue"]
@@ -75,4 +77,5 @@ def index():
         month_start=month_start,
         today=today,
         finance_summary=finance_summary,
+        money_overview=money_overview,
     )

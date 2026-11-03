@@ -17,9 +17,10 @@
 
 - **Kasa + banka:** Sisteme göre kullanılabilir para; bankadan otomatik doğrulanmış bakiye değildir.
 - **POS'tan gelecek:** Henüz banka hesabına aktarılmamış kart bakiyesi.
-- **Veresiye hesap bakiyesi:** Tahsil edilmemiş alacak hesabı. Müşteri/fiş listesiyle kapsam farklılığı varsa kayıtlar eşleştirilmelidir.
+- **Bekleyen veresiye:** Tüm tarihlerdeki tahsil edilmemiş alacak hesabı; kasa parası değildir. Müşteri/fiş listesiyle kapsam farklılığı varsa kayıtlar eşleştirilmelidir.
 - **Toptancı borcu:** Ödenmemiş borç; hazır paradan otomatik düşülmüş değildir.
-- **Finans defterindeki net ciro:** Seçilen ayın finans kayıt tarihine göre satış ve değişimler, iadeler ve ters kayıtlar sonrası KDV dâhil tutar. Veresiye satışlar dâhildir.
+- **Toplam satış · veresiye dahil:** Seçilen ayın finans kayıt tarihine göre satış ve değişimler, iadeler ve ters kayıtlar sonrası KDV dahil tutar. Kasaya giren para değildir.
+- **Net tahsil edilen:** Seçilen dönemde satışlardan ve veresiye ödemelerinden alınan tutar, iadeler ve ters kayıtlar sonrası. Nakit, havale/EFT ve kart ayrı gösterilir. Kart tutarı komisyon öncesidir; henüz bankaya geçmemiş olabilir. Önceki ayın veresiye ödemesi, ödendiği ayın tahsilatına girer; yeniden ciro oluşturmaz. Kasa/banka ve POS/banka aktarımları tekrar tahsilat sayılmaz. Açılış bakiyesi, manuel gelir ve ayrı cari tahsilatlar bu satış tahsilatı özetine dahil değildir. İade veya iptal fazla ise dönem neti eksi olabilir.
 - **Ödeme ve diğer çıkışlar:** Cari borç ödemeleri, manuel çıkışlar, dönemsel borç ödemeleri ve POS komisyonları. Ortak çekimleri de bulunabilir; tamamı işletme gideri değildir.
 - **Kâr:** Satılan ürünlerin maliyeti ve ilgili giderlere göre hesaplanır. Ciro eksi yapılan ödemeler kâr değildir.
 - **Gider planı:** Tahmindir; tek başına kasadan ödeme oluşturmaz.

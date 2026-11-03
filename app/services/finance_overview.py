@@ -7,11 +7,12 @@ the selected period. No opening balances, migrations or repairs are written.
 from datetime import timedelta
 from decimal import Decimal
 
-from sqlalchemy import and_, case, func
+from sqlalchemy import and_, case, func, or_
 from sqlalchemy.orm import aliased
 
 from app.extensions import db
 from app.models.finance import FinanceAccount, FinanceMovement
+from app.models.sale import CreditSaleCollection
 from app.utils import istanbul_day_start_utc
 
 
@@ -20,6 +21,62 @@ ZERO = Decimal("0.00")
 
 def _money(value):
     return Decimal(value or 0).quantize(Decimal("0.01"))
+
+
+def build_receipts_summary(site_id, store_id, start_date, end_date):
+    """Net customer receipts by posting date, not sales date or account balance.
+
+    Count only paid sale/refund legs and the destination leg of a recorded
+    credit collection. Transfers, POS settlements, commissions, debt offsets,
+    opening balances and manual income are not another customer receipt.
+    Reversals retain the original source identity but use their own date/sign.
+    """
+    if end_date < start_date:
+        raise ValueError("Bitiş tarihi başlangıç tarihinden önce olamaz.")
+    original = aliased(FinanceMovement)
+    kind = func.coalesce(original.movement_type, FinanceMovement.movement_type)
+    source_type = func.coalesce(original.source_type, FinanceMovement.source_type)
+    source_id = func.coalesce(original.source_id, FinanceMovement.source_id)
+    signed = case((FinanceMovement.direction == "in", FinanceMovement.amount), else_=-FinanceMovement.amount)
+    collection = and_(kind == "transfer", CreditSaleCollection.id.isnot(None))
+    eligible = or_(kind.in_(("sale", "exchange_sale", "return")), collection)
+    accounts = {
+        "cash": FinanceAccount.account_type == "cash",
+        "bank": FinanceAccount.account_type == "bank",
+        "card": FinanceAccount.account_type == "pos_receivable",
+    }
+    selections = {}
+    for scope in ("period", "last_day"):
+        date_condition = FinanceMovement.occurred_at >= istanbul_day_start_utc(
+            end_date if scope == "last_day" else start_date
+        )
+        for key, condition in {**accounts, "credit_collections": collection}.items():
+            selections[f"{scope}_{key}"] = func.coalesce(func.sum(case(
+                (and_(eligible, date_condition, condition), signed), else_=0
+            )), 0)
+    values = db.session.query(*selections.values()).select_from(FinanceMovement).outerjoin(original, and_(
+        original.id == FinanceMovement.reversal_of_id,
+        original.site_id == site_id, original.store_id == store_id,
+    )).join(FinanceAccount, and_(
+        FinanceAccount.id == FinanceMovement.account_id,
+        FinanceAccount.site_id == site_id, FinanceAccount.store_id == store_id,
+    )).outerjoin(CreditSaleCollection, and_(
+        source_type == "transfer",
+        CreditSaleCollection.finance_transfer_id == source_id,
+        CreditSaleCollection.site_id == site_id, CreditSaleCollection.store_id == store_id,
+    )).filter(
+        FinanceMovement.site_id == site_id, FinanceMovement.store_id == store_id,
+        FinanceMovement.occurred_at >= istanbul_day_start_utc(start_date),
+        FinanceMovement.occurred_at < istanbul_day_start_utc(end_date + timedelta(days=1)),
+        func.upper(FinanceAccount.code).notin_(("CREDIT", "BIZ_CARD")),
+        FinanceAccount.account_type.in_(("cash", "bank", "pos_receivable")),
+    ).one()
+    amounts = dict(zip(selections, map(_money, values)))
+    result = {}
+    for scope in ("period", "last_day"):
+        result[scope] = {key: amounts[f"{scope}_{key}"] for key in (*accounts, "credit_collections")}
+        result[scope]["total"] = sum((result[scope][key] for key in accounts), ZERO)
+    return result
 
 
 def build_money_overview(site_id, store_id, start_date, end_date):
@@ -112,4 +169,5 @@ def build_money_overview(site_id, store_id, start_date, end_date):
         "supplier_payments", "manual_outflows", "obligation_payments", "pos_commissions",
     )), ZERO)
     result["period"] = period
+    result["receipts"] = build_receipts_summary(site_id, store_id, start_date, end_date)
     return result

@@ -15,7 +15,7 @@
         </div>
         <div class="finance-balance-grid">
             <article class="finance-balance-card"><span>POS'tan gelecek</span><strong>{{ money_overview.pos_receivable|currency }}</strong><small>Henüz bankaya aktarılmamış kart bakiyesi</small></article>
-            <article class="finance-balance-card"><span>Veresiye hesap bakiyesi</span><strong>{{ money_overview.credit_receivable|currency }}</strong><small>Hazır para değildir. <a href="#credit-sales">Müşteri listesini aç</a></small></article>
+            <article class="finance-balance-card"><span>Bekleyen veresiye · tüm tarihler</span><strong>{{ money_overview.credit_receivable|currency }}</strong><small>Henüz tahsil edilmedi; kasaya dahil değildir. <a href="#credit-sales">Ödeme al / müşteri listesini aç</a></small></article>
             <article class="finance-balance-card"><span>Toptancılara borcum</span><strong>{{ open_payables|currency }}</strong><small>{% if can('finance.current.view') %}<a href="{{ url_for('finance.current_accounts') }}">Borçları ve ödemeleri gör</a>{% else %}Ödenmemiş borç kayıtları{% endif %}</small></article>
             {% if money_overview.business_card_balance %}<article class="finance-balance-card"><span>İşletme kartı bakiyesi</span><strong>{{ money_overview.business_card_balance|currency }}</strong><small>Eksi tutar ödenecek kart borcudur.</small></article>{% endif %}
         </div>
@@ -41,9 +41,17 @@
             <button class="ghost-button" type="submit">Ayı Göster</button></form>
         </div>
         <div class="finance-balance-grid">
-            <article class="finance-balance-card finance-balance-total"><span>Finans defterindeki net ciro</span><strong>{{ money_overview.period.net_turnover|currency }}</strong><small>KDV dâhil, indirim ve iadeler sonrası. Veresiye satışlar dâhil.</small></article>
+            <article class="finance-balance-card"><span>Toplam satış · veresiye dahil</span><strong>{{ money_overview.period.net_turnover|currency }}</strong><small>Finans defterindeki net ciro: KDV dahil, indirim ve iadeler sonrası. Kasaya giren para değildir.</small></article>
+            <article class="finance-balance-card finance-balance-total"><span>Net tahsil edilen</span><strong>{{ money_overview.receipts.period.total|currency }}</strong><small>Bu dönemde satış ve veresiye ödemelerinden alınan tutar − iadeler.</small></article>
             <article class="finance-balance-card"><span>Ödeme ve diğer çıkışlar</span><strong>{{ money_overview.period.payments_total|currency }}</strong><small>Aşağıdaki dört kalemin toplamı; kâr hesabı değildir.</small></article>
         </div>
+        <div class="finance-summary-list">
+            <span>Nakit tahsilat <strong>{{ money_overview.receipts.period.cash|currency }}</strong></span>
+            <span>Havale/EFT tahsilatı <strong>{{ money_overview.receipts.period.bank|currency }}</strong></span>
+            <span>Kart tahsilatı <strong>{{ money_overview.receipts.period.card|currency }}</strong></span>
+            <span>Veresiye ödemeleri (iptaller sonrası, iadeler öncesi) <strong>{{ money_overview.receipts.period.credit_collections|currency }}</strong></span>
+        </div>
+        <p class="helper-text">Tahsilat ödeme tarihine göre hesaplanır; iadeler ve ters kayıtlar düşülür. Kart tutarı komisyon öncesidir, bankaya geçişi ayrıca takip edilir. Kasa–banka ve POS–banka aktarımları ikinci kez tahsilat sayılmaz. Açılış bakiyesi, manuel gelirler ve ayrı cari tahsilatlar bu özete dahil değildir. Bu rakamlar kasa bakiyesi değildir.</p>
         <div class="finance-summary-list">
             <span>Toptancı / cari borç ödemeleri <strong>{{ money_overview.period.supplier_payments|currency }}</strong></span>
             <span>Manuel masraflar ve diğer çekimler <strong>{{ money_overview.period.manual_outflows|currency }}</strong></span>

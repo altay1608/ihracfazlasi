@@ -47,16 +47,16 @@
         {% if can('dashboard.column.finance') %}
         <a class="panel lobby-link-card lobby-status-success" href="{{ url_for('reports.turnover') }}">
             <div class="lobby-link-card-top">
-                <p class="cockpit-label">Ciro Kilidi</p>
+                <p class="cockpit-label">Toplam Satış</p>
                 <span class="lobby-link-arrow">↗</span>
             </div>
             <div class="cockpit-value">{{ metrics.revenue|currency }}</div>
             <div class="cockpit-subgrid">
-                <span>Bugünkü ciro</span>
+                <span>Bugünkü satış · veresiye dahil</span>
                 <strong>Günlük ciroları aç</strong>
             </div>
             <p class="lobby-link-note">{{ metrics.net_profit|currency }} bugünkü net kâr</p>
-            <p class="helper-text">KDV hariç; ürün maliyeti, kayıtlı gider ve komisyon sonrası.</p>
+            <p class="helper-text">Ciro, kasaya giren para değildir. Kâr: KDV hariç; ürün maliyeti, kayıtlı gider ve komisyon sonrası.</p>
         </a>
         {% endif %}
 
@@ -78,6 +78,20 @@
         </a>
         {% endif %}
     </div>
+
+    {% if money_overview %}
+    <article class="panel cockpit-table-card">
+        <div class="section-heading"><div><p class="cockpit-label">BUGÜN · {{ today|tr_date }}</p><h2>Satış ve Tahsilat Ayrı</h2></div><a class="ghost-button" href="{{ url_for('finance_ops.dashboard') }}">Finans Özeti ↗</a></div>
+        <div class="card-grid metrics-grid">
+            <div><p>Bugünkü net tahsilat</p><h2>{{ money_overview.receipts.last_day.total|currency }}</h2><p class="helper-text">Müşteriden alınan tutar − iadeler. Önceki satışların bugün ödenen veresiyesi de dahildir.</p></div>
+            <div><p>Bekleyen veresiye · tüm tarihler</p><h2>{{ money_overview.credit_receivable|currency }}</h2><p class="helper-text">Henüz alınmamış para. Kasaya dahil değildir.</p></div>
+        </div>
+        <p>Nakit tahsilat: <strong>{{ money_overview.receipts.last_day.cash|currency }}</strong> · Havale/EFT: <strong>{{ money_overview.receipts.last_day.bank|currency }}</strong> · Kart: <strong>{{ money_overview.receipts.last_day.card|currency }}</strong></p>
+        <p class="helper-text">Tutarlar iade ve düzeltmeler sonrası nettir; eksi tutar alınandan fazla iade/düzeltme olduğunu gösterir. Kart tutarı komisyon öncesidir; bankaya aktarılmış olduğu anlamına gelmez.</p>
+        <p>Güncel nakit kasa: <strong>{{ money_overview.cash_balance|currency }}</strong> · Güncel banka: <strong>{{ money_overview.bank_balance|currency }}</strong></p>
+        <p class="helper-text">Bakiyeler geçmişten gelen para, gider ve aktarımları da içerir; bugünkü tahsilatla aynı değildir.</p>
+    </article>
+    {% endif %}
 
     {% if can('dashboard.column.finance') %}
     <article class="panel cockpit-table-card lobby-turnover-card">
@@ -112,14 +126,16 @@
             <div><p class="cockpit-label">{{ month_start|tr_date }} – {{ today|tr_date }}</p><h2>Bu Ayın Finans Özeti</h2></div>
             <a class="ghost-button" href="{{ url_for('finance.index', date_from=month_start.isoformat(), date_to=today.isoformat()) }}">Hareketleri Gör ↗</a>
         </div>
-        <p>Bu ay iade ve indirimler sonrası <strong>{{ month_total|currency }}</strong> ciro oluştu.</p>
+        <p>Bu ay iade ve indirimler sonrası <strong>{{ month_total|currency }}</strong> satış oluştu (veresiye dahil).</p>
+        <p>Bu ay müşteriden net tahsil edilen: <strong>{{ money_overview.receipts.period.total|currency }}</strong>. Veresiye ödemeleri (iptaller sonrası, iadeler öncesi): <strong>{{ money_overview.receipts.period.credit_collections|currency }}</strong>.</p>
+        <p class="helper-text">Tahsilat ödeme tarihine göre gösterilir. Önceki ayın veresiye ödemesi bu ayın tahsilatına girer; yeniden satış sayılmaz.</p>
         <p class="helper-text">Aşağıdaki tutarlar kayıtlı para hareketleridir, net kâr değildir. Hesaplar arası aktarımlar gider sayılmaz. Cari borç ödemeleri ürün maliyetinden tekrar düşülmez. Ters kayıtlar aylık toplamlara yansıtılır.</p>
         <div class="table-wrap dashboard-table-wrap">
             <table>
                 <thead><tr><th>Bu ay ne oldu?</th><th>Hesap / Açıklama</th><th>Tutar</th></tr></thead>
                 <tbody>
                 {% for row in finance_summary.rows %}
-                <tr><td>{{ row.title }}</td><td>{{ row.account }} · {{ row.category or '' }}{% if row.person %} · {{ row.person }}{% endif %}</td><td>{{ row.amount|currency }} {{ 'giriş' if row.incoming else 'çıkış' }}</td></tr>
+                <tr><td>{{ row.title }}</td><td>{{ row.account }} · {{ row.category or '' }}{% if row.person %} · {{ row.person }}{% endif %}</td><td>{{ row.amount|currency }} {% if row.is_credit %}{{ 'alacak artışı' if row.incoming else 'alacak azalışı' }}{% else %}{{ 'giriş' if row.incoming else 'çıkış' }}{% endif %}</td></tr>
                 {% else %}<tr><td colspan="3">Bu ay henüz finans hareketi kaydedilmedi.</td></tr>{% endfor %}
                 </tbody>
             </table>

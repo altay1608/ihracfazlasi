@@ -36,9 +36,9 @@ def build_lobby_finance(site_id, store_id, today):
     grouped = base.with_entities(
         effective_type.label("kind"), direction.label("direction"),
         FinanceMovement.is_overhead.label("overhead"),
-        FinanceAccount.name.label("account"), FinanceCategory.name.label("category"),
+        FinanceAccount.name.label("account"), FinanceAccount.code.label("account_code"), FinanceCategory.name.label("category"),
         CurrentAccount.name.label("person"), func.sum(signed).label("amount"),
-    ).group_by(effective_type, direction, FinanceMovement.is_overhead, FinanceAccount.name, FinanceCategory.name, CurrentAccount.name).all()
+    ).group_by(effective_type, direction, FinanceMovement.is_overhead, FinanceAccount.name, FinanceAccount.code, FinanceCategory.name, CurrentAccount.name).all()
     labels = {
         "supplier_return": "Toptancıdan ürün iade bedeli",
         "sale": "Satış hareketi", "exchange_sale": "Değişim satışı",
@@ -59,8 +59,11 @@ def build_lobby_finance(site_id, store_id, today):
             title = "Manuel para girişi" if row.direction == "in" else ("Genel gider" if row.overhead else "Diğer para çıkışı")
         elif row.kind == "current_settlement":
             title = "Cari tahsilat" if row.direction == "in" else "Cari borç ödemesi"
+        if (row.account_code or "").upper() == "CREDIT" and row.kind == "sale":
+            title = "Veresiye satış · para alınmadı"
         rows.append(dict(title=title, account=row.account or "Hesap", category=row.category,
-                         person=row.person, amount=abs(amount), incoming=amount > 0))
+                         person=row.person, amount=abs(amount), incoming=amount > 0,
+                         is_credit=(row.account_code or "").upper() == "CREDIT"))
     rows.sort(key=lambda row: (row["title"], row["account"], row["category"] or "", row["person"] or ""))
     recent = base.with_entities(
         FinanceMovement.id, FinanceMovement.occurred_at, FinanceMovement.description,
