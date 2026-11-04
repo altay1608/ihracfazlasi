@@ -6,7 +6,6 @@
 {% if can('finance.transfer.create') %}<a href="{{ url_for('finance.transfers') }}" class="{% if request.endpoint == 'finance.transfers' %}active{% endif %}">Para Aktar</a>{% endif %}
 {% if can('finance.ledger.view') %}<a href="{{ url_for('finance_ops.dashboard', _anchor='credit-sales') }}">Veresiye Tahsilatı</a>{% endif %}
 <details class="finance-more-menu"><summary>Belgeler ve Kontroller ⌄</summary><div class="finance-more-panel">
-{% if can('sales.access') and can('sales.customer.view') %}<a href="{{ url_for('dashboard.customer_history_page') }}">Müşteri Hesabı ve Fişleri</a>{% endif %}
 {% if can('finance.current.manage') %}<a href="{{ url_for('finance_ops.supplier_invoices') }}">Alış Faturaları</a>{% endif %}
 {% if can('finance.accounts.manage') %}<a href="{{ url_for('finance_ops.daily_closing') }}">Gün Sonu Kontrolü</a>{% endif %}
 {% if can('finance.accounts.manage') %}<a href="{{ url_for('dashboard.payment_agenda') }}">Ödeme Ajandası</a>{% endif %}
@@ -17,8 +16,11 @@
 <details class="finance-more-menu"><summary>Diğer İşlemler ⌄</summary><div class="finance-more-panel">
 {% if can('finance.manual.create') %}<a href="{{ url_for('finance_ops.personnel') }}">Personel / Avans</a>{% endif %}
 {% if can('finance.obligation.view') %}<a href="{{ url_for('finance.obligations') }}">Maaş ve Dönemsel Borçlar</a>{% endif %}
-{% if can('finance.manual.create') %}<a href="{{ url_for('finance.manual') }}">Diğer Para Giriş / Çıkışı</a>{% endif %}
-{% if can('finance.overhead.view') %}<a href="{{ url_for('finance.overheads') }}">Gider Planı (Tahmin)</a>{% endif %}
-{% if can('finance.accounts.view') %}<a href="{{ url_for('finance.accounts') }}">Hesap ve Kategori Ayarları</a>{% endif %}
+
+
+
 {% if can('finance.current.manage') and can('products.access') and can('products.action.stock') %}<a href="{{ url_for('finance_ops.supplier_returns') }}">Toptancıya Ürün İadesi</a>{% endif %}</div></details>
+<details class="finance-more-menu"><summary>Ayarlar ve Gelişmiş İşlemler ⌄</summary><div class="finance-more-panel">{% if can('finance.accounts.view') %}<a href="{{ url_for('finance.accounts') }}">Hesap ve Kategori Ayarları</a>{% endif %}
+{% if can('finance.overhead.view') %}<a href="{{ url_for('finance.overheads') }}">Gider Planı (Tahmin)</a>{% endif %}
+{% if can('finance.manual.create') %}<a href="{{ url_for('finance.manual') }}">Diğer Para Giriş / Çıkışı</a>{% endif %}</div></details>
 </nav>

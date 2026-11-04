@@ -14,7 +14,7 @@
     <link rel="manifest" href="{{ url_for('static', filename='manifest.webmanifest', v='20260818-pwa-v1') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20261011-turnover-v1') }}">
     <meta name="csrf-token" content="{{ session.get('auth_csrf_token', '') }}">
-    {% if request.blueprint in ['finance', 'finance_ops'] %}<link rel="stylesheet" href="{{ url_for('static', filename='css/finance-clear.css', v='20261029-1') }}">{% endif %}
+    {% if request.blueprint in ['finance', 'finance_ops'] or request.endpoint == 'dashboard.customer_history_page' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/finance-clear.css', v='20261029-1') }}">{% endif %}
     {% block head_extra %}{% endblock %}
 </head>
 <body>
@@ -28,14 +28,6 @@
                     </div>
                 </a>
                 <nav class="top-nav" aria-label="Ana menü">
-                    {% if can('dashboard.access') %}
-                    <a href="{{ url_for('dashboard.index') }}" class="nav-link {% if request.endpoint == 'dashboard.index' %}active{% endif %}">
-                        <span class="nav-icon" aria-hidden="true">
-                            <svg viewBox="0 0 24 24"><path d="M4 12.5 12 5l8 7.5"/><path d="M6.5 10.5V19h11v-8.5"/><path d="M10 19v-4.5h4V19"/></svg>
-                        </span>
-                        <span>Genel Bakış</span>
-                    </a>
-                    {% endif %}
                     {% if can('products.access') %}
                     <a href="{{ url_for('products.index') }}" class="nav-link {% if request.blueprint == 'products' %}active{% endif %}">
                         <span class="nav-icon" aria-hidden="true">
@@ -49,29 +41,31 @@
                         <span class="nav-icon" aria-hidden="true">
                             <svg viewBox="0 0 24 24"><rect x="5" y="4" width="14" height="16" rx="2"/><path d="M8 8h8"/><path d="M8 12h2"/><path d="M12 12h2"/><path d="M16 12h0"/><path d="M8 16h8"/></svg>
                         </span>
-                        <span>Hızlı Satış</span>
-                    </a>
-                    <a href="{{ url_for('sales.index') }}" class="nav-link {% if request.endpoint in ['sales.index', 'sales.detail', 'sales.receipt'] %}active{% endif %}">
-                        <span class="nav-icon" aria-hidden="true">
-                            <svg viewBox="0 0 24 24"><path d="M7 5h10l2 3v11H5V8z"/><path d="M9 10h6"/><path d="M9 14h6"/></svg>
-                        </span>
-                        <span>Satışlar</span>
+                        <span>Satış</span>
                     </a>
                     {% endif %}
+                    {% if can('sales.access') and can('sales.customer.view') %}
+                    <a href="{{ url_for('dashboard.customer_history_page') }}" class="nav-link {% if request.endpoint == 'dashboard.customer_history_page' %}active{% endif %}">Müşteriler</a>
+                    {% endif %}
                     {% if can('finance.access') %}
-                    <a href="{{ url_for('finance_ops.dashboard') }}" class="nav-link {% if request.blueprint in ['finance', 'finance_ops'] %}active{% endif %}">
+                    <a href="{{ url_for('finance_ops.dashboard') }}" class="nav-link {% if request.blueprint in ['finance', 'finance_ops'] and request.endpoint != 'finance_ops.expenses' %}active{% endif %}">
                         <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 7h16v12H4z"/><path d="M7 7V5h10v2"/><path d="M4 11h16"/><path d="M8 15h3"/></svg></span>
-                        <span>Finans</span>
+                        <span>Finans Özeti</span>
                     </a>
+                    {% endif %}
+                    {% if can('finance.manual.create') %}
+                    <a href="{{ url_for('finance_ops.expenses') }}" class="nav-link {% if request.endpoint == 'finance_ops.expenses' %}active{% endif %}">Masraf Gir</a>
                     {% endif %}
                     <details class="module-menu">
                         <summary class="nav-link {% if request.blueprint in ['inventory_history', 'reports', 'returns', 'alerts', 'inventory_counts', 'admin'] %}active{% endif %}">
                         <span class="nav-icon" aria-hidden="true">
                             <svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg>
                         </span>
-                        <span>Diğer Modüller</span><span class="module-menu-caret" aria-hidden="true">⌄</span>
+                        <span>Diğer İşlemler</span><span class="module-menu-caret" aria-hidden="true">⌄</span>
                         </summary>
                         <div class="module-menu-panel">
+                            {% if can('dashboard.access') %}<a href="{{ url_for('dashboard.index') }}">Genel Bakış</a>{% endif %}
+                            {% if can('sales.access') %}<a href="{{ url_for('sales.index') }}">Satış Geçmişi ve Fişler</a>{% endif %}
                             {% if can('inventory_history.access') %}<a href="{{ url_for('inventory_history.index') }}" class="{% if request.blueprint == 'inventory_history' %}active{% endif %}">Envanter Geçmişi</a>{% endif %}
                             {% if can('daily_reports.access') %}<a href="{{ url_for('reports.daily') }}" class="{% if request.endpoint == 'reports.daily' %}active{% endif %}">Günlük Rapor</a>{% endif %}
                             {% if can('dashboard.column.finance') %}<a href="{{ url_for('reports.turnover') }}" class="{% if request.endpoint == 'reports.turnover' %}active{% endif %}">Günlük Cirolar</a>{% endif %}

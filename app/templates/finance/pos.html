@@ -35,8 +35,8 @@
         </table></div>
     </div>
     <details class="finance-table-section panel">
-        <summary><strong>Geçmiş toplu POS mutabakatı ekle</strong></summary>
-        <form method="post" class="finance-tool finance-form-grid finance-form-wide" data-pos-reconciliation-form>
+        <summary><strong>Gelişmiş İşlem: Geçmiş Toplu POS Kaydı</strong></summary>
+        <p>Yalnızca sistemde kart satışı olarak kaydı bulunmayan geçmiş banka aktarımları içindir. Otomatik oluşan satışları buraya tekrar girmeyin; para iki kez kaydedilebilir.</p><form method="post" class="finance-tool finance-form-grid finance-form-wide" data-pos-reconciliation-form>
             <input type="hidden" name="csrf_token" value="{{ session.get('auth_csrf_token', '') }}">
             <label>Tarih<input type="datetime-local" name="occurred_at" value="{{ now_value }}" required></label>
             <label>POS Alacağı<select name="pos_account_id" required>{% for account in accounts if account.account_type == 'pos_receivable' %}<option value="{{ account.id }}">{{ account.name }}</option>{% endfor %}</select></label>
