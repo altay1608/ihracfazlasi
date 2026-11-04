@@ -68,7 +68,7 @@ def slow_stock(site_id, store_id, today, days=60):
         days=(today - utc_to_istanbul(row.since).date()).days, never_sold=row.last_sale is None) for row in results]
 
 
-def customer_history(site_id, store_id, phone):
+def customer_history(site_id, store_id, phone, search=""):
     # Exact phone identity only; never merge unrelated people by name.
     sales = Sale.query.options(lazyload("*"), selectinload(Sale.items), selectinload(Sale.payments),
         selectinload(Sale.credit_collections)).filter(Sale.site_id == site_id, Sale.store_id == store_id,
@@ -76,6 +76,23 @@ def customer_history(site_id, store_id, phone):
     sale_ids = [sale.id for sale in sales]
     returns = Return.query.options(lazyload("*")).filter(Return.site_id == site_id, Return.store_id == store_id,
         Return.original_sale_id.in_(sale_ids)).order_by(Return.return_date.desc()).all() if sale_ids else []
-    outstanding = sum((credit_sale_summary(sale)["remaining"] for sale in sales
-        if sale.order_status not in ("CANCELLED", "RETURNED")), Decimal("0.00"))
-    return dict(sales=sales, returns=returns, outstanding=outstanding)
+    summaries = {sale.id: credit_sale_summary(sale) for sale in sales}
+    active = [sale for sale in sales if sale.order_status not in ("CANCELLED", "RETURNED")]
+    outstanding = sum((summaries[sale.id]["remaining"] for sale in active), Decimal("0.00"))
+    collections = sorted([
+        dict(sale=sale, payment=payment, cancelled=payment.id in summaries[sale.id]["cancelled_ids"])
+        for sale in sales for payment in sale.credit_collections
+    ], key=lambda row: (row["payment"].occurred_at, row["payment"].id), reverse=True)
+    candidates = []
+    if search:
+        candidates = db.session.query(Sale.customer_name, Sale.customer_mobile, Sale.customer_phone).filter(
+            Sale.site_id == site_id, Sale.store_id == store_id,
+            or_(Sale.customer_name.contains(search, autoescape=True),
+                Sale.customer_mobile.contains(search, autoescape=True),
+                Sale.customer_phone.contains(search, autoescape=True)),
+        ).distinct().order_by(Sale.customer_name).limit(50).all()
+    return dict(sales=sales, returns=returns, outstanding=outstanding, summaries=summaries,
+        collections=collections, candidates=candidates, search=search,
+        credit_total=sum((summaries[s.id]["total"] for s in active), Decimal("0.00")),
+        credit_collected=sum((summaries[s.id]["collected"] for s in active), Decimal("0.00")),
+        credit_offsets=sum((summaries[s.id]["return_offset"] for s in active), Decimal("0.00")))

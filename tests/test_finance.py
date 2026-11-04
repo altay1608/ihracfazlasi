@@ -428,6 +428,7 @@ class FinanceModuleTests(unittest.TestCase):
             site_id=self.site.id, store_id=self.store.id, business_date=date.today(),
             counted_cash=Decimal("3875.00"), counted_card=0, counted_transfer=0,
             handover_from="Personel A", handover_to="Personel B",
+            note="Sayımda 5 TL eksik bulundu",
         )
         db.session.commit()
 

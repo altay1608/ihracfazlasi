@@ -44,7 +44,8 @@ def slow_stock_page():
 def customer_history_page():
     phone = request.args.get("phone", "").strip()[:40]
     return render_template("dashboard/customer_history.html", phone=phone,
-        **customer_history(get_active_site_id(), get_active_store_id(), phone))
+        **customer_history(get_active_site_id(), get_active_store_id(), phone,
+                           request.args.get("q", "").strip()[:100]))
 
 
 @bp.route("/")

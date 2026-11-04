@@ -16,20 +16,21 @@
         </form>
     </div>
     <div class="finance-balance-grid">
+        <article class="finance-balance-card"><span>Bankaya İşlenmiş POS Toplamı</span><strong>{{ settled_total_net|currency }}</strong><small>Tüm zamanlar · sistemde sonuçlandırılmış kayıtlar; güncel banka bakiyesi değildir</small></article>
         <article class="finance-balance-card"><span>Bekleyen İşlem</span><strong>{{ pending_reconciliations|length }}</strong><small>Kart satışı</small></article>
         <article class="finance-balance-card"><span>Brüt Kart Satışı</span><strong>{{ pending_total_gross|currency }}</strong><small>Komisyon öncesi</small></article>
         <article class="finance-balance-card"><span>Kesilen Komisyon</span><strong>{{ pending_total_commission|currency }}</strong><small>Kârdan otomatik düşülür</small></article>
         <article class="finance-balance-card"><span>Bankaya Geçecek Net</span><strong>{{ pending_total_net|currency }}</strong><small>Bekleyen banka tahsilatı</small></article>
     </div>
     <div class="finance-table-section panel">
-        <div class="section-heading"><div><p class="eyebrow">BEKLEYEN TAHSİLATLAR</p><h2>Bankaya geçecek kart satışları</h2></div></div>
+        <div class="section-heading"><div><p class="eyebrow">BEKLEYEN TAHSİLATLAR</p><h2>Bankaya geçecek kart satışları</h2><p>Bankayla otomatik bağlantı yoktur. Ekstredeki tutarı girin; beklenen netle eşleşirse bankaya işlensin. Fark varsa işlem beklemede kalır ve para hareketi oluşmaz.</p></div></div>
         <div class="table-wrap"><table id="pendingPosTable" data-enhanced-table data-table-key="finance-pos-pending-v1">
             <thead><tr><th>Satış</th><th>Satış Tarihi</th><th>Beklenen Gün</th><th>Brüt</th><th>Oran</th><th>Komisyon</th><th>Net</th><th>Banka</th><th>İşlem</th></tr></thead>
             <tbody>{% for row in pending_reconciliations %}<tr>
                 <td>{{ row.reference or ('Satış #' ~ row.sale_id) }}</td><td>{{ row.occurred_at|tr_datetime }}</td>
                 <td><span class="status-badge {% if row.expected_settlement_date and row.expected_settlement_date < today %}warning{% endif %}">{{ row.expected_settlement_date|tr_date }}</span></td>
                 <td>{{ row.gross_amount|currency }}</td><td>{{ row.commission_rate|percentage }} + KDV %{{ row.commission_vat_rate }}</td><td class="money-out">{{ row.commission_amount|currency }}</td><td class="money-in">{{ row.net_amount|currency }}</td><td>{{ row.bank_account.name }}</td>
-                <td><form method="post" action="{{ url_for('finance.settle_pos_reconciliation', reconciliation_id=row.id) }}" data-confirm-submit data-confirm-title="POS tahsilatını bankaya aktar" data-confirm-message="{{ row.net_amount|currency }} tutarının {{ row.bank_account.name }} hesabına geçtiğini onaylıyor musunuz?" data-confirm-submit-label="Evet, hesaba geçti"><input type="hidden" name="csrf_token" value="{{ session.get('auth_csrf_token', '') }}"><input type="hidden" name="settled_at" value="{{ now_value }}"><button class="primary-button" type="submit">Hesaba Geçti</button></form></td>
+                <td><form method="post" action="{{ url_for('finance.settle_pos_reconciliation', reconciliation_id=row.id) }}" data-confirm-submit data-confirm-title="POS tahsilatını bankaya aktar" data-confirm-message="{{ row.net_amount|currency }} tutarının {{ row.bank_account.name }} hesabına geçtiğini onaylıyor musunuz?" data-confirm-submit-label="Evet, hesaba geçti"><input type="hidden" name="csrf_token" value="{{ session.get('auth_csrf_token', '') }}"><label>Bankaya yatan net tutar<input type="number" name="actual_amount" min="0" step="0.01" required data-money-check data-expected="{{ row.net_amount }}"></label><label>Bankaya yatış tarihi<input type="datetime-local" name="settled_at" value="{{ now_value }}" required></label><p data-money-result aria-live="polite">Banka ekstresindeki tutarı girin.</p><button class="primary-button" type="submit">Hesaba Geçti</button></form></td>
             </tr>{% else %}<tr><td colspan="9" class="empty-state">Bankaya aktarılmayı bekleyen kart satışı yok.</td></tr>{% endfor %}</tbody>
         </table></div>
     </div>
@@ -58,3 +59,5 @@
     </div>
 </section>
 {% endblock %}
+
+{% block scripts %}<script src="{{ url_for('static', filename='js/money-check.js') }}"></script>{% endblock %}

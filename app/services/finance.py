@@ -1790,7 +1790,7 @@ def create_pos_reconciliation(
     return reconciliation
 
 
-def settle_auto_pos_reconciliation(*, site_id, store_id, reconciliation_id, settled_at=None):
+def settle_auto_pos_reconciliation(*, site_id, store_id, reconciliation_id, settled_at=None, actual_amount=None):
     """Move one pending automatic POS net amount into its configured bank account."""
     _require_activation(site_id, store_id)
     reconciliation = (
@@ -1817,6 +1817,15 @@ def settle_auto_pos_reconciliation(*, site_id, store_id, reconciliation_id, sett
     if pos_account.account_type != "pos_receivable" or bank_account.account_type != "bank":
         raise FinanceConfigurationError("POS tahsilat hesapları geçerli değil.")
     net = _money(reconciliation.net_amount)
+    if actual_amount is not None:
+        actual = _money(actual_amount)
+        if not actual.is_finite() or actual < 0:
+            raise FinanceConfigurationError("Bankaya yatan tutar geçerli ve sıfır veya üzeri olmalıdır.")
+        if actual != net:
+            raise FinanceConfigurationError(
+                f"Banka tutarı uyuşmuyor. Beklenen {net:.2f} TL, girilen {actual:.2f} TL, "
+                f"fark {actual - net:+.2f} TL. İşlem beklemede bırakıldı; banka ekstresini kontrol edin."
+            )
     if get_account_balance(pos_account) < net:
         raise FinanceConfigurationError("POS alacağı bakiyesi banka aktarımı için yetersiz.")
 

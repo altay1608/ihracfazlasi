@@ -112,6 +112,9 @@ def create_daily_closing(*, site_id, store_id, business_date, counted_cash, coun
     }
     if any(not value.is_finite() for value in values.values()) or values["cash"] < 0:
         raise FinanceConfigurationError("Tutarlar geçerli olmalı; nakit sayım negatif olamaz.")
+    note = _limited_text(note, label="Açıklama", max_length=500)
+    if any(values[key] != expected[key] for key in values) and (not note or len(note) < 5):
+        raise FinanceConfigurationError("Sayım farkı var. Farkın nedenini en az 5 karakterle açıklayın.")
     closing = existing or DailyCashClosing(site_id=site_id, store_id=store_id, business_date=business_date)
     closing.expected_cash, closing.counted_cash = expected["cash"], values["cash"]
     closing.cash_difference = quantize_amount(values["cash"] - expected["cash"])
@@ -121,7 +124,7 @@ def create_daily_closing(*, site_id, store_id, business_date, counted_cash, coun
     closing.transfer_difference = quantize_amount(values["transfer"] - expected["transfer"])
     closing.handover_from = handover_from
     closing.handover_to = str(handover_to or "").strip() or None
-    closing.note = str(note or "").strip() or None
+    closing.note = note
     closing.closed_by_user_id = _user_id()
     closing.closed_at = datetime.utcnow()
     closing.status = "closed"

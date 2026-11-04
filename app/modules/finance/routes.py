@@ -431,13 +431,19 @@ def pos_reconciliations():
         .limit(250)
         .all()
     )
-    pending = [row for row in reconciliations if row.auto_generated and row.status == "pending"]
+    # Pending totals must include older rows outside the 250-row history window.
+    pending = PosReconciliation.query.filter_by(site_id=site_id, store_id=store_id,
+        auto_generated=True, status="pending").order_by(PosReconciliation.expected_settlement_date.asc()).all()
+    settled_net = db.session.query(func.coalesce(func.sum(PosReconciliation.net_amount), 0)).filter(
+        PosReconciliation.site_id == site_id, PosReconciliation.store_id == store_id,
+        PosReconciliation.status == "settled").scalar()
     context.update(
         reconciliations=reconciliations,
         pending_reconciliations=pending,
         pending_total_gross=sum((row.gross_amount for row in pending), Decimal("0.00")),
         pending_total_commission=sum((row.commission_amount for row in pending), Decimal("0.00")),
         pending_total_net=sum((row.net_amount for row in pending), Decimal("0.00")),
+        settled_total_net=settled_net,
     )
     return render_template("finance/pos.html", **context)
 
@@ -471,6 +477,7 @@ def settle_pos_reconciliation(reconciliation_id):
             store_id=store_id,
             reconciliation_id=reconciliation_id,
             settled_at=_parse_datetime(request.form.get("settled_at")),
+            actual_amount=_parse_money(request.form.get("actual_amount")),
         ),
         "POS net tutarı banka hesabına aktarıldı.",
         "finance.pos_reconciliations",
