@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Personel maaşı{% endblock %}
+{% block page_title %}Personel maaşı{% endblock %}
+{% block content %}
+<section class="finance-page">
+    {% include "finance/_nav.html" %}
+    {% if can('finance.obligation.manage') %}
+    <form method="post" class="finance-tool finance-form-grid finance-form-wide">
+        <input type="hidden" name="csrf_token" value="{{ session.get('auth_csrf_token', '') }}">
+        <h2 class="finance-full">Maaş ekle</h2>
+        <label>Çalışanın adı<input name="employee" required maxlength="140"></label>
+        <label>Hangi ay?<input type="month" name="month" value="{{ month }}" required></label>
+        <label>Maaş tutarı (TL)<input type="number" name="amount" min="0.01" step="0.01" required></label>
+        <div class="finance-full"><button class="primary-button">Maaşı kaydet</button></div>
+    </form>
+    {% endif %}
+    <div class="finance-table-section panel">
+        <h2>Maaş ödemeleri</h2>
+        <p>Ödeme yaptığında çalışanın satırına ödediğin tutarı gir. Para o anda seçtiğin hesaptan düşer.</p>
+        {% if records %}
+        <div class="table-wrap"><table>
+            <thead><tr><th>Çalışan ve dönem</th><th>Maaş</th><th>Ödenen</th><th>Kalan</th><th>Ödeme</th></tr></thead>
+            <tbody>{% for row in records %}<tr>
+                <td>{{ row.title }}</td><td>{{ row.amount|currency }}</td>
+                <td>{{ (row.amount-row.remaining_amount)|currency }}</td><td>{{ row.remaining_amount|currency }}</td>
+                <td>{% if row.remaining_amount == 0 %}Tamamı ödendi{% elif can('finance.obligation.manage') %}
+                    <form method="post" class="finance-inline-action" action="{{ url_for('finance.pay_obligation_route', obligation_id=row.id) }}">
+                        <input type="hidden" name="csrf_token" value="{{ session.get('auth_csrf_token', '') }}">
+                        <input type="hidden" name="source" value="salary">
+                        <select name="finance_account_id" aria-label="Ödeme hesabı" required>
+                            <option value="">Hesap seç</option>
+                            {% for account in accounts %}<option value="{{ account.id }}">{{ account.name }}</option>{% endfor %}
+                        </select>
+                        <input name="amount" aria-label="Ödenen tutar" placeholder="Ödenen TL" type="number" min="0.01" max="{{ row.remaining_amount }}" step="0.01" required>
+                        <button class="primary-button">Ödemeyi kaydet</button>
+                    </form>{% endif %}</td>
+            </tr>{% endfor %}</tbody>
+        </table></div>
+        {% else %}<p>Bu ekrandan henüz maaş eklenmedi.</p>{% endif %}
+        <a href="{{ url_for('finance.obligations') }}">Eski ekrandan girilen ödemeleri gör</a>
+    </div>
+</section>
+{% endblock %}

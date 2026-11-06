@@ -15,7 +15,7 @@
 </div></details>
 <details class="finance-more-menu"><summary>Diğer İşlemler ⌄</summary><div class="finance-more-panel">
 {% if can('finance.manual.create') %}<a href="{{ url_for('finance_ops.personnel') }}">Personel / Avans</a>{% endif %}
-{% if can('finance.obligation.view') %}<a href="{{ url_for('finance.obligations') }}">Maaş ve Dönemsel Borçlar</a>{% endif %}
+{% if can('finance.obligation.view') %}<a href="{{ url_for('finance.salaries') }}">Personel maaşı</a><a href="{{ url_for('finance.obligations') }}">Planlı ödemeler</a>{% endif %}
 
 
 

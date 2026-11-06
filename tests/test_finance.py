@@ -522,6 +522,26 @@ class FinanceModuleTests(unittest.TestCase):
                 vat_amount=0, config={"FINANCE_APPROVAL_LIMIT": "5000"},
             )
 
+    def test_salary_entry_and_partial_payment(self):
+        from app.models.finance import ShortTermObligation
+
+        activate_finance(self.site.id, self.store.id, opening_cash=Decimal("50000"))
+        db.session.commit()
+        cash = FinanceAccount.query.filter_by(site_id=self.site.id, store_id=self.store.id, code="CASH").one()
+        with self.app.test_client() as client:
+            with client.session_transaction() as state:
+                state.update(active_site_id=self.site.id, active_store_id=self.store.id, auth_csrf_token="token")
+            response = client.post("/finance/salaries", data=dict(csrf_token="token", employee="Ahmet",
+                                   month="2026-11", amount="40000"), follow_redirects=True)
+            self.assertIn("Ahmet · 11/2026 maaşı", response.get_data(as_text=True))
+            self.assertNotIn("Cari yok", response.get_data(as_text=True))
+            salary = ShortTermObligation.query.one()
+            self.assertEqual(salary.remaining_amount, Decimal("40000"))
+            response = client.post(f"/finance/obligations/{salary.id}/pay", data=dict(csrf_token="token",
+                                   source="salary", finance_account_id=cash.id, amount="20000"), follow_redirects=True)
+            self.assertEqual(response.request.path, "/finance/salaries")
+            self.assertEqual(salary.remaining_amount, Decimal("20000"))
+
     def test_expense_receipt_page_opens_with_finance_navigation(self):
         activate_finance(self.site.id, self.store.id)
         db.session.commit()

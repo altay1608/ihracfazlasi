@@ -97,6 +97,7 @@ DEFAULT_CATEGORIES = (
     ("MANUAL_OUT", "Manuel Gider", "out"),
     ("CURRENT", "Cari Tahsilat / Ödeme", "both"),
     ("OBLIGATION", "Kısa Vadeli Borç Ödemesi", "out"),
+    ("STAFF_SALARY", "Personel maaşı", "out"),
 )
 
 DEFAULT_PAYMENT_ACCOUNT_CODES = {

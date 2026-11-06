@@ -6,6 +6,7 @@
 {% block content %}
 <section class="finance-page">
     {% include "finance/_nav.html" %}
+    <a class="secondary-button" href="{{ url_for('finance.salaries') }}">Personel maaşı ekle veya öde →</a>
     <div class="finance-notice"><div><strong>Plan ile kasa birbirinden ayrıdır.</strong><span>Borç kaydı kasa bakiyesini değiştirmez; yalnız ödeme yapıldığında gider hareketi oluşur.</span></div></div>
     <form method="post" action="{{ url_for('finance.create_obligation_route') }}" class="finance-tool finance-form-grid finance-form-wide">
         <input type="hidden" name="csrf_token" value="{{ session.get('auth_csrf_token', '') }}">

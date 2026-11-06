@@ -39,6 +39,7 @@ from app.services.finance import (
     create_manual_movement,
     create_pos_reconciliation,
     create_short_term_obligation,
+    ensure_default_finance_setup,
     get_account_balance,
     pay_short_term_obligation,
     resume_obligation_recurrence_plan,
@@ -591,6 +592,45 @@ def settle_current_entry_route(entry_id):
     )
 
 
+@bp.get("/salaries")
+@permission_required("finance.obligation.view")
+def salaries():
+    site_id, store_id = _active_scope()
+    records = ShortTermObligation.query.join(
+        FinanceCategory, FinanceCategory.id == ShortTermObligation.category_id
+    ).filter(
+        ShortTermObligation.site_id == site_id, ShortTermObligation.store_id == store_id,
+        FinanceCategory.code == "STAFF_SALARY",
+    ).order_by((ShortTermObligation.remaining_amount > 0).desc(), ShortTermObligation.id.desc()).all()
+    accounts = FinanceAccount.query.filter_by(site_id=site_id, store_id=store_id, is_active=True).filter(
+        FinanceAccount.account_type.in_(("cash", "bank"))
+    ).order_by(FinanceAccount.name).all()
+    return render_template("finance/salaries.html", records=records, accounts=accounts,
+                           month=now_in_istanbul().strftime("%Y-%m"))
+
+
+@bp.post("/salaries")
+@permission_required("finance.obligation.manage")
+def add_salary():
+    _require_csrf()
+    site_id, store_id = _active_scope()
+
+    def save():
+        name = request.form.get("employee", "").strip()
+        if not name or len(name) > 140:
+            raise FinanceConfigurationError("Çalışanın adını girin (en fazla 140 karakter).")
+        month = _parse_month(request.form.get("month") or now_in_istanbul().strftime("%Y-%m"))
+        ensure_default_finance_setup(site_id, store_id)
+        category = FinanceCategory.query.filter_by(site_id=site_id, code="STAFF_SALARY").one()
+        create_short_term_obligation(
+            site_id=site_id, store_id=store_id, category_id=category.id,
+            title=f"{name} · {month:%m/%Y} maaşı", amount=_parse_money(request.form.get("amount")),
+            due_date=None, is_overhead=True,
+        )
+
+    return _commit_action(save, "Maaş kaydedildi. Ödeme yaptığınızda aşağıdan işleyebilirsiniz.", "finance.salaries")
+
+
 @bp.get("/obligations")
 @permission_required("finance.obligation.view")
 def obligations():
@@ -764,8 +804,8 @@ def pay_obligation_route(obligation_id):
             occurred_at=_parse_datetime(request.form.get("occurred_at")),
             description=request.form.get("description"),
         ),
-        "Borç ödemesi finans hesabından işlendi.",
-        "finance.obligations",
+        "Ödeme seçilen hesaptan işlendi.",
+        "finance.salaries" if request.form.get("source") == "salary" else "finance.obligations",
     )
 
 

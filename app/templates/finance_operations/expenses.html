@@ -15,7 +15,7 @@
             <button class="secondary-button" type="button" data-expense="{{ expense }}">{{ expense }}</button>
             {% endfor %}
             {% if can('finance.obligation.view') %}
-            <a class="secondary-button" href="{{ url_for('finance.obligations') }}">Personel maaşı →</a>
+            <a class="secondary-button" href="{{ url_for('finance.salaries') }}">Personel maaşı →</a>
             {% endif %}
         </div>
         <label>Ödenen toplam (TL)
