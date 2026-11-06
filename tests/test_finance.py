@@ -535,9 +535,9 @@ class FinanceModuleTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         page = response.get_data(as_text=True)
-        self.assertIn("Masraf Gir ve Geçmişi Gör", page)
-        self.assertIn("Diğer Modüller", page)
-        self.assertIn("Belgeler ve Kontroller", page)
+        self.assertIn("Hangi hesaptan ödendi?", page)
+        self.assertIn('name="total_amount"', page)
+        self.assertNotIn('type="file"', page)
 
     def test_expense_receipt_form_creates_approved_expense_and_movement(self):
         activate_finance(
@@ -552,11 +552,6 @@ class FinanceModuleTests(unittest.TestCase):
             store_id=self.store.id,
             code="CASH",
         ).one()
-        category = FinanceCategory.query.filter_by(
-            site_id=self.site.id,
-            code="MANUAL_OUT",
-        ).one()
-
         with self.app.test_client() as client:
             with client.session_transaction() as session_state:
                 session_state["active_site_id"] = self.site.id
@@ -568,11 +563,7 @@ class FinanceModuleTests(unittest.TestCase):
                     "csrf_token": "test-token",
                     "expense_date": date.today().isoformat(),
                     "account_id": str(cash.id),
-                    "category_id": str(category.id),
-                    "vendor": "Test Satıcı",
-                    "document_no": "MASRAF-1",
-                    "net_amount": "250.00",
-                    "vat_amount": "25.00",
+                    "total_amount": "275.00",
                     "description": "Test mağaza gideri",
                 },
                 follow_redirects=True,
@@ -586,6 +577,7 @@ class FinanceModuleTests(unittest.TestCase):
         movement = db.session.get(FinanceMovement, voucher.movement_id)
         self.assertIsNotNone(movement)
         self.assertEqual(movement.amount, Decimal("275.00"))
+        self.assertEqual(movement.account_id, cash.id)
         self.assertEqual(movement.direction, "out")
 
     def test_expense_page_repairs_missing_default_accounts_and_categories(self):
@@ -602,7 +594,9 @@ class FinanceModuleTests(unittest.TestCase):
         self.assertIn("İşletme Kredi Kartı", page)
         self.assertNotIn(">POS/Kart Alacağı<", page)
         self.assertNotIn(">Veresiye Alacakları<", page)
-        self.assertIn("Manuel Gider", page)
+        self.assertIsNotNone(FinanceCategory.query.filter_by(
+            site_id=self.site.id, code="MANUAL_OUT", is_active=True
+        ).one_or_none())
         self.assertIsNotNone(FinanceAccount.query.filter_by(
             site_id=self.site.id,
             store_id=self.store.id,

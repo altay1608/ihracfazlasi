@@ -426,14 +426,28 @@ def expenses():
     if request.method == "POST":
         _csrf()
         try:
+            if "total_amount" in request.form:
+                category = FinanceCategory.query.filter_by(
+                    site_id=site_id, code="MANUAL_OUT", is_active=True
+                ).one_or_none()
+                if category is None:
+                    raise ValueError("Genel gider kategorisi kullanılamıyor.")
+                category_id = category.id
+                net_amount = _money(request.form["total_amount"])
+                vat_amount = 0
+            else:
+                # Accept forms opened before the simplified screen was deployed.
+                category_id = int(request.form.get("category_id"))
+                net_amount = _money(request.form.get("net_amount"))
+                vat_amount = _money(request.form.get("vat_amount"))
             voucher = create_expense(
                 site_id=site_id, store_id=store_id,
                 account_id=int(request.form.get("account_id")),
-                category_id=int(request.form.get("category_id")),
+                category_id=category_id,
                 expense_date=_date(request.form.get("expense_date")),
                 vendor=request.form.get("vendor"), document_no=request.form.get("document_no"),
-                description=request.form.get("description"), net_amount=_money(request.form.get("net_amount")),
-                vat_amount=_money(request.form.get("vat_amount")), config=current_app.config,
+                description=request.form.get("description"), net_amount=net_amount,
+                vat_amount=vat_amount, config=current_app.config,
             )
             for key, value in _attachment(request.files.get("attachment")).items():
                 setattr(voucher, key, value)
@@ -446,7 +460,11 @@ def expenses():
         except (TypeError, ValueError, InvalidOperation) as exc:
             db.session.rollback()
             flash(str(exc), "error")
-    vouchers = ExpenseVoucher.query.filter_by(site_id=site_id, store_id=store_id).order_by(ExpenseVoucher.expense_date.desc(), ExpenseVoucher.id.desc()).limit(200).all()
+    vouchers = ExpenseVoucher.query.options(
+        joinedload(ExpenseVoucher.account), db.defer(ExpenseVoucher.attachment_data)
+    ).filter_by(site_id=site_id, store_id=store_id).order_by(
+        ExpenseVoucher.expense_date.desc(), ExpenseVoucher.id.desc()
+    ).limit(200).all()
     return render_template("finance_operations/expenses.html", vouchers=vouchers, **_form_options(site_id, store_id))
 
 
