@@ -14,6 +14,9 @@
             {% for expense in ['Kira', 'Elektrik', 'Su', 'İnternet', 'Kargo'] %}
             <button class="secondary-button" type="button" data-expense="{{ expense }}">{{ expense }}</button>
             {% endfor %}
+            {% if can('finance.obligation.view') %}
+            <a class="secondary-button" href="{{ url_for('finance.obligations') }}">Personel maaşı →</a>
+            {% endif %}
         </div>
         <label>Ödenen toplam (TL)
             <input type="number" name="total_amount" min="0.01" step="0.01" required placeholder="0,00" value="{{ request.form.get('total_amount', '') }}">
